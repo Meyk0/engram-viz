@@ -5,7 +5,6 @@ import { OrbitControls, Stars } from "@react-three/drei";
 import { Bloom, EffectComposer } from "@react-three/postprocessing";
 import { Suspense } from "react";
 import { BrainMesh } from "@/components/Brain/BrainMesh";
-import { RegionHighlights } from "@/components/Brain/RegionHighlights";
 import { RegionLabels } from "@/components/Brain/RegionLabels";
 import { Neurons } from "@/components/Brain/Neurons";
 import type { EngramEvent } from "@/types";
@@ -31,8 +30,7 @@ export function Brain3D({ events }: Brain3DProps) {
         <pointLight position={[2.6, 0.1, -1.4]} intensity={1.3} color="#3b82f6" />
         <Stars radius={8} depth={18} count={900} factor={2.2} saturation={0} fade speed={0.35} />
         <Suspense fallback={<FallbackBrain />}>
-          <BrainMesh />
-          <RegionHighlights events={events} />
+          <BrainMesh events={events} />
           <Neurons events={events} />
           <RegionLabels events={events} />
         </Suspense>
