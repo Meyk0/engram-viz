@@ -1,20 +1,11 @@
 "use client";
 
-import { useFrame } from "@react-three/fiber";
 import { useGLTF } from "@react-three/drei";
-import { useMemo, useRef } from "react";
+import { useMemo } from "react";
 import * as THREE from "three";
 import { BRAIN_BASE_ASSET_PATH } from "@/lib/brainAsset";
-import type { EngramEvent } from "@/types";
 
-const baseRotationY = -1.05;
-
-type BrainMeshProps = {
-  events: EngramEvent[];
-};
-
-export function BrainMesh({ events: _events }: BrainMeshProps) {
-  const group = useRef<THREE.Group>(null);
+export function BrainMesh() {
   const { scene: brainScene } = useGLTF(BRAIN_BASE_ASSET_PATH);
 
   const { lobeBrain, wireBrain } = useMemo(() => {
@@ -24,7 +15,7 @@ export function BrainMesh({ events: _events }: BrainMeshProps) {
       color: "#00d4ff",
       wireframe: true,
       transparent: true,
-      opacity: 0.055,
+      opacity: 0.04,
       depthWrite: false
     });
 
@@ -36,7 +27,9 @@ export function BrainMesh({ events: _events }: BrainMeshProps) {
         const materials = Array.isArray(child.material) ? child.material : [child.material];
         materials.forEach((material) => {
           if (material instanceof THREE.MeshStandardMaterial) {
-            material.roughness = Math.min(material.roughness, 0.58);
+            material.color.multiplyScalar(1.06);
+            material.emissiveIntensity = 0;
+            material.roughness = Math.min(material.roughness, 0.62);
             material.metalness = 0.02;
           }
         });
@@ -57,17 +50,11 @@ export function BrainMesh({ events: _events }: BrainMeshProps) {
     return { lobeBrain: clone, wireBrain: wireClone };
   }, [brainScene]);
 
-  useFrame(({ clock }) => {
-    if (!group.current) return;
-    group.current.rotation.y = baseRotationY + Math.sin(clock.elapsedTime * 0.2) * 0.08;
-    group.current.position.y = Math.sin(clock.elapsedTime * 0.75) * 0.025;
-  });
-
   return (
-    <group ref={group} scale={1.72} rotation={[0.02, baseRotationY, 0]}>
+    <>
       <primitive object={lobeBrain} />
       <primitive object={wireBrain} />
-    </group>
+    </>
   );
 }
 

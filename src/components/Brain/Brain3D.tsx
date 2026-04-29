@@ -1,11 +1,13 @@
 "use client";
 
-import { Canvas } from "@react-three/fiber";
+import { Canvas, useFrame } from "@react-three/fiber";
 import { OrbitControls, Stars } from "@react-three/drei";
 import { Bloom, EffectComposer } from "@react-three/postprocessing";
-import { Suspense } from "react";
+import { Suspense, useRef } from "react";
+import * as THREE from "three";
 import { BrainMesh } from "@/components/Brain/BrainMesh";
 import { RegionLabels } from "@/components/Brain/RegionLabels";
+import { getRegionPulseStrength, regionBounds } from "@/lib/regions";
 import type { EngramEvent } from "@/types";
 
 type Brain3DProps = {
@@ -23,18 +25,18 @@ export function Brain3D({ events }: Brain3DProps) {
       >
         <color attach="background" args={["#050510"]} />
         <fog attach="fog" args={["#050510", 5, 9]} />
-        <ambientLight intensity={0.34} />
-        <pointLight position={[0, 1.8, 2.4]} intensity={3.4} color="#00d4ff" />
-        <pointLight position={[-2.4, -0.8, 1.2]} intensity={1.5} color="#a855f7" />
-        <pointLight position={[2.6, 0.1, -1.4]} intensity={1.3} color="#3b82f6" />
+        <ambientLight intensity={0.44} />
+        <directionalLight position={[1.6, 2.2, 2.6]} intensity={1.15} color="#fff3d8" />
+        <pointLight position={[0, 1.8, 2.4]} intensity={1.25} color="#00d4ff" />
+        <pointLight position={[-2.4, -0.8, 1.2]} intensity={0.75} color="#a855f7" />
+        <pointLight position={[2.6, 0.1, -1.4]} intensity={0.55} color="#3b82f6" />
         <Stars radius={8} depth={18} count={900} factor={2.2} saturation={0} fade speed={0.35} />
         <Suspense fallback={<FallbackBrain />}>
-          <BrainMesh events={events} />
-          <RegionLabels events={events} />
+          <BrainRig events={events} />
         </Suspense>
         <OrbitControls
           autoRotate
-          autoRotateSpeed={0.35}
+          autoRotateSpeed={0.12}
           enablePan={false}
           enableDamping
           dampingFactor={0.08}
@@ -42,10 +44,57 @@ export function Brain3D({ events }: Brain3DProps) {
           maxDistance={6}
         />
         <EffectComposer>
-          <Bloom intensity={0.95} luminanceThreshold={0.18} luminanceSmoothing={0.35} mipmapBlur />
+          <Bloom intensity={0.42} luminanceThreshold={0.38} luminanceSmoothing={0.45} mipmapBlur />
         </EffectComposer>
       </Canvas>
     </section>
+  );
+}
+
+function BrainRig({ events }: Brain3DProps) {
+  const group = useRef<THREE.Group>(null);
+
+  useFrame(({ clock }) => {
+    if (!group.current) return;
+    group.current.rotation.y = -1.05 + Math.sin(clock.elapsedTime * 0.1) * 0.035;
+    group.current.position.y = Math.sin(clock.elapsedTime * 0.55) * 0.018;
+  });
+
+  return (
+    <group ref={group} scale={1.72} rotation={[0.02, -1.05, 0]}>
+      <BrainMesh />
+      <HippocampusMarker events={events} />
+      <RegionLabels events={events} />
+    </group>
+  );
+}
+
+function HippocampusMarker({ events }: Brain3DProps) {
+  const mesh = useRef<THREE.Mesh>(null);
+  const pulse = getRegionPulseStrength(events, "hippocampus");
+
+  useFrame(({ clock }) => {
+    const material = mesh.current?.material;
+    if (!(material instanceof THREE.MeshStandardMaterial)) return;
+    material.opacity = 0.34 + pulse * 0.22;
+    material.emissiveIntensity = 0.7 + pulse * 1.35 + Math.sin(clock.elapsedTime * 3.8) * 0.06;
+  });
+
+  return (
+    <mesh ref={mesh} position={regionBounds.hippocampus.center} rotation={[0.2, -0.55, 0.1]} scale={[0.12, 0.045, 0.055]} renderOrder={3}>
+      <sphereGeometry args={[1, 32, 16]} />
+      <meshStandardMaterial
+        color={regionBounds.hippocampus.color}
+        emissive={regionBounds.hippocampus.color}
+        emissiveIntensity={0.9}
+        transparent
+        opacity={0.34}
+        roughness={0.32}
+        metalness={0.04}
+        depthTest={false}
+        depthWrite={false}
+      />
+    </mesh>
   );
 }
 

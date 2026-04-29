@@ -85,10 +85,12 @@ input {
 .region-label-3d {
   pointer-events: none;
   font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 8px;
-  letter-spacing: 0.16em;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
   white-space: nowrap;
+  filter: drop-shadow(0 0 3px rgba(0, 0, 0, 0.9));
   transition:
     color 180ms ease,
     text-shadow 180ms ease;
@@ -96,7 +98,7 @@ input {
 
 .region-label-3d span::before {
   content: "> ";
-  color: rgba(0, 212, 255, 0.36);
+  color: rgba(220, 245, 255, 0.72);
 }
 
 .topbar,

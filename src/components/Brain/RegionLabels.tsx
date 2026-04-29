@@ -10,7 +10,7 @@ type RegionLabelsProps = {
 
 export function RegionLabels({ events }: RegionLabelsProps) {
   return (
-    <group scale={1.4} rotation={[0.02, -1.05, 0]}>
+    <>
       {(Object.keys(regionBounds) as BrainRegion[]).map((region) => {
         const pulse = getRegionPulseStrength(events, region);
         const bounds = regionBounds[region];
@@ -27,14 +27,15 @@ export function RegionLabels({ events }: RegionLabelsProps) {
             distanceFactor={4.6}
             className="region-label-3d"
             style={{
-              color: pulse > 0.15 ? bounds.color : "rgba(190,220,255,0.68)",
-              textShadow: pulse > 0.15 ? `0 0 14px ${bounds.color}` : "none"
+              color: bounds.color,
+              opacity: 0.78 + pulse * 0.22,
+              textShadow: `0 0 10px ${bounds.color}, 0 1px 4px rgba(0,0,0,0.9)`
             }}
           >
             <span>{bounds.label}</span>
           </Html>
         );
       })}
-    </group>
+    </>
   );
 }
