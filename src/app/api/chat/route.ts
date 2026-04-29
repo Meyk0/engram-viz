@@ -1,4 +1,4 @@
-import { createDemoStream } from "@/lib/chat/demo";
+import { createLiveMemoryStream } from "@/lib/chat/live";
 import { encodeSseChunk } from "@/lib/events/sse";
 import type { ChatMessage } from "@/types";
 
@@ -6,6 +6,7 @@ export const runtime = "nodejs";
 
 export async function POST(request: Request) {
   const body = (await request.json().catch(() => ({}))) as {
+    sessionId?: string;
     message?: string;
     history?: ChatMessage[];
   };
@@ -14,7 +15,11 @@ export async function POST(request: Request) {
     ...(body.history ?? []),
     ...(body.message ? [{ role: "user" as const, content: body.message }] : [])
   ];
-  const chunks = createDemoStream(messages);
+  const chunks = await createLiveMemoryStream({
+    sessionId: body.sessionId ?? "demo-session",
+    message: body.message ?? "",
+    history: messages
+  });
 
   const stream = new ReadableStream({
     start(controller) {

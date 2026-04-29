@@ -1,11 +1,12 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import type { ChatMessage, StreamChunk } from "@/types";
 
 export function useChat(options: { onChunk: (chunk: StreamChunk) => void }) {
   const [history, setHistory] = useState<ChatMessage[]>([]);
   const [isStreaming, setIsStreaming] = useState(false);
+  const sessionId = useRef(`engram-${crypto.randomUUID()}`);
 
   const sendMessage = useCallback(
     async (message: string) => {
@@ -16,7 +17,7 @@ export function useChat(options: { onChunk: (chunk: StreamChunk) => void }) {
       const response = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: trimmed, history })
+        body: JSON.stringify({ sessionId: sessionId.current, message: trimmed, history })
       });
 
       if (!response.ok || !response.body) {
