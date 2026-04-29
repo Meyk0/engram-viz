@@ -14,15 +14,20 @@ export function RegionLabels({ events }: RegionLabelsProps) {
       {(Object.keys(regionBounds) as BrainRegion[]).map((region) => {
         const pulse = getRegionPulseStrength(events, region);
         const bounds = regionBounds[region];
+        const labelPosition: [number, number, number] = [
+          bounds.center[0] + bounds.labelOffset[0],
+          bounds.center[1] + bounds.labelOffset[1],
+          bounds.center[2] + bounds.labelOffset[2]
+        ];
         return (
           <Html
             key={region}
-            position={[bounds.center[0], bounds.center[1] + bounds.size[1] * 0.82, bounds.center[2]]}
+            position={labelPosition}
             center
-            distanceFactor={4.2}
+            distanceFactor={4.6}
             className="region-label-3d"
             style={{
-              color: pulse > 0.15 ? bounds.color : "rgba(140,165,255,0.46)",
+              color: pulse > 0.15 ? bounds.color : "rgba(190,220,255,0.68)",
               textShadow: pulse > 0.15 ? `0 0 14px ${bounds.color}` : "none"
             }}
           >

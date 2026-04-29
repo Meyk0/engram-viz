@@ -12,28 +12,28 @@ type NeuronsProps = {
 
 const neuronOffsets: Record<BrainRegion, [number, number, number][]> = {
   prefrontal: [
-    [-0.28, 0.05, 0.02],
-    [0.02, 0.0, 0.08],
-    [0.28, -0.04, -0.03],
-    [-0.04, -0.12, 0.0]
+    [-0.1, 0.04, 0.02],
+    [0.02, 0.0, 0.04],
+    [0.12, -0.04, -0.02],
+    [-0.02, -0.08, 0.0]
   ],
   hippocampus: [
-    [-0.18, 0.02, 0.04],
-    [0.1, -0.03, -0.06],
-    [0.22, 0.04, 0.08],
-    [-0.02, -0.08, -0.02]
+    [-0.05, 0.02, 0.02],
+    [0.04, -0.02, -0.03],
+    [0.06, 0.02, 0.04],
+    [-0.02, -0.04, -0.02]
   ],
   temporal: [
-    [-0.12, 0.06, 0.08],
-    [0.1, -0.04, -0.04],
-    [0.22, 0.02, 0.1],
-    [-0.04, -0.1, -0.12]
+    [-0.12, 0.05, 0.04],
+    [0.08, -0.04, -0.02],
+    [0.16, 0.02, 0.05],
+    [-0.04, -0.08, -0.06]
   ]
 };
 
 export function Neurons({ events }: NeuronsProps) {
   return (
-    <group scale={1.4} rotation={[0.08, 0, 0]}>
+    <group scale={1.55} rotation={[0.02, -0.28, 0]}>
       {(Object.keys(regionBounds) as BrainRegion[]).map((region) => (
         <RegionNeuronCluster key={region} region={region} pulse={getRegionPulseStrength(events, region)} />
       ))}

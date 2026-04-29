@@ -12,6 +12,12 @@ describe("region metadata", () => {
     expect(getRegionColor("hippocampus")).toBe("#a855f7");
     expect(getRegionColor("temporal")).toBe("#3b82f6");
   });
+
+  it("keeps region patches compact enough to read as anatomical highlights", () => {
+    Object.values(regionBounds).forEach((bounds) => {
+      expect(Math.max(...bounds.size)).toBeLessThanOrEqual(0.4);
+    });
+  });
 });
 
 describe("event to region mapping", () => {
