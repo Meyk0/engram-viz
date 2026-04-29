@@ -25,11 +25,11 @@ export function Brain3D({ events }: Brain3DProps) {
       >
         <color attach="background" args={["#050510"]} />
         <fog attach="fog" args={["#050510", 5, 9]} />
-        <ambientLight intensity={0.44} />
-        <directionalLight position={[1.6, 2.2, 2.6]} intensity={1.15} color="#fff3d8" />
-        <pointLight position={[0, 1.8, 2.4]} intensity={1.25} color="#00d4ff" />
-        <pointLight position={[-2.4, -0.8, 1.2]} intensity={0.75} color="#a855f7" />
-        <pointLight position={[2.6, 0.1, -1.4]} intensity={0.55} color="#3b82f6" />
+        <ambientLight intensity={0.36} />
+        <directionalLight position={[1.6, 2.2, 2.6]} intensity={0.78} color="#e7f1ff" />
+        <pointLight position={[0, 1.8, 2.4]} intensity={0.42} color="#00d4ff" />
+        <pointLight position={[-2.4, -0.8, 1.2]} intensity={0.42} color="#a855f7" />
+        <pointLight position={[2.6, 0.1, -1.4]} intensity={0.32} color="#3b82f6" />
         <Stars radius={8} depth={18} count={900} factor={2.2} saturation={0} fade speed={0.35} />
         <Suspense fallback={<FallbackBrain />}>
           <BrainRig events={events} />
@@ -44,7 +44,7 @@ export function Brain3D({ events }: Brain3DProps) {
           maxDistance={6}
         />
         <EffectComposer>
-          <Bloom intensity={0.42} luminanceThreshold={0.38} luminanceSmoothing={0.45} mipmapBlur />
+          <Bloom intensity={0.08} luminanceThreshold={0.9} luminanceSmoothing={0.55} mipmapBlur />
         </EffectComposer>
       </Canvas>
     </section>
@@ -76,8 +76,8 @@ function HippocampusMarker({ events }: Brain3DProps) {
   useFrame(({ clock }) => {
     const material = mesh.current?.material;
     if (!(material instanceof THREE.MeshStandardMaterial)) return;
-    material.opacity = 0.34 + pulse * 0.22;
-    material.emissiveIntensity = 0.7 + pulse * 1.35 + Math.sin(clock.elapsedTime * 3.8) * 0.06;
+    material.opacity = 0.3 + pulse * 0.18;
+    material.emissiveIntensity = 0.45 + pulse * 0.95 + Math.sin(clock.elapsedTime * 3.8) * 0.04;
   });
 
   return (
@@ -86,7 +86,7 @@ function HippocampusMarker({ events }: Brain3DProps) {
       <meshStandardMaterial
         color={regionBounds.hippocampus.color}
         emissive={regionBounds.hippocampus.color}
-        emissiveIntensity={0.9}
+        emissiveIntensity={0.45}
         transparent
         opacity={0.34}
         roughness={0.32}

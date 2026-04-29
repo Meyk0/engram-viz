@@ -38,8 +38,8 @@ input {
   position: relative;
   min-height: 100vh;
   background:
-    radial-gradient(circle at 50% 45%, rgba(0, 212, 255, 0.1), transparent 34%),
-    radial-gradient(circle at 48% 48%, rgba(168, 85, 247, 0.08), transparent 28%),
+    radial-gradient(circle at 50% 45%, rgba(0, 212, 255, 0.055), transparent 34%),
+    radial-gradient(circle at 48% 48%, rgba(168, 85, 247, 0.045), transparent 28%),
     var(--bg);
   isolation: isolate;
 }
@@ -65,7 +65,7 @@ input {
   z-index: 3;
   pointer-events: none;
   content: "";
-  background: radial-gradient(ellipse at center, transparent 42%, rgba(5, 5, 16, 0.88));
+  background: radial-gradient(ellipse at center, transparent 40%, rgba(5, 5, 16, 0.92));
 }
 
 .brain-scene {

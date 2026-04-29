@@ -15,7 +15,7 @@ export function BrainMesh() {
       color: "#00d4ff",
       wireframe: true,
       transparent: true,
-      opacity: 0.04,
+      opacity: 0.018,
       depthWrite: false
     });
 
@@ -27,9 +27,9 @@ export function BrainMesh() {
         const materials = Array.isArray(child.material) ? child.material : [child.material];
         materials.forEach((material) => {
           if (material instanceof THREE.MeshStandardMaterial) {
-            material.color.multiplyScalar(1.06);
+            material.color.multiplyScalar(0.9);
             material.emissiveIntensity = 0;
-            material.roughness = Math.min(material.roughness, 0.62);
+            material.roughness = Math.max(material.roughness, 0.66);
             material.metalness = 0.02;
           }
         });
