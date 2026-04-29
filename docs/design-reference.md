@@ -1,0 +1,52 @@
+# Engram Design Reference
+
+This note distills `/Users/joschakoepke/Downloads/Engram Standalone.html` into reusable visual guidance. The standalone file is a stylistic reference only, not an exact mock and not implementation source.
+
+## Core Direction
+
+- Full-screen immersive brain scene, not a landing page.
+- Dark medical-cyberpunk interface with a black-blue base and neon telemetry.
+- The brain should feel like a holographic diagnostic instrument: floating, luminous, technical, and alive.
+- UI chrome should be sparse and utilitarian so the brain remains the first visual signal.
+
+## Visual Ingredients
+
+- Background: near-black `#050510`.
+- Primary glow: cyan `#00d4ff`.
+- Secondary event colors: violet `#a855f7`, blue `#3b82f6`, amber `#f97316`, gold `#fbbf24`.
+- Use subtle scanline/vignette treatment if it does not hurt readability or performance.
+- Avoid generic purple gradient AI styling.
+- Avoid marketing hero composition; the app canvas is the product.
+
+## Layout Cues
+
+- Fixed full-viewport 3D canvas.
+- Top-left compact ENGRAM title/status identity.
+- Top-right small system status telemetry.
+- Floating region labels projected near brain regions.
+- Bottom-right memory event stream with newest events entering visibly.
+- Fixed bottom chat bar with transparent/frosted styling.
+- Optional AI response panel should be compact and secondary to the visualization.
+
+## UI Style
+
+- Use monospace for telemetry, region labels, event feed, and chat input.
+- Use a geometric sans for product chrome.
+- Favor small uppercase labels with generous letter spacing for telemetry.
+- Use thin borders, low-opacity panels, blur, and glow rather than heavy cards.
+- Buttons should be icon-led and compact.
+
+## Motion Cues
+
+- Brain should idle with slow rotation and subtle breathing/pulse.
+- User interaction pauses idle rotation briefly.
+- Event activation should ramp in quickly and decay more slowly.
+- Memory events should flash both the relevant region and the event feed.
+- Ambient idle activity can exist, but it must not imply false memory behavior.
+
+## Important Differences From The Reference
+
+- The v1 product animates only prefrontal cortex, hippocampus, and temporal cortex.
+- Do not add amygdala/cerebellum/procedural memory behavior just because the reference has extra labels.
+- Real implementation should use the `public/brain.glb` asset and React/Three architecture, not the standalone procedural point-cloud script.
+- Memory events must follow the technically honest data model in `spec.md`.
