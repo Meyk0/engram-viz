@@ -28,9 +28,9 @@ export function BrainMesh({ events }: BrainMeshProps) {
     const baseMaterial = new THREE.MeshStandardMaterial({
       color: "#1a2744",
       emissive: "#123a82",
-      emissiveIntensity: 0.7,
+      emissiveIntensity: 0.42,
       transparent: true,
-      opacity: 0.58,
+      opacity: 0.42,
       roughness: 0.3,
       metalness: 0.12,
       side: THREE.DoubleSide,
@@ -40,7 +40,7 @@ export function BrainMesh({ events }: BrainMeshProps) {
       color: "#00d4ff",
       wireframe: true,
       transparent: true,
-      opacity: 0.3,
+      opacity: 0.18,
       depthWrite: false
     });
     const regionMaterials = Object.fromEntries(
@@ -49,9 +49,9 @@ export function BrainMesh({ events }: BrainMeshProps) {
         new THREE.MeshStandardMaterial({
           color: regionBounds[region].color,
           emissive: regionBounds[region].color,
-          emissiveIntensity: 0.7,
+          emissiveIntensity: 1.45,
           transparent: true,
-          opacity: 0.2,
+          opacity: 0.48,
           roughness: 0.22,
           metalness: 0.06,
           side: THREE.DoubleSide,
@@ -109,11 +109,11 @@ export function BrainMesh({ events }: BrainMeshProps) {
 
     (Object.keys(regionMeshes) as BrainRegion[]).forEach((region) => {
       const pulse = getRegionPulseStrength(events, region);
-      const glow = 0.55 + pulse * 1.7 + Math.sin(clock.elapsedTime * 4.4) * 0.06;
+      const glow = 1.1 + pulse * 2.4 + Math.sin(clock.elapsedTime * 4.4) * 0.08;
       regionMeshes[region]?.forEach((mesh) => {
         const material = mesh.material instanceof THREE.MeshStandardMaterial ? mesh.material : undefined;
         if (!material) return;
-        material.opacity = 0.16 + pulse * 0.28;
+        material.opacity = 0.42 + pulse * 0.34;
         material.emissiveIntensity = glow;
       });
     });

@@ -12,21 +12,21 @@ export const regionBounds: Record<BrainRegion, RegionBounds> = {
   prefrontal: {
     center: [-0.28, 0.24, 0.48],
     size: [0.34, 0.23, 0.1],
-    color: "#00d4ff",
+    color: "#facc15",
     label: "Prefrontal Cortex",
     labelOffset: [-0.02, 0.2, 0.04]
   },
   hippocampus: {
     center: [0.04, -0.18, 0.42],
     size: [0.14, 0.09, 0.08],
-    color: "#a855f7",
+    color: "#ff3df2",
     label: "Hippocampus",
     labelOffset: [0.02, 0.14, 0.04]
   },
   temporal: {
     center: [0.34, -0.28, 0.3],
     size: [0.34, 0.16, 0.1],
-    color: "#3b82f6",
+    color: "#14f195",
     label: "Temporal Cortex",
     labelOffset: [-0.02, 0.18, 0.03]
   }

@@ -9,9 +9,9 @@ describe("region metadata", () => {
   });
 
   it("maps every region to a cyberpunk palette color", () => {
-    expect(getRegionColor("prefrontal")).toBe("#00d4ff");
-    expect(getRegionColor("hippocampus")).toBe("#a855f7");
-    expect(getRegionColor("temporal")).toBe("#3b82f6");
+    expect(getRegionColor("prefrontal")).toBe("#facc15");
+    expect(getRegionColor("hippocampus")).toBe("#ff3df2");
+    expect(getRegionColor("temporal")).toBe("#14f195");
   });
 
   it("keeps region patches compact enough to read as anatomical highlights", () => {
