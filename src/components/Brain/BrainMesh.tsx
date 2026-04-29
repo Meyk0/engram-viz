@@ -9,7 +9,11 @@ import { getRegionPulseStrength, regionBounds } from "@/lib/regions";
 import type { BrainRegion, EngramEvent } from "@/types";
 
 const baseRotationY = -1.05;
-const regionScale = 0.44;
+const regionVisualScale: Record<BrainRegion, number> = {
+  prefrontal: 0,
+  hippocampus: 0.44,
+  temporal: 0.44
+};
 
 type BrainMeshProps = {
   events: EngramEvent[];
@@ -76,9 +80,13 @@ export function BrainMesh({ events }: BrainMeshProps) {
       if (child instanceof THREE.Mesh) {
         const region = getRegionFromMeshName(child.name);
         if (region) {
+          if (regionVisualScale[region] === 0) {
+            child.visible = false;
+            return;
+          }
           child.material = regionMaterials[region].clone();
           child.renderOrder = 2;
-          child.scale.multiplyScalar(regionScale);
+          child.scale.multiplyScalar(regionVisualScale[region]);
           regionRefs[region] = [...(regionRefs[region] ?? []), child];
         } else {
           child.visible = false;
@@ -123,6 +131,7 @@ export function BrainMesh({ events }: BrainMeshProps) {
     <group ref={group} scale={1.72} rotation={[0.02, baseRotationY, 0]}>
       <primitive object={glassBrain} />
       <primitive object={regionBrain} />
+      <PrefrontalSurfacePatch events={events} />
       <primitive object={wireBrain} />
     </group>
   );
@@ -143,4 +152,41 @@ function normalizeBrain(object: THREE.Object3D) {
 
   object.scale.setScalar(scale);
   object.position.set(-center.x * scale, -center.y * scale, -center.z * scale);
+}
+
+function PrefrontalSurfacePatch({ events }: { events: EngramEvent[] }) {
+  const mesh = useRef<THREE.Mesh>(null);
+  const pulse = getRegionPulseStrength(events, "prefrontal");
+  const bounds = regionBounds.prefrontal;
+
+  useFrame(({ clock }) => {
+    const material = mesh.current?.material;
+    if (!(material instanceof THREE.MeshStandardMaterial)) return;
+    material.opacity = 0.24 + pulse * 0.28;
+    material.emissiveIntensity = 1.1 + pulse * 2 + Math.sin(clock.elapsedTime * 4.2) * 0.08;
+  });
+
+  return (
+    <mesh
+      ref={mesh}
+      position={[-0.38, 0.17, 0.45]}
+      rotation={[0.16, -0.18, -0.36]}
+      scale={[bounds.size[0] * 1.75, bounds.size[1] * 1.35, bounds.size[2] * 0.82]}
+      renderOrder={2}
+    >
+      <sphereGeometry args={[1, 48, 24]} />
+      <meshStandardMaterial
+        color={bounds.color}
+        emissive={bounds.color}
+        emissiveIntensity={1.1}
+        transparent
+        opacity={0.24}
+        roughness={0.24}
+        metalness={0.04}
+        depthTest={false}
+        depthWrite={false}
+        side={THREE.DoubleSide}
+      />
+    </mesh>
+  );
 }
