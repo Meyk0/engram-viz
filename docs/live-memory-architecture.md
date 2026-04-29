@@ -1,0 +1,233 @@
+# Live Memory Architecture
+
+This note defines the shared interfaces for the next implementation milestone. The goal is to replace the static demo stream with a real chat loop that emits honest memory events, while keeping the app deterministic and testable.
+
+## Product Target
+
+Engram should answer three questions during every chat turn:
+
+- What did the assistant remember?
+- What prior memory influenced the answer?
+- Why did that memory become active?
+
+The 3D brain remains the teaching surface. The event stream and explainability panel carry the product meaning.
+
+## Current Baseline
+
+Already implemented:
+
+- `EngramMemory`, `EngramEvent`, and `StreamChunk` in `src/types.ts`.
+- SSE encoding/parsing in `src/lib/events`.
+- In-memory session helpers in `src/lib/memory/store.ts`.
+- Basic retrieve/consolidate logic in `src/lib/memory`.
+- Memory tool wrappers in `src/lib/memory/tools.ts`.
+- Demo `/api/chat` route that streams fixture events.
+- Unit tests and Playwright smoke coverage.
+
+The next milestone should extend these rather than replacing them.
+
+## Runtime Modes
+
+### Demo Mode
+
+Used for local development, tests, screenshots, and no-key usage.
+
+- No live model call.
+- Deterministic responses.
+- Emits valid `StreamChunk` values.
+- Remains the default when provider env vars are absent.
+
+### OpenAI Mode
+
+Used when `OPENAI_API_KEY` is present and `CHAT_PROVIDER=openai`.
+
+- Calls OpenAI through a provider wrapper.
+- Uses the same memory engine and emits the same `StreamChunk` contract.
+- Normal unit tests mock the provider; live calls are not part of regular CI.
+
+### Future Supabase Mode
+
+Supabase is useful once we want durable sessions, shareable demos, or login. It should not block the next milestone.
+
+The immediate architecture should use a storage interface with an in-memory adapter first. A Supabase adapter can implement the same interface later.
+
+## Core Interfaces
+
+### Memory Store
+
+Create a store interface in `src/lib/memory/store-interface.ts`:
+
+```ts
+export type MemoryStore = {
+  getSession(sessionId: string): Promise<MemorySession>;
+  list(sessionId: string): Promise<EngramMemory[]>;
+  upsert(sessionId: string, memory: EngramMemory): Promise<void>;
+  remove(sessionId: string, ids: string[]): Promise<void>;
+};
+```
+
+Initial adapter:
+
+- `InMemoryMemoryStore`
+- Backed by `Map<string, MemorySession>`
+- Used by `/api/chat`, unit tests, and demo mode.
+
+Later adapter:
+
+- `SupabaseMemoryStore`
+- Tables can be added when persistence becomes a product requirement.
+- Suggested table shape:
+  - `sessions`: `id`, `created_at`, `last_seen_at`
+  - `memories`: `id`, `session_id`, `text`, `topic`, `importance`, `region`, `created_at`, `last_accessed`, `access_count`, `embedding`
+
+### Memory Engine
+
+Create a service in `src/lib/memory/engine.ts`:
+
+```ts
+export type MemoryEngine = {
+  initialize(sessionId: string): Promise<EngramEvent>;
+  store(input: StoreMemoryInput): Promise<EngramEvent>;
+  retrieve(input: RetrieveMemoryInput): Promise<EngramEvent>;
+  fire(region: BrainRegion, ids: string[]): EngramEvent;
+  consolidate(input: ConsolidateMemoryInput): Promise<EngramEvent | null>;
+  decay(now?: string): Promise<EngramEvent | null>;
+};
+```
+
+Rules for v1:
+
+- New user facts start in `hippocampus`.
+- Retrieval emits `retrieve` and then `fire`.
+- Repeated access can move a memory to `temporal`.
+- Prefrontal represents loaded/active context, not durable storage.
+- Decay dims lower-ranked memories; it should not delete them.
+
+### Chat Provider
+
+Create provider wrappers under `src/lib/chat/providers`.
+
+```ts
+export type ChatProviderClient = {
+  streamTurn(input: ChatTurnInput): AsyncIterable<ProviderChunk>;
+};
+```
+
+Provider input includes:
+
+- Current user message.
+- Recent chat history.
+- Retrieved memories.
+- Tool results or memory instructions.
+
+Provider output is normalized before it reaches React:
+
+- text delta
+- memory action intent
+- final usage/error metadata
+
+For OpenAI, start with a small wrapper that can be mocked cleanly. The model choice should be environment-driven, for example `OPENAI_MODEL`.
+
+## `/api/chat` Contract
+
+`POST /api/chat` remains SSE.
+
+Request:
+
+```ts
+{
+  sessionId?: string;
+  message: string;
+  history?: ChatMessage[];
+}
+```
+
+Response stream:
+
+1. `init` or `load` event for current session state.
+2. `retrieve` event for relevant memories.
+3. `fire` event for active memory regions.
+4. Text deltas from the provider.
+5. Optional `store`, `consolidate`, or `decay` events.
+6. `done`.
+
+Errors should stream `{ kind: "error" }` when possible, not throw an opaque response after partial output.
+
+## Frontend State
+
+The frontend should consume only `StreamChunk`.
+
+Add or extend hooks:
+
+- `useChat`: owns SSE request lifecycle, text deltas, errors, cancellation.
+- `useEventQueue`: remains the source for visualization events.
+- `useMemoryStore`: derives visible memories from event history.
+- `useExplanationState`: tracks selected/hovered memory and “why this fired.”
+
+Avoid coupling the 3D scene directly to provider internals. It should only receive `EngramEvent[]`.
+
+## Explainability Panel
+
+This is the highest-leverage product surface after the chat loop.
+
+For each retrieval/fire event, show:
+
+- Memory text.
+- Score or rough reason.
+- Region.
+- Recency/access count.
+- Why it was relevant to the current user message.
+
+For v1, reasons can be deterministic:
+
+- keyword overlap
+- importance
+- access count
+- recency
+
+Later, provider-generated explanations can supplement this.
+
+## Supabase Path
+
+Supabase is a good fit after the in-memory loop works.
+
+Use it when we need:
+
+- persistent sessions
+- shareable demo links
+- saved memory histories
+- user accounts
+
+Do not introduce Supabase into the first live-memory milestone unless we explicitly decide persistence is part of that milestone. The store interface should make the migration straightforward.
+
+## Parallelization Plan
+
+Do not split until the interfaces above are committed.
+
+After that, work can fan out safely:
+
+- Agent A: memory engine and store interface
+  - Owns `src/lib/memory/**`
+  - Adds focused unit tests for store/retrieve/fire/consolidate/decay.
+
+- Agent B: chat provider and `/api/chat`
+  - Owns `src/lib/chat/**` and `src/app/api/chat/route.ts`
+  - Adds mocked OpenAI tests and SSE error tests.
+
+- Agent C: frontend live stream and explainability UI
+  - Owns `src/hooks/**`, `src/components/UI/**`, and non-asset visual event behavior.
+  - Adds hook/component tests and updates smoke expectations if needed.
+
+Avoid parallel edits to `src/types.ts` unless coordinated first.
+
+## Next Commit-Sized Milestone
+
+Implement the in-memory live loop without Supabase:
+
+1. Add `MemoryStore` interface and `InMemoryMemoryStore`.
+2. Add `MemoryEngine` service around existing memory helpers.
+3. Update `/api/chat` so demo mode uses the engine instead of fixture-only streams.
+4. Add mocked OpenAI provider boundary but keep it disabled unless env vars are present.
+5. Add tests for SSE order and memory events per chat turn.
+
+This gives us a real product loop while keeping deployment and credentials optional.
