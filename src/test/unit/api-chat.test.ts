@@ -63,4 +63,26 @@ describe("/api/chat", () => {
     }
     expect(fireChunk?.kind).toBe("event");
   });
+
+  it("does not store trivial questions but still streams a response and done", async () => {
+    resetLiveMemoryStore();
+
+    const response = await POST(
+      new Request("http://localhost/api/chat", {
+        method: "POST",
+        body: JSON.stringify({
+          sessionId: "api-chat-c",
+          message: "What is this app?"
+        })
+      })
+    );
+
+    const chunks = decodeSseChunks(await response.text());
+
+    expect(chunks.some((chunk) => chunk.kind === "text" && chunk.delta.length > 0)).toBe(true);
+    expect(chunks.some((chunk) => chunk.kind === "event" && chunk.event.type === "store")).toBe(
+      false
+    );
+    expect(chunks.at(-1)).toEqual({ kind: "done" });
+  });
 });

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { createConsolidatedMemory } from "@/lib/memory/consolidate";
+import { evaluateMemoryCandidate } from "@/lib/memory/rules";
 import { retrieveMemories } from "@/lib/memory/retrieve";
 import { MemoryEngine } from "@/lib/memory/engine";
 import {
@@ -57,6 +58,42 @@ describe("memory retrieval", () => {
 
     const results = retrieveMemories(listMemories(session), "glowing brain design", 1);
     expect(results[0].memory.id).toBe(design.id);
+  });
+});
+
+describe("memory quality rules", () => {
+  it("stores explicit user preferences with deterministic importance and topic", () => {
+    const candidate = evaluateMemoryCandidate(
+      "Remember that I prefer restrained medical cyberpunk interfaces."
+    );
+
+    expect(candidate.shouldStore).toBe(true);
+    expect(candidate.reason).toBe("explicit-memory");
+    expect(candidate.importance).toBeGreaterThanOrEqual(0.8);
+    expect(candidate.topic).toBe("design");
+  });
+
+  it("stores personal facts without requiring explicit remember wording", () => {
+    const candidate = evaluateMemoryCandidate("My project is an app for visualizing LLM memory.");
+
+    expect(candidate.shouldStore).toBe(true);
+    expect(candidate.reason).toBe("personal-fact");
+    expect(candidate.topic).toBe("work");
+  });
+
+  it("rejects empty content and trivial questions", () => {
+    expect(evaluateMemoryCandidate("   ").shouldStore).toBe(false);
+
+    const question = evaluateMemoryCandidate("What is the weather today?");
+    expect(question.shouldStore).toBe(false);
+    expect(question.reason).toBe("trivial-question");
+  });
+
+  it("rejects transient commands that are not durable user facts", () => {
+    const candidate = evaluateMemoryCandidate("Please summarize this paragraph for me.");
+
+    expect(candidate.shouldStore).toBe(false);
+    expect(candidate.reason).toBe("transient");
   });
 });
 
