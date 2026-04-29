@@ -6,7 +6,6 @@ import { Bloom, EffectComposer } from "@react-three/postprocessing";
 import { Suspense } from "react";
 import { BrainMesh } from "@/components/Brain/BrainMesh";
 import { RegionLabels } from "@/components/Brain/RegionLabels";
-import { Neurons } from "@/components/Brain/Neurons";
 import type { EngramEvent } from "@/types";
 
 type Brain3DProps = {
@@ -31,7 +30,6 @@ export function Brain3D({ events }: Brain3DProps) {
         <Stars radius={8} depth={18} count={900} factor={2.2} saturation={0} fade speed={0.35} />
         <Suspense fallback={<FallbackBrain />}>
           <BrainMesh events={events} />
-          <Neurons events={events} />
           <RegionLabels events={events} />
         </Suspense>
         <OrbitControls

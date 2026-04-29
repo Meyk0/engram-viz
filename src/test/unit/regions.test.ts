@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { BRAIN_BASE_ASSET_PATH, BRAIN_REGION_ASSET_PATH, getRegionFromMeshName, regionMeshNames } from "@/lib/brainAsset";
+import { BRAIN_BASE_ASSET_PATH, getRegionFromMeshName, regionMeshNames } from "@/lib/brainAsset";
 import { fixtureEvents } from "@/lib/events/fixtures";
 import { getEventRegions, getRegionColor, getRegionPulseStrength, regionBounds } from "@/lib/regions";
 
@@ -21,8 +21,7 @@ describe("region metadata", () => {
   });
 
   it("maps GLB mesh names to the three honest regions", () => {
-    expect(BRAIN_BASE_ASSET_PATH).toBe("/brain.glb");
-    expect(BRAIN_REGION_ASSET_PATH).toBe("/engram_brain.glb");
+    expect(BRAIN_BASE_ASSET_PATH).toBe("/lobes_of_the_cerebrum.glb");
     expect(regionMeshNames).toEqual({
       prefrontal: "prefrontal_region",
       hippocampus: "hippocampus_region",
