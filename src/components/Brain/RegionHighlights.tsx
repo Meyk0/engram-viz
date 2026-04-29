@@ -1,29 +1,32 @@
 "use client";
 
 import { AdditiveBlending } from "three";
-import { getRegionPulseStrength, regionBounds } from "@/lib/regions";
-import type { BrainRegion, EngramEvent } from "@/types";
+import type { BrainAnimationState } from "@/lib/animations";
+import { regionBounds } from "@/lib/regions";
+import type { BrainRegion } from "@/types";
 
 type RegionHighlightsProps = {
-  events: EngramEvent[];
+  animation: BrainAnimationState;
 };
 
-export function RegionHighlights({ events }: RegionHighlightsProps) {
+export function RegionHighlights({ animation }: RegionHighlightsProps) {
   return (
-    <group scale={1.55} rotation={[0.02, -1.05, 0]}>
+    <group>
       {(Object.keys(regionBounds) as BrainRegion[]).map((region) => {
         const bounds = regionBounds[region];
-        const pulse = getRegionPulseStrength(events, region);
+        const pulse = animation.regions[region];
+        const fade = animation.decayDimming * 0.18;
+        const visiblePulse = Math.max(0, pulse - 0.08);
         return (
           <group key={region} position={bounds.center}>
-            <mesh scale={bounds.size}>
+            <mesh scale={[bounds.size[0] * (1 + pulse * 0.12), bounds.size[1] * (1 + pulse * 0.12), bounds.size[2] * (1 + pulse * 0.12)]}>
               <sphereGeometry args={[1, 36, 20]} />
               <meshBasicMaterial
                 color={bounds.color}
                 transparent
-                opacity={0.18 + pulse * 0.2}
+                opacity={Math.max(0, visiblePulse * 0.045 - fade)}
                 depthWrite={false}
-                depthTest={false}
+                depthTest
                 blending={AdditiveBlending}
               />
             </mesh>
@@ -33,9 +36,9 @@ export function RegionHighlights({ events }: RegionHighlightsProps) {
                 color={bounds.color}
                 wireframe
                 transparent
-                opacity={0.26 + pulse * 0.18}
+                opacity={Math.max(0, visiblePulse * 0.065 - fade)}
                 depthWrite={false}
-                depthTest={false}
+                depthTest
               />
             </mesh>
           </group>

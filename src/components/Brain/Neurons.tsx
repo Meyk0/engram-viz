@@ -3,11 +3,12 @@
 import { useFrame } from "@react-three/fiber";
 import { useRef } from "react";
 import * as THREE from "three";
-import { getRegionPulseStrength, regionBounds } from "@/lib/regions";
-import type { BrainRegion, EngramEvent } from "@/types";
+import type { BrainAnimationState } from "@/lib/animations";
+import { regionBounds } from "@/lib/regions";
+import type { BrainRegion } from "@/types";
 
 type NeuronsProps = {
-  events: EngramEvent[];
+  animation: BrainAnimationState;
 };
 
 const neuronOffsets: Record<BrainRegion, [number, number, number][]> = {
@@ -31,17 +32,17 @@ const neuronOffsets: Record<BrainRegion, [number, number, number][]> = {
   ]
 };
 
-export function Neurons({ events }: NeuronsProps) {
+export function Neurons({ animation }: NeuronsProps) {
   return (
-    <group scale={1.55} rotation={[0.02, -1.05, 0]}>
+    <group>
       {(Object.keys(regionBounds) as BrainRegion[]).map((region) => (
-        <RegionNeuronCluster key={region} region={region} pulse={getRegionPulseStrength(events, region)} />
+        <RegionNeuronCluster key={region} region={region} pulse={animation.regions[region]} decayDimming={animation.decayDimming} />
       ))}
     </group>
   );
 }
 
-function RegionNeuronCluster({ region, pulse }: { region: BrainRegion; pulse: number }) {
+function RegionNeuronCluster({ region, pulse, decayDimming }: { region: BrainRegion; pulse: number; decayDimming: number }) {
   const group = useRef<THREE.Group>(null);
 
   useFrame(({ clock }) => {
@@ -62,12 +63,22 @@ function RegionNeuronCluster({ region, pulse }: { region: BrainRegion; pulse: nu
           ]}
         >
           <sphereGeometry args={[0.025 + index * 0.003, 12, 8]} />
-          <meshBasicMaterial color={regionBounds[region].color} transparent opacity={0.34 + pulse * 0.5} depthWrite={false} />
+          <meshBasicMaterial
+            color={regionBounds[region].color}
+            transparent
+            opacity={Math.max(0.16, 0.3 + pulse * 0.48 - decayDimming * 0.35)}
+            depthWrite={false}
+          />
         </mesh>
       ))}
       <mesh position={regionBounds[region].center}>
         <sphereGeometry args={[0.08 + pulse * 0.04, 24, 16]} />
-        <meshBasicMaterial color={regionBounds[region].color} transparent opacity={0.1 + pulse * 0.18} depthWrite={false} />
+        <meshBasicMaterial
+          color={regionBounds[region].color}
+          transparent
+          opacity={Math.max(0.04, 0.08 + pulse * 0.18 - decayDimming * 0.12)}
+          depthWrite={false}
+        />
       </mesh>
     </group>
   );

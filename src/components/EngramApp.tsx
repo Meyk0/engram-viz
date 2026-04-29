@@ -7,8 +7,10 @@ import { explainEvent } from "@/lib/explanations";
 import { useChat } from "@/hooks/useChat";
 import { useEventQueue } from "@/hooks/useEventQueue";
 import { useFirstTimeEvents } from "@/hooks/useFirstTimeEvents";
+import { useMemoryExplanations } from "@/hooks/useMemoryExplanations";
 import { Brain3D } from "@/components/Brain/Brain3D";
 import { EventFeed } from "@/components/UI/EventFeed";
+import { ExplainabilityPanel } from "@/components/UI/ExplainabilityPanel";
 import type { StreamChunk } from "@/types";
 
 export function EngramApp() {
@@ -16,6 +18,7 @@ export function EngramApp() {
   const [responseText, setResponseText] = useState("");
   const { events, pushEvent } = useEventQueue([fixtureEvents[0]]);
   const { caption, recordEvent } = useFirstTimeEvents();
+  const explanations = useMemoryExplanations(events);
 
   const onChunk = useCallback(
     (chunk: StreamChunk) => {
@@ -67,6 +70,7 @@ export function EngramApp() {
       {caption ? <div className="caption">{caption}</div> : null}
 
       <EventFeed events={events} explainEvent={explainEvent} />
+      <ExplainabilityPanel explanations={explanations} />
 
       {responseText ? (
         <aside className="ai-response" aria-label="AI response">
