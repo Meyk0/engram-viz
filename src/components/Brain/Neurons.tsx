@@ -33,7 +33,7 @@ const neuronOffsets: Record<BrainRegion, [number, number, number][]> = {
 
 export function Neurons({ events }: NeuronsProps) {
   return (
-    <group scale={1.55} rotation={[0.02, -0.28, 0]}>
+    <group scale={1.55} rotation={[0.02, -1.05, 0]}>
       {(Object.keys(regionBounds) as BrainRegion[]).map((region) => (
         <RegionNeuronCluster key={region} region={region} pulse={getRegionPulseStrength(events, region)} />
       ))}

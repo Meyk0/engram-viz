@@ -10,7 +10,7 @@ type RegionHighlightsProps = {
 
 export function RegionHighlights({ events }: RegionHighlightsProps) {
   return (
-    <group scale={1.55} rotation={[0.02, -0.28, 0]}>
+    <group scale={1.55} rotation={[0.02, -1.05, 0]}>
       {(Object.keys(regionBounds) as BrainRegion[]).map((region) => {
         const bounds = regionBounds[region];
         const pulse = getRegionPulseStrength(events, region);

@@ -5,21 +5,23 @@ import { useGLTF } from "@react-three/drei";
 import { useMemo, useRef } from "react";
 import * as THREE from "three";
 
+const baseRotationY = -1.05;
+
 export function BrainMesh() {
   const group = useRef<THREE.Group>(null);
-  const { scene } = useGLTF("/brain.glb");
+  const { scene } = useGLTF("/brain_areas.glb");
 
   const { glassBrain, wireBrain } = useMemo(() => {
     const clone = scene.clone(true);
     const wireClone = scene.clone(true);
-    const glassMaterial = new THREE.MeshStandardMaterial({
+    const baseMaterial = new THREE.MeshStandardMaterial({
       color: "#1a2744",
       emissive: "#123a82",
-      emissiveIntensity: 0.85,
+      emissiveIntensity: 0.7,
       transparent: true,
-      opacity: 0.72,
-      roughness: 0.28,
-      metalness: 0.18,
+      opacity: 0.58,
+      roughness: 0.3,
+      metalness: 0.12,
       side: THREE.DoubleSide,
       depthWrite: true
     });
@@ -27,7 +29,7 @@ export function BrainMesh() {
       color: "#00d4ff",
       wireframe: true,
       transparent: true,
-      opacity: 0.42,
+      opacity: 0.3,
       depthWrite: false
     });
 
@@ -36,7 +38,7 @@ export function BrainMesh() {
 
     clone.traverse((child) => {
       if (child instanceof THREE.Mesh) {
-        child.material = glassMaterial;
+        child.material = baseMaterial;
         child.castShadow = false;
         child.receiveShadow = false;
       }
@@ -54,19 +56,19 @@ export function BrainMesh() {
 
   useFrame(({ clock }) => {
     if (!group.current) return;
-    group.current.rotation.y = Math.sin(clock.elapsedTime * 0.2) * 0.08;
+    group.current.rotation.y = baseRotationY + Math.sin(clock.elapsedTime * 0.2) * 0.08;
     group.current.position.y = Math.sin(clock.elapsedTime * 0.75) * 0.025;
   });
 
   return (
-    <group ref={group} scale={1.55} rotation={[0.02, -0.28, 0]}>
+    <group ref={group} scale={1.72} rotation={[0.02, baseRotationY, 0]}>
       <primitive object={glassBrain} />
       <primitive object={wireBrain} />
     </group>
   );
 }
 
-useGLTF.preload("/brain.glb");
+useGLTF.preload("/brain_areas.glb");
 
 function normalizeBrain(object: THREE.Object3D) {
   const box = new THREE.Box3().setFromObject(object);
