@@ -7,6 +7,7 @@ import { explainEvent } from "@/lib/explanations";
 import { useChat } from "@/hooks/useChat";
 import { useEventQueue } from "@/hooks/useEventQueue";
 import { useFirstTimeEvents } from "@/hooks/useFirstTimeEvents";
+import { Brain3D } from "@/components/Brain/Brain3D";
 import { EventFeed } from "@/components/UI/EventFeed";
 import type { StreamChunk } from "@/types";
 
@@ -41,9 +42,7 @@ export function EngramApp() {
 
   return (
     <main className="engram-shell">
-      <section className="scene-placeholder" aria-label="Engram brain scene placeholder">
-        <div className="brain-orb" />
-      </section>
+      <Brain3D events={events} />
 
       <header className="topbar">
         <h1 className="title">ENGRAM</h1>

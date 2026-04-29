@@ -68,27 +68,35 @@ input {
   background: radial-gradient(ellipse at center, transparent 42%, rgba(5, 5, 16, 0.88));
 }
 
-.scene-placeholder {
+.brain-scene {
   position: fixed;
   inset: 0;
   z-index: 1;
-  display: grid;
-  place-items: center;
 }
 
-.brain-orb {
-  width: min(54vw, 620px);
-  aspect-ratio: 1.25;
-  border: 1px solid rgba(0, 212, 255, 0.22);
-  border-radius: 50%;
-  background:
-    radial-gradient(circle at 55% 45%, rgba(0, 212, 255, 0.32), transparent 4%),
-    radial-gradient(circle at 42% 58%, rgba(168, 85, 247, 0.32), transparent 4%),
-    radial-gradient(circle at 62% 60%, rgba(59, 130, 246, 0.32), transparent 5%),
-    radial-gradient(ellipse at center, rgba(26, 39, 68, 0.35), rgba(26, 39, 68, 0.08) 54%, transparent 72%);
-  box-shadow:
-    0 0 70px rgba(0, 212, 255, 0.12),
-    inset 0 0 42px rgba(0, 212, 255, 0.12);
+.brain-scene canvas {
+  cursor: grab;
+}
+
+.brain-scene canvas:active {
+  cursor: grabbing;
+}
+
+.region-label-3d {
+  pointer-events: none;
+  font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 8px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  transition:
+    color 180ms ease,
+    text-shadow 180ms ease;
+}
+
+.region-label-3d span::before {
+  content: "> ";
+  color: rgba(0, 212, 255, 0.36);
 }
 
 .topbar,
