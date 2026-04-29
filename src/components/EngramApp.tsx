@@ -68,7 +68,12 @@ export function EngramApp() {
 
       <EventFeed events={events} explainEvent={explainEvent} />
 
-      {responseText ? <div className="caption">{responseText}</div> : null}
+      {responseText ? (
+        <aside className="ai-response" aria-label="AI response">
+          <div className="response-header">AI RESPONSE</div>
+          <div className="response-body">{responseText}</div>
+        </aside>
+      ) : null}
 
       <form className="chat-bar" onSubmit={onSubmit}>
         <span className="chat-prefix">›</span>

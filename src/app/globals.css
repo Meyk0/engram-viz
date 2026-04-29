@@ -103,6 +103,7 @@ input {
 .status-panel,
 .event-feed,
 .caption,
+.ai-response,
 .chat-bar {
   position: fixed;
   z-index: 10;
@@ -181,6 +182,38 @@ input {
   bottom: 76px;
   width: 330px;
   max-width: calc(100vw - 32px);
+}
+
+.ai-response {
+  bottom: 76px;
+  left: 24px;
+  width: min(460px, calc(100vw - 48px));
+  overflow: hidden;
+  border: 1px solid rgba(0, 212, 255, 0.12);
+  border-radius: 8px;
+  background: rgba(4, 6, 26, 0.82);
+  box-shadow:
+    0 8px 40px rgba(0, 0, 0, 0.55),
+    0 0 18px rgba(0, 212, 255, 0.08);
+  backdrop-filter: blur(20px) saturate(1.4);
+}
+
+.response-header {
+  padding: 10px 14px 8px;
+  border-bottom: 1px solid rgba(0, 212, 255, 0.07);
+  color: rgba(0, 212, 255, 0.38);
+  font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 8px;
+  letter-spacing: 0.2em;
+}
+
+.response-body {
+  max-height: 28vh;
+  padding: 12px 14px 14px;
+  overflow-y: auto;
+  color: rgba(210, 228, 255, 0.84);
+  font-size: 13px;
+  line-height: 1.6;
 }
 
 .event-feed-header {

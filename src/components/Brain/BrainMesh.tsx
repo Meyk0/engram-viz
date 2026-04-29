@@ -9,22 +9,30 @@ export function BrainMesh() {
   const group = useRef<THREE.Group>(null);
   const { scene } = useGLTF("/brain.glb");
 
-  const brain = useMemo(() => {
+  const { glassBrain, wireBrain } = useMemo(() => {
     const clone = scene.clone(true);
-    const glassMaterial = new THREE.MeshPhysicalMaterial({
+    const wireClone = scene.clone(true);
+    const glassMaterial = new THREE.MeshStandardMaterial({
       color: "#1a2744",
-      emissive: "#0b1d4d",
-      emissiveIntensity: 0.18,
+      emissive: "#123a82",
+      emissiveIntensity: 0.85,
       transparent: true,
-      opacity: 0.34,
-      roughness: 0.12,
-      metalness: 0.05,
-      transmission: 0.45,
-      thickness: 0.38,
-      ior: 1.18,
+      opacity: 0.72,
+      roughness: 0.28,
+      metalness: 0.18,
       side: THREE.DoubleSide,
+      depthWrite: true
+    });
+    const wireMaterial = new THREE.MeshBasicMaterial({
+      color: "#00d4ff",
+      wireframe: true,
+      transparent: true,
+      opacity: 0.42,
       depthWrite: false
     });
+
+    normalizeBrain(clone);
+    normalizeBrain(wireClone);
 
     clone.traverse((child) => {
       if (child instanceof THREE.Mesh) {
@@ -33,8 +41,15 @@ export function BrainMesh() {
         child.receiveShadow = false;
       }
     });
+    wireClone.traverse((child) => {
+      if (child instanceof THREE.Mesh) {
+        child.material = wireMaterial;
+        child.castShadow = false;
+        child.receiveShadow = false;
+      }
+    });
 
-    return clone;
+    return { glassBrain: clone, wireBrain: wireClone };
   }, [scene]);
 
   useFrame(({ clock }) => {
@@ -44,14 +59,25 @@ export function BrainMesh() {
   });
 
   return (
-    <group ref={group} scale={1.4} rotation={[0.08, 0, 0]}>
-      <primitive object={brain} />
-      <mesh scale={[1.03, 0.82, 0.78]}>
-        <sphereGeometry args={[1.1, 36, 24]} />
-        <meshBasicMaterial color="#2a4080" wireframe transparent opacity={0.14} depthWrite={false} />
-      </mesh>
+    <group ref={group} scale={1.55} rotation={[0.02, -0.28, 0]}>
+      <primitive object={glassBrain} />
+      <primitive object={wireBrain} />
     </group>
   );
 }
 
 useGLTF.preload("/brain.glb");
+
+function normalizeBrain(object: THREE.Object3D) {
+  const box = new THREE.Box3().setFromObject(object);
+  const size = new THREE.Vector3();
+  const center = new THREE.Vector3();
+  box.getSize(size);
+  box.getCenter(center);
+
+  const maxAxis = Math.max(size.x, size.y, size.z);
+  const scale = maxAxis > 0 ? 2 / maxAxis : 1;
+
+  object.scale.setScalar(scale);
+  object.position.set(-center.x * scale, -center.y * scale, -center.z * scale);
+}

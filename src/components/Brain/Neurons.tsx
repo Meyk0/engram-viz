@@ -66,8 +66,8 @@ function RegionNeuronCluster({ region, pulse }: { region: BrainRegion; pulse: nu
         </mesh>
       ))}
       <mesh position={regionBounds[region].center}>
-        <sphereGeometry args={[0.18 + pulse * 0.08, 24, 16]} />
-        <meshBasicMaterial color={regionBounds[region].color} transparent opacity={0.08 + pulse * 0.14} depthWrite={false} />
+        <sphereGeometry args={[0.08 + pulse * 0.04, 24, 16]} />
+        <meshBasicMaterial color={regionBounds[region].color} transparent opacity={0.1 + pulse * 0.18} depthWrite={false} />
       </mesh>
     </group>
   );
