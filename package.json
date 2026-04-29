@@ -1,0 +1,70 @@
+{
+  "name": "engram-viz",
+  "version": "0.1.0",
+  "description": "A 3D brain visualizer that makes LLM memory visible in real time.",
+  "private": true,
+  "directories": {
+    "doc": "docs"
+  },
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:ui": "vitest --ui",
+    "smoke": "playwright test"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Meyk0/engram-viz.git"
+  },
+  "keywords": [
+    "llm",
+    "memory",
+    "threejs",
+    "visualization"
+  ],
+  "author": "",
+  "license": "MIT",
+  "type": "module",
+  "bugs": {
+    "url": "https://github.com/Meyk0/engram-viz/issues"
+  },
+  "homepage": "https://github.com/Meyk0/engram-viz#readme",
+  "dependencies": {
+    "@react-three/drei": "^10.7.7",
+    "@react-three/fiber": "^9.6.1",
+    "@react-three/postprocessing": "^3.0.4",
+    "clsx": "^2.1.1",
+    "lucide-react": "^1.14.0",
+    "next": "^16.2.4",
+    "postprocessing": "^6.39.1",
+    "react": "^19.2.5",
+    "react-dom": "^19.2.5",
+    "three": "^0.184.0",
+    "zod": "^4.3.6",
+    "zustand": "^5.0.12"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.59.1",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
+    "@testing-library/user-event": "^14.6.1",
+    "@types/node": "^25.6.0",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^6.0.1",
+    "eslint": "^9.39.4",
+    "eslint-config-next": "^16.2.4",
+    "jsdom": "^29.1.0",
+    "playwright": "^1.59.1",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.5"
+  },
+  "overrides": {
+    "postcss": "^8.5.12"
+  }
+}
