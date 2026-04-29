@@ -7,8 +7,6 @@ import { Suspense, useRef } from "react";
 import * as THREE from "three";
 import { Axons } from "@/components/Brain/Axons";
 import { BrainMesh } from "@/components/Brain/BrainMesh";
-import { Neurons } from "@/components/Brain/Neurons";
-import { RegionHighlights } from "@/components/Brain/RegionHighlights";
 import { RegionLabels } from "@/components/Brain/RegionLabels";
 import { getBrainAnimationState } from "@/lib/animations";
 import { regionBounds } from "@/lib/regions";
@@ -68,8 +66,6 @@ function BrainRig({ events }: Brain3DProps) {
   return (
     <group ref={group} scale={1.72} rotation={[0.02, -1.05, 0]}>
       <BrainMesh />
-      <RegionHighlights animation={animation} />
-      <Neurons animation={animation} />
       <Axons animation={animation} />
       <HippocampusMarker pulse={animation.hippocampusMarker} decayDimming={animation.decayDimming} />
       <RegionLabels animation={animation} />
