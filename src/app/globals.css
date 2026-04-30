@@ -314,8 +314,7 @@ input {
   margin-top: 16px;
 }
 
-.onboarding-primary,
-.onboarding-secondary {
+.onboarding-primary {
   height: 32px;
   padding: 0 12px;
   border-radius: 6px;
@@ -331,12 +330,6 @@ input {
   border: 1px solid rgba(0, 212, 255, 0.34);
   background: rgba(0, 212, 255, 0.12);
   color: rgba(220, 245, 255, 0.94);
-}
-
-.onboarding-secondary {
-  border: 1px solid rgba(220, 238, 255, 0.11);
-  background: rgba(220, 238, 255, 0.04);
-  color: rgba(220, 238, 255, 0.58);
 }
 
 .secondary-panel {

@@ -19,8 +19,6 @@ import { OnboardingPanel } from "@/components/UI/OnboardingPanel";
 import { SecondaryDock, type SecondaryPanel } from "@/components/UI/SecondaryDock";
 import type { StreamChunk } from "@/types";
 
-const demoPrompt = "I prefer deep red interfaces and dark cyberpunk visuals.";
-
 export function EngramApp() {
   const [message, setMessage] = useState("");
   const [draftTurn, setDraftTurn] = useState<{ user: string; assistant: string } | null>(null);
@@ -90,12 +88,7 @@ export function EngramApp() {
     setActivePanel("context");
   }, []);
 
-  const dismissOnboarding = useCallback(() => {
-    setOnboardingDismissed(true);
-  }, []);
-
-  const startOnboardingDemo = useCallback(() => {
-    setMessage(demoPrompt);
+  const startOnboarding = useCallback(() => {
     setOnboardingDismissed(true);
     inputRef.current?.focus();
   }, []);
@@ -142,7 +135,7 @@ export function EngramApp() {
       </header>
 
       {showOnboarding ? (
-        <OnboardingPanel onDismiss={dismissOnboarding} onStartDemo={startOnboardingDemo} />
+        <OnboardingPanel onStart={startOnboarding} />
       ) : (
         <CurrentEventBanner events={events} />
       )}

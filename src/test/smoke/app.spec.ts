@@ -9,13 +9,13 @@ test("loads the Engram shell", async ({ page }) => {
   await expect(page.getByLabel("Chat message")).toBeVisible();
 });
 
-test("starts onboarding with a sample durable memory", async ({ page }) => {
+test("starts onboarding without prefilled text", async ({ page }) => {
   await page.goto("/");
-  await page.getByRole("button", { name: "Start demo" }).click();
+  await expect(page.getByRole("button", { name: "Start", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Dismiss" })).toHaveCount(0);
+  await page.getByRole("button", { name: "Start", exact: true }).click();
   await expect(page.getByLabel("Engram memory model introduction")).toBeHidden();
-  await expect(page.getByLabel("Chat message")).toHaveValue(
-    "I prefer deep red interfaces and dark cyberpunk visuals."
-  );
+  await expect(page.getByLabel("Chat message")).toHaveValue("");
 });
 
 test("exposes brain thumbnail metadata", async ({ page }) => {

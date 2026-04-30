@@ -1,9 +1,8 @@
 type OnboardingPanelProps = {
-  onDismiss: () => void;
-  onStartDemo: () => void;
+  onStart: () => void;
 };
 
-export function OnboardingPanel({ onDismiss, onStartDemo }: OnboardingPanelProps) {
+export function OnboardingPanel({ onStart }: OnboardingPanelProps) {
   return (
     <section className="onboarding-panel" aria-label="Engram memory model introduction">
       <div className="onboarding-eyebrow">Visible Memory</div>
@@ -27,11 +26,8 @@ export function OnboardingPanel({ onDismiss, onStartDemo }: OnboardingPanelProps
         </div>
       </dl>
       <div className="onboarding-actions">
-        <button className="onboarding-primary" type="button" onClick={onStartDemo}>
-          Start demo
-        </button>
-        <button className="onboarding-secondary" type="button" onClick={onDismiss}>
-          Dismiss
+        <button className="onboarding-primary" type="button" onClick={onStart}>
+          Start
         </button>
       </div>
     </section>
