@@ -31,6 +31,7 @@ const activeContextCenter: [number, number, number] = [
 
 type MemoryLifecycleProps = {
   events: EngramEvent[];
+  onActiveContextSelect?: () => void;
   onMemorySelect?: (id: string) => void;
   responseActive?: boolean;
   selectedMemoryId?: string;
@@ -38,6 +39,7 @@ type MemoryLifecycleProps = {
 
 export function MemoryLifecycle({
   events,
+  onActiveContextSelect,
   onMemorySelect,
   responseActive = false,
   selectedMemoryId
@@ -66,6 +68,7 @@ export function MemoryLifecycle({
         events={events}
         ids={loadedIds}
         load={latestLoad}
+        onSelect={onActiveContextSelect}
         responseActive={responseActive}
       />
       <ConsolidationArc consolidate={latestConsolidate} events={events} />
@@ -314,11 +317,13 @@ function ActiveContextWindow({
   events,
   ids,
   load,
+  onSelect,
   responseActive
 }: {
   events: EngramEvent[];
   ids: string[];
   load?: Extract<EngramEvent, { type: "load" }>;
+  onSelect?: () => void;
   responseActive: boolean;
 }) {
   const fill = useMemo(() => getActiveContextFill(ids), [ids]);
@@ -327,7 +332,7 @@ function ActiveContextWindow({
 
   return (
     <group>
-      <CapacityRing fill={fill} responseActive={responseActive} triggerKey={triggerKey} />
+      <CapacityRing fill={fill} onSelect={onSelect} responseActive={responseActive} triggerKey={triggerKey} />
       {loadedIds.map((id, index) => (
         <LoadedGhost
           events={events}
@@ -344,10 +349,12 @@ function ActiveContextWindow({
 
 function CapacityRing({
   fill,
+  onSelect,
   responseActive,
   triggerKey
 }: {
   fill: ReturnType<typeof getActiveContextFill>;
+  onSelect?: () => void;
   responseActive: boolean;
   triggerKey?: string;
 }) {
@@ -363,8 +370,8 @@ function CapacityRing({
     }
 
     const elapsed = clock.elapsedTime - startTime.current;
-    const visible = fill.used > 0 && (responseActive || elapsed < 3.4);
-    const fade = responseActive ? 1 : Math.max(0, 1 - Math.max(0, elapsed - 1.7) / 1.7);
+    const visible = fill.used > 0;
+    const fade = responseActive ? 1 : Math.max(0.32, 1 - Math.max(0, elapsed - 1.7) / 1.7);
 
     if (!group.current) return;
     group.current.visible = visible;
@@ -413,19 +420,32 @@ function CapacityRing({
           </mesh>
         );
       })}
-      <Html
-        center
-        distanceFactor={4.4}
-        position={[0.02, -0.18, 0.01]}
-        transform={false}
-        className="region-label-3d active-context-label"
-        style={{
-          color: memoryColors.prefrontal,
-          opacity: fill.used > 0 ? 0.88 : 0
-        }}
-      >
-        <span>{fill.used}/{fill.capacity} Context</span>
-      </Html>
+      {fill.used > 0 ? (
+        <Html
+          center
+          distanceFactor={4.4}
+          position={[0.02, -0.18, 0.01]}
+          transform={false}
+          className="active-context-label"
+          style={{ opacity: responseActive ? 0.95 : 0.72 }}
+        >
+          <button
+            aria-label={`Open working memory details: ${fill.used} of ${fill.capacity} loaded`}
+            className="active-context-button"
+            disabled={!onSelect}
+            onClick={(event) => {
+              event.stopPropagation();
+              onSelect?.();
+            }}
+            type="button"
+          >
+            <span className="active-context-count">
+              {fill.used}/{fill.capacity}
+            </span>
+            <span>Working Memory</span>
+          </button>
+        </Html>
+      ) : null}
     </group>
   );
 }

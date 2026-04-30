@@ -3,11 +3,13 @@
 import { useCallback, useMemo, useState } from "react";
 import { Send, Square } from "lucide-react";
 import { explainEvent } from "@/lib/explanations";
+import { getActiveContextFill, getLoadedMemoryIds } from "@/lib/memoryVisuals";
 import { useChat } from "@/hooks/useChat";
 import { useEventQueue } from "@/hooks/useEventQueue";
 import { useMemoryExplanations } from "@/hooks/useMemoryExplanations";
 import { useMemoryStore } from "@/hooks/useMemoryStore";
 import { Brain3D } from "@/components/Brain/Brain3D";
+import { ActiveContextPanel } from "@/components/UI/ActiveContextPanel";
 import { ChatTranscript } from "@/components/UI/ChatTranscript";
 import { CurrentEventBanner } from "@/components/UI/CurrentEventBanner";
 import { EventFeed } from "@/components/UI/EventFeed";
@@ -24,6 +26,19 @@ export function EngramApp() {
   const { events, pushEvent } = useEventQueue();
   const memories = useMemoryStore(events);
   const explanations = useMemoryExplanations(events);
+  const loadedMemoryIds = useMemo(() => getLoadedMemoryIds(events), [events]);
+  const activeContextFill = useMemo(() => getActiveContextFill(loadedMemoryIds), [loadedMemoryIds]);
+  const activeContextMemories = useMemo(
+    () =>
+      loadedMemoryIds
+        .map((id) => memories.find((memory) => memory.id === id))
+        .filter((memory): memory is NonNullable<typeof memory> => Boolean(memory)),
+    [loadedMemoryIds, memories]
+  );
+  const activeContextExplanations = useMemo(
+    () => new Map(explanations.map((explanation) => [explanation.id, explanation])),
+    [explanations]
+  );
   const selectedMemory = useMemo(
     () => memories.find((memory) => memory.id === selectedMemoryId),
     [memories, selectedMemoryId]
@@ -64,6 +79,11 @@ export function EngramApp() {
     setActivePanel(null);
   }, []);
 
+  const openActiveContext = useCallback(() => {
+    setSelectedMemoryId(undefined);
+    setActivePanel("context");
+  }, []);
+
   const onDockSelect = useCallback(
     (panel: SecondaryPanel) => {
       const nextPanel = activePanel === panel ? null : panel;
@@ -95,6 +115,7 @@ export function EngramApp() {
     <main className="engram-shell">
       <Brain3D
         events={events}
+        onActiveContextSelect={openActiveContext}
         onMemorySelect={onMemorySelect}
         responseActive={isStreaming}
         selectedMemoryId={selectedMemoryId}
@@ -117,6 +138,14 @@ export function EngramApp() {
         onClose={closeSecondaryPanel}
         open={activePanel === "memory" && !selectedMemory}
       />
+      <ActiveContextPanel
+        capacity={activeContextFill.capacity}
+        explanations={activeContextExplanations}
+        memories={activeContextMemories}
+        onClose={closeSecondaryPanel}
+        open={activePanel === "context"}
+        used={activeContextFill.used}
+      />
       <MemoryInspector memory={selectedMemory} onClose={closeMemoryPanel} open={activePanel === "memory"} />
       <ChatTranscript
         draftTurn={draftTurn}
@@ -129,7 +158,9 @@ export function EngramApp() {
         activePanel={activePanel}
         eventCount={events.length}
         hasEvents={events.length > 0}
+        hasActiveContext={activeContextFill.used > 0}
         hasMemoryDetails={memoryDetailCount > 0}
+        activeContextCount={activeContextFill.used}
         memoryCount={memoryDetailCount}
         onSelect={onDockSelect}
         transcriptCount={transcriptCount}

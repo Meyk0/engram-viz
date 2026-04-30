@@ -15,7 +15,7 @@ export function BrainMesh() {
       color: "#00d4ff",
       wireframe: true,
       transparent: true,
-      opacity: 0.018,
+      opacity: 0.006,
       depthWrite: false
     });
 
@@ -25,14 +25,8 @@ export function BrainMesh() {
     clone.traverse((child) => {
       if (child instanceof THREE.Mesh) {
         const materials = Array.isArray(child.material) ? child.material : [child.material];
-        materials.forEach((material) => {
-          if (material instanceof THREE.MeshStandardMaterial) {
-            material.color.multiplyScalar(0.9);
-            material.emissiveIntensity = 0;
-            material.roughness = Math.max(material.roughness, 0.66);
-            material.metalness = 0.02;
-          }
-        });
+        const dimmedMaterials = materials.map((material) => prepareBrainMaterial(material));
+        child.material = Array.isArray(child.material) ? dimmedMaterials : dimmedMaterials[0];
         child.renderOrder = 1;
         child.castShadow = false;
         child.receiveShadow = false;
@@ -59,6 +53,25 @@ export function BrainMesh() {
 }
 
 useGLTF.preload(BRAIN_BASE_ASSET_PATH);
+
+function prepareBrainMaterial(material: THREE.Material): THREE.Material {
+  const next = material.clone();
+
+  if (next instanceof THREE.MeshStandardMaterial) {
+    next.color.lerp(new THREE.Color("#111827"), 0.38);
+    next.color.multiplyScalar(0.7);
+    next.emissive.set("#00040a");
+    next.emissiveIntensity = 0;
+    next.transparent = true;
+    next.opacity = 0.56;
+    next.roughness = Math.max(next.roughness, 0.78);
+    next.metalness = 0.015;
+    next.depthWrite = true;
+    next.needsUpdate = true;
+  }
+
+  return next;
+}
 
 function normalizeBrain(object: THREE.Object3D) {
   const box = new THREE.Box3().setFromObject(object);

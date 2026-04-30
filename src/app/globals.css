@@ -534,7 +534,124 @@ input {
 }
 
 .active-context-label {
+  pointer-events: auto;
+  font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  transition: opacity 180ms ease;
+}
+
+.active-context-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 7px;
+  border: 1px solid rgba(0, 212, 255, 0.2);
+  border-radius: 6px;
+  background: rgba(4, 6, 24, 0.64);
+  color: rgba(0, 212, 255, 0.88);
+  cursor: pointer;
   font-size: 7px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  box-shadow: 0 0 12px rgba(0, 212, 255, 0.08);
+  backdrop-filter: blur(8px) saturate(1.15);
+}
+
+.active-context-button:hover {
+  border-color: rgba(0, 212, 255, 0.38);
+  background: rgba(0, 212, 255, 0.1);
+  color: rgba(220, 245, 255, 0.96);
+}
+
+.active-context-button:disabled {
+  cursor: default;
+}
+
+.active-context-count {
+  color: rgba(230, 242, 255, 0.9);
+}
+
+.active-context-summary,
+.active-context-empty {
+  padding: 12px;
+  color: rgba(220, 238, 255, 0.52);
+  font-size: 10px;
+  line-height: 1.45;
+}
+
+.active-context-summary {
+  border-bottom: 1px solid rgba(0, 212, 255, 0.06);
+}
+
+.active-context-list {
+  display: grid;
+  gap: 9px;
+  max-height: 38vh;
+  padding: 10px;
+  overflow-y: auto;
+}
+
+.active-context-item {
+  padding: 10px 11px;
+  border: 1px solid rgba(0, 212, 255, 0.1);
+  border-left: 2px solid currentColor;
+  border-radius: 0 6px 6px 0;
+  background: rgba(5, 5, 20, 0.68);
+}
+
+.active-context-source {
+  margin-bottom: 6px;
+  color: currentColor;
+  font-size: 8px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.active-context-source span {
+  display: block;
+  margin-top: 2px;
+  color: rgba(220, 238, 255, 0.42);
+  letter-spacing: 0.08em;
+}
+
+.active-context-memory {
+  color: rgba(220, 238, 255, 0.88);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.active-context-metrics {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(58px, 0.45fr) minmax(82px, 0.6fr);
+  gap: 8px;
+  margin: 10px 0 0;
+}
+
+.active-context-metrics div {
+  min-width: 0;
+}
+
+.active-context-metrics dt {
+  margin-bottom: 3px;
+  color: rgba(220, 238, 255, 0.38);
+  font-size: 7px;
+  letter-spacing: 0.16em;
+}
+
+.active-context-metrics dd {
+  margin: 0;
+  color: rgba(220, 238, 255, 0.82);
+  font-size: 10px;
+  line-height: 1.3;
+}
+
+.active-context-query {
+  margin-top: 8px;
+  color: rgba(220, 238, 255, 0.46);
+  font-size: 8px;
+  letter-spacing: 0.08em;
+  line-height: 1.4;
 }
 
 .secondary-dock {

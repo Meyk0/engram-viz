@@ -17,12 +17,19 @@ import type { EngramEvent } from "@/types";
 
 type Brain3DProps = {
   events: EngramEvent[];
+  onActiveContextSelect?: () => void;
   onMemorySelect?: (id: string) => void;
   responseActive?: boolean;
   selectedMemoryId?: string;
 };
 
-export function Brain3D({ events, onMemorySelect, responseActive = false, selectedMemoryId }: Brain3DProps) {
+export function Brain3D({
+  events,
+  onActiveContextSelect,
+  onMemorySelect,
+  responseActive = false,
+  selectedMemoryId
+}: Brain3DProps) {
   const controls = useRef<OrbitControlsImpl>(null);
   const [labelsVisible, setLabelsVisible] = useState(true);
   const resetView = useCallback(() => {
@@ -32,23 +39,24 @@ export function Brain3D({ events, onMemorySelect, responseActive = false, select
   return (
     <section className="brain-scene" aria-label="Engram 3D brain scene">
       <Canvas
-        camera={{ position: [0, 0.15, 4.2], fov: 48, near: 0.1, far: 100 }}
+        camera={{ position: [0, 0.12, 5.25], fov: 46, near: 0.1, far: 100 }}
         dpr={[1, 1.75]}
         gl={{ antialias: true, alpha: true, preserveDrawingBuffer: true }}
         data-testid="brain-canvas"
       >
         <color attach="background" args={["#050510"]} />
         <fog attach="fog" args={["#050510", 5, 9]} />
-        <ambientLight intensity={0.36} />
-        <directionalLight position={[1.6, 2.2, 2.6]} intensity={0.78} color="#e7f1ff" />
-        <pointLight position={[0, 1.8, 2.4]} intensity={0.42} color="#00d4ff" />
-        <pointLight position={[-2.4, -0.8, 1.2]} intensity={0.42} color="#a855f7" />
-        <pointLight position={[2.6, 0.1, -1.4]} intensity={0.32} color={regionBounds.temporal.color} />
+        <ambientLight intensity={0.25} />
+        <directionalLight position={[1.6, 2.2, 2.6]} intensity={0.52} color="#e7f1ff" />
+        <pointLight position={[0, 1.8, 2.4]} intensity={0.2} color="#00d4ff" />
+        <pointLight position={[-2.4, -0.8, 1.2]} intensity={0.18} color="#a855f7" />
+        <pointLight position={[2.6, 0.1, -1.4]} intensity={0.16} color={regionBounds.temporal.color} />
         <Stars radius={8} depth={18} count={900} factor={2.2} saturation={0} fade speed={0.35} />
         <Suspense fallback={<FallbackBrain />}>
           <BrainRig
             events={events}
             labelsVisible={labelsVisible}
+            onActiveContextSelect={onActiveContextSelect}
             onMemorySelect={onMemorySelect}
             responseActive={responseActive}
             selectedMemoryId={selectedMemoryId}
@@ -61,11 +69,11 @@ export function Brain3D({ events, onMemorySelect, responseActive = false, select
           enablePan={false}
           enableDamping
           dampingFactor={0.08}
-          minDistance={2.7}
-          maxDistance={6}
+          minDistance={3.1}
+          maxDistance={6.8}
         />
         <EffectComposer>
-          <Bloom intensity={0.08} luminanceThreshold={0.9} luminanceSmoothing={0.55} mipmapBlur />
+          <Bloom intensity={0.045} luminanceThreshold={0.92} luminanceSmoothing={0.58} mipmapBlur />
         </EffectComposer>
       </Canvas>
       <div className="brain-scene-tools" aria-label="Brain view controls">
@@ -91,6 +99,7 @@ export function Brain3D({ events, onMemorySelect, responseActive = false, select
 function BrainRig({
   events,
   labelsVisible,
+  onActiveContextSelect,
   onMemorySelect,
   responseActive = false,
   selectedMemoryId
@@ -105,11 +114,12 @@ function BrainRig({
   });
 
   return (
-    <group ref={group} scale={1.72} rotation={[0.02, -1.05, 0]}>
+    <group ref={group} scale={1.58} rotation={[0.02, -1.05, 0]}>
       <BrainMesh />
       <Axons animation={animation} />
       <MemoryLifecycle
         events={events}
+        onActiveContextSelect={onActiveContextSelect}
         onMemorySelect={onMemorySelect}
         responseActive={responseActive}
         selectedMemoryId={selectedMemoryId}
