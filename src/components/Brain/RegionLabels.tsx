@@ -1,6 +1,6 @@
 "use client";
 
-import { Html, Line } from "@react-three/drei";
+import { Html } from "@react-three/drei";
 import { useFrame } from "@react-three/fiber";
 import { useMemo, useRef, useState } from "react";
 import * as THREE from "three";
@@ -46,8 +46,13 @@ function RegionAnnotation({ animation, region }: { animation: BrainAnimationStat
     [anchor, bounds.labelOffset]
   );
   const baseOpacity = Math.max(0.76, 0.96 + pulse * 0.16 - animation.decayDimming * 0.2);
-  const opacity = baseOpacity * cameraOpacity;
-  const pinScale = 0.02 + pulse * 0.006;
+  const eventActivity = Math.max(
+    animation.hippocampusMarker,
+    animation.transfer.strength,
+    ...Object.values(animation.regions)
+  );
+  const labelFade = 1 - Math.min(0.32, eventActivity * 0.26);
+  const opacity = baseOpacity * cameraOpacity * labelFade;
 
   useFrame(({ camera }) => {
     if (!anchorRef.current) return;
@@ -67,39 +72,7 @@ function RegionAnnotation({ animation, region }: { animation: BrainAnimationStat
 
   return (
     <group>
-      <Line
-        points={[anchor, labelPosition]}
-        color={bounds.color}
-        transparent
-        opacity={opacity * 0.64}
-        lineWidth={0.85}
-        depthWrite={false}
-        depthTest={false}
-      />
-      <group ref={anchorRef} position={anchor}>
-        <mesh scale={pinScale}>
-          <sphereGeometry args={[1, 18, 12]} />
-          <meshBasicMaterial
-            color={bounds.color}
-            transparent
-            opacity={Math.min(1, opacity * 1.08)}
-            depthWrite={false}
-            depthTest={false}
-            blending={THREE.AdditiveBlending}
-          />
-        </mesh>
-        <mesh scale={pinScale * 2.2}>
-          <sphereGeometry args={[1, 18, 10]} />
-          <meshBasicMaterial
-            color={bounds.color}
-            transparent
-            opacity={opacity * 0.22}
-            depthWrite={false}
-            depthTest={false}
-            blending={THREE.AdditiveBlending}
-          />
-        </mesh>
-      </group>
+      <group ref={anchorRef} position={anchor} />
       <Html
         position={labelPosition}
         center

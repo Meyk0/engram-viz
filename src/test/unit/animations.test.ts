@@ -23,6 +23,15 @@ describe("brain animation state", () => {
     expect(state.regions.prefrontal).toBeGreaterThan(0);
   });
 
+  it("does not animate prefrontal for empty retrieval searches", () => {
+    expect(getAnimatedRegions({ type: "retrieve", query: "new fact", ids: [] })).toEqual([]);
+    expect(getAnimatedRegions({ type: "load", ids: [] })).toEqual([]);
+    expect(getAnimatedRegions({ type: "fire", ids: [], region: "prefrontal" })).toEqual([]);
+
+    const state = getBrainAnimationState([{ type: "retrieve", query: "new fact", ids: [] }]);
+    expect(state.regions.prefrontal).toBe(0);
+  });
+
   it("marks consolidation as hippocampus-to-memory-region transfer", () => {
     const state = getBrainAnimationState([fixtureEvents[4]]);
 

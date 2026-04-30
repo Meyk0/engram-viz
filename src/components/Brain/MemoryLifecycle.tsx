@@ -122,14 +122,36 @@ function MemoryNeuron({
 }) {
   const mesh = useRef<THREE.Mesh>(null);
   const material = useRef<THREE.MeshStandardMaterial>(null);
+  const storeRing = useRef<THREE.Mesh>(null);
+  const storeRingMaterial = useRef<THREE.MeshBasicMaterial>(null);
+  const storeActiveId = useRef<string | undefined>(undefined);
+  const storeStartTime = useRef(-10);
   const baseScale = visual.memory.region === "temporal" ? 0.024 : 0.03;
 
   useFrame(({ clock }) => {
     if (!mesh.current || !material.current) return;
+
+    if (storeActive && storeActiveId.current !== visual.memory.id) {
+      storeActiveId.current = visual.memory.id;
+      storeStartTime.current = clock.elapsedTime;
+    }
+
+    if (!storeActive && storeActiveId.current === visual.memory.id) {
+      storeActiveId.current = undefined;
+    }
+
+    const storeElapsed = storeActive ? clock.elapsedTime - storeStartTime.current : 10;
+    const storePulse = storeActive ? Math.max(0, 1 - storeElapsed / 2.4) : 0;
     const shimmer = Math.sin(clock.elapsedTime * 3.4 + visual.position[0] * 8) * 0.06;
-    const pulse = selected ? 0.58 : active ? 0.42 : storeActive ? 0.3 : 0;
-    mesh.current.scale.setScalar(baseScale * (1 + shimmer + pulse));
-    material.current.emissiveIntensity = 0.45 + pulse * 2.4 + (visual.isHighImportance ? 0.28 : 0);
+    const pulse = selected ? 0.58 : active ? 0.42 : 0;
+    mesh.current.scale.setScalar(baseScale * (1 + shimmer + pulse + storePulse * 1.55));
+    material.current.emissiveIntensity = 0.45 + pulse * 2.4 + storePulse * 3.1 + (visual.isHighImportance ? 0.28 : 0);
+
+    if (storeRing.current && storeRingMaterial.current) {
+      storeRing.current.visible = storePulse > 0.02;
+      storeRing.current.scale.setScalar(baseScale * (3.2 + (1 - storePulse) * 4.2));
+      storeRingMaterial.current.opacity = storePulse * 0.68;
+    }
   });
 
   return (
@@ -175,6 +197,20 @@ function MemoryNeuron({
             color="#ffffff"
             transparent
             opacity={0.16}
+            depthWrite={false}
+            depthTest={false}
+            blending={THREE.AdditiveBlending}
+          />
+        </mesh>
+      ) : null}
+      {storeActive ? (
+        <mesh ref={storeRing} visible={false}>
+          <torusGeometry args={[1, 0.038, 8, 64]} />
+          <meshBasicMaterial
+            ref={storeRingMaterial}
+            color={memoryColors.store}
+            transparent
+            opacity={0}
             depthWrite={false}
             depthTest={false}
             blending={THREE.AdditiveBlending}

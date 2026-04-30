@@ -85,9 +85,9 @@ export function getAnimatedRegions(event: EngramEvent): BrainRegion[] {
     case "store":
       return ["hippocampus"];
     case "retrieve":
-      return ["prefrontal"];
+      return event.ids.length > 0 ? ["prefrontal"] : [];
     case "fire":
-      return [event.region];
+      return event.ids.length > 0 ? [event.region] : [];
     case "consolidate":
       return uniqueRegions(["hippocampus", event.added.region]);
     case "decay":
@@ -95,7 +95,7 @@ export function getAnimatedRegions(event: EngramEvent): BrainRegion[] {
     case "init":
       return uniqueRegions(event.memories.map((memory) => memory.region));
     case "load":
-      return ["prefrontal"];
+      return event.ids.length > 0 ? ["prefrontal"] : [];
   }
 }
 
