@@ -13,7 +13,7 @@ export type MemoryVisual = {
 export const memoryColors: Record<BrainRegion | "importance" | "store", string> = {
   prefrontal: "#00d4ff",
   hippocampus: "#a855f7",
-  temporal: "#3b82f6",
+  temporal: "#14f195",
   importance: "#f97316",
   store: "#fbbf24"
 };

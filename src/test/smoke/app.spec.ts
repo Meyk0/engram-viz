@@ -15,6 +15,14 @@ test("opens transcript only from the dock", async ({ page }) => {
   await expect(page.getByLabel("Chat transcript")).toBeVisible();
 });
 
+test("exposes brain label and reset controls", async ({ page }) => {
+  await page.goto("/");
+  await expect(page.getByLabel("Brain view controls")).toBeVisible();
+  await page.getByLabel("Hide brain labels").click();
+  await expect(page.getByLabel("Show brain labels")).toBeVisible();
+  await page.getByLabel("Reset brain view").click();
+});
+
 test("renders a nonblank brain canvas", async ({ page }) => {
   await page.goto("/");
   const canvas = page.locator("canvas").first();

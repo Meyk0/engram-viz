@@ -2,7 +2,7 @@
   --bg: #050510;
   --cyan: #00d4ff;
   --violet: #a855f7;
-  --blue: #3b82f6;
+  --temporal: #14f195;
   --amber: #f97316;
   --gold: #fbbf24;
   --panel: rgba(4, 6, 24, 0.82);
@@ -82,6 +82,35 @@ input {
   cursor: grabbing;
 }
 
+.brain-scene-tools {
+  position: fixed;
+  top: 22px;
+  right: 28px;
+  z-index: 4;
+  display: flex;
+  gap: 6px;
+}
+
+.brain-tool-btn {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  border: 1px solid rgba(0, 212, 255, 0.14);
+  border-radius: 7px;
+  background: rgba(4, 6, 26, 0.58);
+  color: rgba(210, 228, 255, 0.62);
+  cursor: pointer;
+  backdrop-filter: blur(12px) saturate(1.2);
+}
+
+.brain-tool-btn:hover,
+.brain-tool-btn[data-active="true"] {
+  border-color: rgba(0, 212, 255, 0.3);
+  background: rgba(0, 212, 255, 0.1);
+  color: rgba(230, 242, 255, 0.92);
+}
+
 .region-label-3d {
   pointer-events: none;
   font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
@@ -99,6 +128,15 @@ input {
 .region-label-3d span::before {
   content: "> ";
   color: rgba(220, 245, 255, 0.72);
+}
+
+.region-label-3d span {
+  display: inline-block;
+  padding: 3px 6px;
+  border-left: 1px solid currentColor;
+  border-radius: 0 4px 4px 0;
+  background: rgba(4, 6, 24, 0.48);
+  backdrop-filter: blur(6px);
 }
 
 .topbar,
@@ -151,7 +189,7 @@ input {
 }
 
 .current-event-banner[data-region="temporal"] {
-  border-left-color: var(--blue);
+  border-left-color: var(--temporal);
 }
 
 .current-event-banner[data-type="store"] {
@@ -354,7 +392,7 @@ input {
 }
 
 .explanation-item[data-region="temporal"] {
-  color: #14f195;
+  color: var(--temporal);
 }
 
 .explanation-source {
@@ -467,7 +505,7 @@ input {
 }
 
 .event-item[data-region="temporal"] {
-  color: var(--blue);
+  color: var(--temporal);
 }
 
 .event-item[data-type="store"] {

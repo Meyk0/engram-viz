@@ -3,8 +3,10 @@
 import { Canvas, useFrame } from "@react-three/fiber";
 import { OrbitControls, Stars } from "@react-three/drei";
 import { Bloom, EffectComposer } from "@react-three/postprocessing";
-import { Suspense, useRef } from "react";
+import { MapPin, RotateCcw } from "lucide-react";
+import { Suspense, useCallback, useRef, useState } from "react";
 import * as THREE from "three";
+import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 import { Axons } from "@/components/Brain/Axons";
 import { BrainMesh } from "@/components/Brain/BrainMesh";
 import { MemoryLifecycle } from "@/components/Brain/MemoryLifecycle";
@@ -21,6 +23,12 @@ type Brain3DProps = {
 };
 
 export function Brain3D({ events, onMemorySelect, responseActive = false, selectedMemoryId }: Brain3DProps) {
+  const controls = useRef<OrbitControlsImpl>(null);
+  const [labelsVisible, setLabelsVisible] = useState(true);
+  const resetView = useCallback(() => {
+    controls.current?.reset();
+  }, []);
+
   return (
     <section className="brain-scene" aria-label="Engram 3D brain scene">
       <Canvas
@@ -35,17 +43,19 @@ export function Brain3D({ events, onMemorySelect, responseActive = false, select
         <directionalLight position={[1.6, 2.2, 2.6]} intensity={0.78} color="#e7f1ff" />
         <pointLight position={[0, 1.8, 2.4]} intensity={0.42} color="#00d4ff" />
         <pointLight position={[-2.4, -0.8, 1.2]} intensity={0.42} color="#a855f7" />
-        <pointLight position={[2.6, 0.1, -1.4]} intensity={0.32} color="#3b82f6" />
+        <pointLight position={[2.6, 0.1, -1.4]} intensity={0.32} color={regionBounds.temporal.color} />
         <Stars radius={8} depth={18} count={900} factor={2.2} saturation={0} fade speed={0.35} />
         <Suspense fallback={<FallbackBrain />}>
           <BrainRig
             events={events}
+            labelsVisible={labelsVisible}
             onMemorySelect={onMemorySelect}
             responseActive={responseActive}
             selectedMemoryId={selectedMemoryId}
           />
         </Suspense>
         <OrbitControls
+          ref={controls}
           autoRotate
           autoRotateSpeed={0.12}
           enablePan={false}
@@ -58,11 +68,33 @@ export function Brain3D({ events, onMemorySelect, responseActive = false, select
           <Bloom intensity={0.08} luminanceThreshold={0.9} luminanceSmoothing={0.55} mipmapBlur />
         </EffectComposer>
       </Canvas>
+      <div className="brain-scene-tools" aria-label="Brain view controls">
+        <button className="brain-tool-btn" type="button" onClick={resetView} aria-label="Reset brain view" title="Reset view">
+          <RotateCcw size={14} />
+        </button>
+        <button
+          aria-label={labelsVisible ? "Hide brain labels" : "Show brain labels"}
+          aria-pressed={labelsVisible}
+          className="brain-tool-btn"
+          data-active={labelsVisible}
+          onClick={() => setLabelsVisible((current) => !current)}
+          title={labelsVisible ? "Hide labels" : "Show labels"}
+          type="button"
+        >
+          <MapPin size={14} />
+        </button>
+      </div>
     </section>
   );
 }
 
-function BrainRig({ events, onMemorySelect, responseActive = false, selectedMemoryId }: Brain3DProps) {
+function BrainRig({
+  events,
+  labelsVisible,
+  onMemorySelect,
+  responseActive = false,
+  selectedMemoryId
+}: Brain3DProps & { labelsVisible: boolean }) {
   const group = useRef<THREE.Group>(null);
   const animation = getBrainAnimationState(events);
 
@@ -83,7 +115,7 @@ function BrainRig({ events, onMemorySelect, responseActive = false, selectedMemo
         selectedMemoryId={selectedMemoryId}
       />
       <HippocampusMarker pulse={animation.hippocampusMarker} decayDimming={animation.decayDimming} />
-      <RegionLabels animation={animation} />
+      <RegionLabels animation={animation} visible={labelsVisible} />
     </group>
   );
 }
