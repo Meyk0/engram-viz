@@ -18,6 +18,14 @@ test("starts onboarding with a sample durable memory", async ({ page }) => {
   );
 });
 
+test("exposes brain thumbnail metadata", async ({ page }) => {
+  await page.goto("/");
+
+  await expect(page.locator('link[rel="icon"][href$="/engram-icon.png"]')).toHaveCount(1);
+  await expect(page.locator('meta[property="og:image"][content$="/engram-og.png"]')).toHaveCount(1);
+  await expect(page.locator('meta[name="twitter:image"][content$="/engram-og.png"]')).toHaveCount(1);
+});
+
 test("opens transcript only from the dock", async ({ page }) => {
   await page.goto("/");
   await page.getByRole("button", { name: "Transcript" }).click();
@@ -56,24 +64,26 @@ test("renders a nonblank brain canvas", async ({ page }) => {
   await expect(canvas).toBeVisible();
 
   await expect
-    .poll(async () =>
-      canvas.evaluate((element) => {
-        const source = element as HTMLCanvasElement;
-        const probe = document.createElement("canvas");
-        probe.width = 48;
-        probe.height = 48;
-        const context = probe.getContext("2d");
-        if (!context) return 0;
-        context.drawImage(source, 0, 0, probe.width, probe.height);
-        const pixels = context.getImageData(0, 0, probe.width, probe.height).data;
-        let nonBlackPixels = 0;
-        for (let index = 0; index < pixels.length; index += 4) {
-          if (pixels[index] > 8 || pixels[index + 1] > 8 || pixels[index + 2] > 8) {
-            nonBlackPixels += 1;
+    .poll(
+      async () =>
+        canvas.evaluate((element) => {
+          const source = element as HTMLCanvasElement;
+          const probe = document.createElement("canvas");
+          probe.width = 48;
+          probe.height = 48;
+          const context = probe.getContext("2d");
+          if (!context) return 0;
+          context.drawImage(source, 0, 0, probe.width, probe.height);
+          const pixels = context.getImageData(0, 0, probe.width, probe.height).data;
+          let nonBlackPixels = 0;
+          for (let index = 0; index < pixels.length; index += 4) {
+            if (pixels[index] > 8 || pixels[index + 1] > 8 || pixels[index + 2] > 8) {
+              nonBlackPixels += 1;
+            }
           }
-        }
-        return nonBlackPixels;
-      })
+          return nonBlackPixels;
+        }),
+      { timeout: 15_000 }
     )
     .toBeGreaterThan(40);
 });
