@@ -91,58 +91,6 @@ export function getCurrentEventNarrative(events: EngramEvent[]): EventNarrative 
   }
 }
 
-export function getGroupedEventNarrative(events: EngramEvent[]): EventNarrative {
-  const event = events[0];
-  if (!event) return getCurrentEventNarrative(events);
-
-  if (event.type === "fire" && event.region === "hippocampus" && isStoreFollowupFire(events, event)) {
-    return {
-      title: "New fact stored",
-      body: "A new fact became one episodic memory in the hippocampus.",
-      type: "store",
-      region: "hippocampus"
-    };
-  }
-
-  if (event.type === "fire" && event.region === "temporal" && isConsolidationFollowupFire(events, event)) {
-    return {
-      title: "Memories consolidated",
-      body: "Related episodes merged into one stable semantic memory.",
-      type: "consolidate",
-      region: "temporal"
-    };
-  }
-
-  if (event.type === "fire" && event.region === "prefrontal") {
-    return {
-      title: "Retrieved memory loaded",
-      body: `${pluralize(event.ids.length, "memory")} is now loaded into active context for this response.`,
-      type: "load",
-      region: "prefrontal"
-    };
-  }
-
-  if (event.type === "load") {
-    return {
-      title: "Retrieved memory loaded",
-      body: `${pluralize(event.ids.length, "memory")} entered active context for this response.`,
-      type: "load",
-      region: "prefrontal"
-    };
-  }
-
-  if (event.type === "retrieve" && event.ids.length > 0) {
-    return {
-      title: "Retrieved memory loaded",
-      body: `${pluralize(event.ids.length, "memory")} matched and is ready for active context.`,
-      type: "retrieve",
-      region: "prefrontal"
-    };
-  }
-
-  return getCurrentEventNarrative(events);
-}
-
 function pluralize(count: number, word: string) {
   if (count === 1) return `${count} ${word}`;
   return `${count} ${word.endsWith("y") ? `${word.slice(0, -1)}ies` : `${word}s`}`;

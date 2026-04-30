@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { getCurrentEventNarrative, getGroupedEventNarrative } from "@/lib/eventNarrative";
+import { getCurrentEventNarrative } from "@/lib/eventNarrative";
 import type { EngramEvent } from "@/types";
 
 describe("event narrative", () => {
@@ -28,21 +28,6 @@ describe("event narrative", () => {
       title: "New fact stored",
       body: "A raw memory landed in the hippocampus.",
       region: "hippocampus"
-    });
-  });
-
-  it("groups retrieve/load/fire into one readable active-context summary", () => {
-    const events: EngramEvent[] = [
-      { type: "fire", region: "prefrontal", ids: ["mem-red"] },
-      { type: "load", ids: ["mem-red"] },
-      { type: "retrieve", query: "red", ids: ["mem-red"] }
-    ];
-
-    expect(getGroupedEventNarrative(events)).toEqual({
-      title: "Retrieved memory loaded",
-      body: "1 memory is now loaded into active context for this response.",
-      type: "load",
-      region: "prefrontal"
     });
   });
 });

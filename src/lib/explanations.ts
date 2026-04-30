@@ -1,13 +1,6 @@
 import { tokenize } from "@/lib/memory/retrieve";
 import type { BrainRegion, EngramEvent, EngramMemory } from "@/types";
 
-export const firstTimeCaptions: Partial<Record<EngramEvent["type"], string>> = {
-  store: "This is episodic memory - a raw fact, stored as it came in.",
-  retrieve: "This is retrieval - semantic search across stored memories.",
-  consolidate: "This is consolidation - the system distilling related episodes into one summary.",
-  decay: "Memories don't get deleted in LLM systems - they just drop in retrieval ranking."
-};
-
 export const regionExplanations: Record<
   BrainRegion,
   { label: string; concept: string; description: string; capacity: number }

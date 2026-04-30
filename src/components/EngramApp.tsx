@@ -70,23 +70,7 @@ export function EngramApp() {
 
       <header className="topbar">
         <h1 className="title">ENGRAM</h1>
-        <div className="subtitle">Neural memory visualizer v0.1</div>
       </header>
-
-      <aside className="status-panel" aria-label="System status">
-        <div className="status-line">
-          <span>CORTEX ONLINE</span>
-          <span className="status-dot" />
-        </div>
-        <div className="status-line">
-          <span>DEMO STREAM</span>
-          <span className="status-dot" />
-        </div>
-        <div className="status-line">
-          <span>{events.length} EVENTS</span>
-          <span className="status-dot" />
-        </div>
-      </aside>
 
       <CurrentEventBanner events={events} />
 
