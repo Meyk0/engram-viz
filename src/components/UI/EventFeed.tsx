@@ -10,6 +10,7 @@ export function EventFeed({ events, explainEvent }: EventFeedProps) {
     <aside className="event-feed" aria-label="Memory event stream">
       <div className="event-feed-header">MEMORY STREAM</div>
       <div className="event-list">
+        {events.length === 0 ? <div className="event-empty">Awaiting first memory event.</div> : null}
         {events.slice(0, 7).map((event, index) => (
           <article
             className="event-item"

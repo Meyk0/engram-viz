@@ -6,13 +6,29 @@ import type { ChatMessage, StreamChunk } from "@/types";
 export function useChat(options: { onChunk: (chunk: StreamChunk) => void }) {
   const [history, setHistory] = useState<ChatMessage[]>([]);
   const [isStreaming, setIsStreaming] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const sessionId = useRef(`engram-${crypto.randomUUID()}`);
+  const abortController = useRef<AbortController | null>(null);
+  const streamReader = useRef<ReadableStreamDefaultReader<Uint8Array> | null>(null);
+  const canceled = useRef(false);
+
+  const cancel = useCallback(() => {
+    if (!abortController.current) return;
+    canceled.current = true;
+    setError("Response canceled.");
+    abortController.current?.abort();
+    void streamReader.current?.cancel();
+  }, []);
 
   const sendMessage = useCallback(
     async (message: string) => {
       const trimmed = message.trim();
       if (!trimmed || isStreaming) return;
 
+      const controller = new AbortController();
+      abortController.current = controller;
+      canceled.current = false;
+      setError(null);
       setIsStreaming(true);
       let assistantText = "";
 
@@ -20,7 +36,8 @@ export function useChat(options: { onChunk: (chunk: StreamChunk) => void }) {
         const response = await fetch("/api/chat", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ sessionId: sessionId.current, message: trimmed, history })
+          body: JSON.stringify({ sessionId: sessionId.current, message: trimmed, history }),
+          signal: controller.signal
         });
 
         if (!response.ok || !response.body) {
@@ -28,6 +45,7 @@ export function useChat(options: { onChunk: (chunk: StreamChunk) => void }) {
         }
 
         const reader = response.body.getReader();
+        streamReader.current = reader;
         const decoder = new TextDecoder();
         let buffer = "";
 
@@ -46,9 +64,14 @@ export function useChat(options: { onChunk: (chunk: StreamChunk) => void }) {
             if (chunk.kind === "text") {
               assistantText += chunk.delta;
             }
+            if (chunk.kind === "error") {
+              setError(chunk.message);
+            }
             options.onChunk(chunk);
           });
         }
+
+        if (canceled.current) return;
 
         setHistory((current) => [
           ...current,
@@ -56,14 +79,22 @@ export function useChat(options: { onChunk: (chunk: StreamChunk) => void }) {
           ...(assistantText ? ([{ role: "assistant", content: assistantText }] satisfies ChatMessage[]) : [])
         ]);
       } catch (error) {
-        setIsStreaming(false);
-        throw error;
-      }
+        if (error instanceof DOMException && error.name === "AbortError") {
+          setError("Response canceled.");
+          return;
+        }
 
-      setIsStreaming(false);
+        setError(error instanceof Error ? error.message : "Chat stream failed.");
+        throw error;
+      } finally {
+        abortController.current = null;
+        streamReader.current = null;
+        canceled.current = false;
+        setIsStreaming(false);
+      }
     },
     [history, isStreaming, options]
   );
 
-  return { history, isStreaming, sendMessage };
+  return { history, isStreaming, error, sendMessage, cancel };
 }

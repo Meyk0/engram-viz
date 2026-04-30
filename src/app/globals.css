@@ -105,8 +105,8 @@ input {
 .status-panel,
 .event-feed,
 .explainability-panel,
+.chat-transcript,
 .caption,
-.ai-response,
 .chat-bar {
   position: fixed;
   z-index: 10;
@@ -203,7 +203,7 @@ input {
   backdrop-filter: blur(18px) saturate(1.35);
 }
 
-.ai-response {
+.chat-transcript {
   bottom: 76px;
   left: 24px;
   width: min(460px, calc(100vw - 48px));
@@ -217,7 +217,7 @@ input {
   backdrop-filter: blur(20px) saturate(1.4);
 }
 
-.response-header {
+.transcript-header {
   padding: 10px 14px 8px;
   border-bottom: 1px solid rgba(0, 212, 255, 0.07);
   color: rgba(0, 212, 255, 0.38);
@@ -226,13 +226,60 @@ input {
   letter-spacing: 0.2em;
 }
 
-.response-body {
-  max-height: 28vh;
-  padding: 12px 14px 14px;
+.transcript-list {
+  display: grid;
+  gap: 8px;
+  max-height: 34vh;
+  padding: 10px;
   overflow-y: auto;
+}
+
+.transcript-message {
+  display: grid;
+  gap: 5px;
+  padding: 9px 10px;
+  border: 1px solid rgba(0, 212, 255, 0.08);
+  border-left: 2px solid rgba(0, 212, 255, 0.42);
+  border-radius: 0 6px 6px 0;
+  background: rgba(5, 5, 20, 0.62);
+}
+
+.transcript-message[data-role="assistant"] {
+  border-left-color: rgba(168, 85, 247, 0.54);
+}
+
+.transcript-role {
+  color: rgba(0, 212, 255, 0.44);
+  font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 8px;
+  letter-spacing: 0.18em;
+}
+
+.transcript-message[data-role="assistant"] .transcript-role {
+  color: rgba(168, 85, 247, 0.64);
+}
+
+.transcript-copy {
   color: rgba(210, 228, 255, 0.84);
   font-size: 13px;
-  line-height: 1.6;
+  line-height: 1.48;
+}
+
+.transcript-empty,
+.transcript-error {
+  padding: 10px;
+  color: rgba(220, 238, 255, 0.48);
+  font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  line-height: 1.45;
+}
+
+.transcript-error {
+  border: 1px solid rgba(249, 115, 22, 0.18);
+  border-radius: 6px;
+  background: rgba(249, 115, 22, 0.06);
+  color: rgba(255, 183, 110, 0.82);
 }
 
 .event-feed-header {
@@ -410,6 +457,13 @@ input {
 .event-explainer {
   margin-top: 4px;
   color: rgba(220, 238, 255, 0.52);
+}
+
+.event-empty {
+  padding: 10px 0;
+  color: rgba(220, 238, 255, 0.42);
+  font-size: 9px;
+  letter-spacing: 0.08em;
 }
 
 .chat-bar {

@@ -7,7 +7,10 @@ export function useEventQueue(initialEvents: EngramEvent[] = []) {
   const [events, setEvents] = useState<EngramEvent[]>(initialEvents);
 
   const pushEvent = useCallback((event: EngramEvent) => {
-    setEvents((current) => [event, ...current].slice(0, 50));
+    setEvents((current) => {
+      const retained = event.type === "init" ? current.filter((item) => item.type !== "init") : current;
+      return [event, ...retained].slice(0, 50);
+    });
   }, []);
 
   const clearEvents = useCallback(() => setEvents([]), []);

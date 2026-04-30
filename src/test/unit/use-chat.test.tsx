@@ -57,6 +57,41 @@ describe("useChat", () => {
     expect(history.filter((message) => message.role === "user")).toHaveLength(1);
     expect(history).toHaveLength(2);
   });
+
+  it("surfaces streamed error chunks", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      streamResponse([
+        { kind: "error", message: "Provider failed." },
+        { kind: "done" }
+      ])
+    );
+
+    render(<ChatHarness onChunk={() => undefined} />);
+
+    await userEvent.click(screen.getByRole("button", { name: "Send message" }));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("error")).toHaveTextContent("Provider failed.");
+    });
+  });
+
+  it("can cancel an in-flight response", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(hangingResponse());
+
+    render(<ChatHarness onChunk={() => undefined} />);
+
+    await userEvent.click(screen.getByRole("button", { name: "Send message" }));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("streaming")).toHaveTextContent("streaming");
+    });
+
+    await userEvent.click(screen.getByRole("button", { name: "Cancel message" }));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("error")).toHaveTextContent("Response canceled.");
+    });
+  });
 });
 
 function ChatHarness({ onChunk }: { onChunk: (chunk: StreamChunk) => void }) {
@@ -67,7 +102,11 @@ function ChatHarness({ onChunk }: { onChunk: (chunk: StreamChunk) => void }) {
       <button type="button" onClick={() => void chat.sendMessage("remember my style")}>
         Send message
       </button>
+      <button type="button" onClick={chat.cancel}>
+        Cancel message
+      </button>
       <output data-testid="streaming">{chat.isStreaming ? "streaming" : "idle"}</output>
+      <output data-testid="error">{chat.error ?? ""}</output>
       <output data-testid="history">{JSON.stringify(chat.history)}</output>
     </div>
   );
@@ -81,6 +120,20 @@ function streamResponse(chunks: StreamChunk[]) {
         controller.enqueue(encoder.encode(`data: ${JSON.stringify(chunk)}\n\n`));
       });
       controller.close();
+    }
+  });
+
+  return new Response(stream, {
+    status: 200,
+    headers: { "Content-Type": "text/event-stream" }
+  });
+}
+
+function hangingResponse() {
+  const encoder = new TextEncoder();
+  const stream = new ReadableStream({
+    start(controller) {
+      controller.enqueue(encoder.encode(`data: ${JSON.stringify({ kind: "text", delta: "Thinking..." })}\n\n`));
     }
   });
 

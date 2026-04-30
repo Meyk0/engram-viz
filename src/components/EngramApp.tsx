@@ -1,29 +1,31 @@
 "use client";
 
 import { useCallback, useMemo, useState } from "react";
-import { Send } from "lucide-react";
-import { fixtureEvents } from "@/lib/events/fixtures";
+import { Send, Square } from "lucide-react";
 import { explainEvent } from "@/lib/explanations";
 import { useChat } from "@/hooks/useChat";
 import { useEventQueue } from "@/hooks/useEventQueue";
 import { useFirstTimeEvents } from "@/hooks/useFirstTimeEvents";
 import { useMemoryExplanations } from "@/hooks/useMemoryExplanations";
 import { Brain3D } from "@/components/Brain/Brain3D";
+import { ChatTranscript } from "@/components/UI/ChatTranscript";
 import { EventFeed } from "@/components/UI/EventFeed";
 import { ExplainabilityPanel } from "@/components/UI/ExplainabilityPanel";
 import type { StreamChunk } from "@/types";
 
 export function EngramApp() {
   const [message, setMessage] = useState("");
-  const [responseText, setResponseText] = useState("");
-  const { events, pushEvent } = useEventQueue([fixtureEvents[0]]);
+  const [draftTurn, setDraftTurn] = useState<{ user: string; assistant: string } | null>(null);
+  const { events, pushEvent } = useEventQueue();
   const { caption, recordEvent } = useFirstTimeEvents();
   const explanations = useMemoryExplanations(events);
 
   const onChunk = useCallback(
     (chunk: StreamChunk) => {
       if (chunk.kind === "text") {
-        setResponseText((current) => current + chunk.delta);
+        setDraftTurn((current) =>
+          current ? { ...current, assistant: `${current.assistant}${chunk.delta}` } : current
+        );
       }
       if (chunk.kind === "event") {
         pushEvent(chunk.event);
@@ -33,14 +35,22 @@ export function EngramApp() {
     [pushEvent, recordEvent]
   );
 
-  const { isStreaming, sendMessage } = useChat(useMemo(() => ({ onChunk }), [onChunk]));
+  const { history, isStreaming, error, sendMessage, cancel } = useChat(useMemo(() => ({ onChunk }), [onChunk]));
 
   async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const current = message;
+    const current = message.trim();
+    if (!current) return;
+
     setMessage("");
-    setResponseText("");
-    await sendMessage(current);
+    setDraftTurn({ user: current, assistant: "" });
+
+    try {
+      await sendMessage(current);
+      setDraftTurn(null);
+    } catch {
+      setDraftTurn((turn) => (turn ? { ...turn, assistant: turn.assistant || "No response received." } : turn));
+    }
   }
 
   return (
@@ -71,13 +81,7 @@ export function EngramApp() {
 
       <EventFeed events={events} explainEvent={explainEvent} />
       <ExplainabilityPanel explanations={explanations} />
-
-      {responseText ? (
-        <aside className="ai-response" aria-label="AI response">
-          <div className="response-header">AI RESPONSE</div>
-          <div className="response-body">{responseText}</div>
-        </aside>
-      ) : null}
+      <ChatTranscript history={history} draftTurn={draftTurn} error={error} />
 
       <form className="chat-bar" onSubmit={onSubmit}>
         <span className="chat-prefix">›</span>
@@ -89,9 +93,15 @@ export function EngramApp() {
           aria-label="Chat message"
         />
         <span className="chat-status">{isStreaming ? "STREAMING" : "READY"}</span>
-        <button className="send-btn" type="submit" disabled={isStreaming || !message.trim()} aria-label="Send">
-          <Send size={15} />
-        </button>
+        {isStreaming ? (
+          <button className="send-btn" type="button" onClick={cancel} aria-label="Cancel response">
+            <Square size={13} />
+          </button>
+        ) : (
+          <button className="send-btn" type="submit" disabled={!message.trim()} aria-label="Send">
+            <Send size={15} />
+          </button>
+        )}
       </form>
     </main>
   );
