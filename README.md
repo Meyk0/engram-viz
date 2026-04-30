@@ -15,6 +15,17 @@ npm install
 npm run dev
 ```
 
+The app runs in deterministic demo mode by default. To use ChatGPT/OpenAI for local chat turns, set:
+
+```bash
+ENGRAM_CHAT_PROVIDER=openai
+OPENAI_LIVE_ENABLED=true
+OPENAI_API_KEY=...
+OPENAI_MODEL=gpt-5.4-mini
+```
+
+OpenAI calls are server-side only. Normal tests use mocked providers and do not require an API key.
+
 ## Verification
 
 ```bash
@@ -26,7 +37,7 @@ npm run build
 
 ## Provider Direction
 
-The architecture is provider-neutral. Development starts in deterministic `demo` mode, and the live chat layer can later target OpenAI/ChatGPT or Anthropic while emitting the same `EngramEvent` stream.
+The architecture is provider-neutral. Development starts in deterministic `demo` mode, and the live chat layer can target OpenAI/ChatGPT while emitting the same `EngramEvent` stream. Anthropic remains a future provider boundary.
 
 ## Credit
 

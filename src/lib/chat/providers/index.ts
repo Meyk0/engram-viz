@@ -9,8 +9,10 @@ export function createChatProvider(provider: ChatProvider): ChatProviderClient {
 }
 
 export function configuredChatProvider(): ChatProvider {
+  const requestedProvider = process.env.ENGRAM_CHAT_PROVIDER ?? process.env.CHAT_PROVIDER;
+
   if (
-    process.env.CHAT_PROVIDER === "openai" &&
+    requestedProvider === "openai" &&
     process.env.OPENAI_API_KEY &&
     process.env.OPENAI_LIVE_ENABLED === "true"
   ) {
