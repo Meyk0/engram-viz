@@ -73,12 +73,36 @@ export function getLatestFireEvent(events: EngramEvent[]) {
   return events.find((event): event is Extract<EngramEvent, { type: "fire" }> => event.type === "fire");
 }
 
+export function getLatestConsolidateEvent(events: EngramEvent[]) {
+  return events.find(
+    (event): event is Extract<EngramEvent, { type: "consolidate" }> => event.type === "consolidate"
+  );
+}
+
 export function getActiveMemoryIds(events: EngramEvent[]): string[] {
   const fire = getLatestFireEvent(events);
   if (fire?.ids.length) return fire.ids;
 
   const retrieve = getLatestRetrieveEvent(events);
   return retrieve?.ids ?? [];
+}
+
+export function getMemoryPositionById(events: EngramEvent[], id: string): [number, number, number] {
+  const memory = findMemoryById(events, id);
+  return getMemoryPosition(memory ?? { id, region: "hippocampus" });
+}
+
+function findMemoryById(events: EngramEvent[], id: string): Pick<EngramMemory, "id" | "region"> | undefined {
+  for (const event of events) {
+    if (event.type === "store" && event.memory.id === id) return event.memory;
+    if (event.type === "consolidate" && event.added.id === id) return event.added;
+    if (event.type === "init") {
+      const memory = event.memories.find((item) => item.id === id);
+      if (memory) return memory;
+    }
+  }
+
+  return undefined;
 }
 
 function hash(value: string): number {

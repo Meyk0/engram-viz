@@ -1,5 +1,6 @@
 import { createChatProvider, configuredChatProvider } from "@/lib/chat/providers";
 import { MemoryEngine } from "@/lib/memory/engine";
+import { findConsolidationCandidate } from "@/lib/memory/consolidationPolicy";
 import { evaluateMemoryCandidate } from "@/lib/memory/rules";
 import { InMemoryMemoryStore } from "@/lib/memory/store-interface";
 import type { ChatMessage, EngramEvent, StreamChunk } from "@/types";
@@ -63,6 +64,24 @@ export async function createLiveMemoryStream(input: LiveChatInput): Promise<Stre
       kind: "event",
       event: memoryEngine.fire(storedRegion, stored.type === "store" ? [stored.memory.id] : [])
     });
+
+    const consolidationCandidate = findConsolidationCandidate(await memoryStore.list(input.sessionId));
+    if (consolidationCandidate) {
+      const consolidated = await memoryEngine.consolidate({
+        sessionId: input.sessionId,
+        ids: consolidationCandidate.ids,
+        consolidatedText: consolidationCandidate.consolidatedText,
+        now: input.now
+      });
+
+      if (consolidated?.type === "consolidate") {
+        chunks.push({ kind: "event", event: consolidated });
+        chunks.push({
+          kind: "event",
+          event: memoryEngine.fire(consolidated.added.region, [consolidated.added.id])
+        });
+      }
+    }
   }
 
   const decay = await memoryEngine.decay(input.sessionId);

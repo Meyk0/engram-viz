@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
   getActiveMemoryIds,
+  getLatestConsolidateEvent,
   getLatestRetrieveEvent,
   getLatestStoreEvent,
+  getMemoryPositionById,
   getMemoryPosition,
   getMemoryVisuals,
   memoryColors
@@ -50,6 +52,23 @@ describe("memory visual lifecycle", () => {
     expect(getLatestStoreEvent(events)?.memory.id).toBe(memory.id);
     expect(getLatestRetrieveEvent(events)?.query).toBe("style");
     expect(getActiveMemoryIds(events)).toEqual([memory.id]);
+  });
+
+  it("finds consolidation events and source positions from prior memory events", () => {
+    const rawA = makeMemory("mem-a", "hippocampus");
+    const rawB = makeMemory("mem-b", "hippocampus");
+    const semantic = makeMemory("mem-semantic", "temporal");
+    const events: EngramEvent[] = [
+      { type: "consolidate", removed: [rawA.id, rawB.id], added: semantic },
+      { type: "store", memory: rawB },
+      { type: "store", memory: rawA }
+    ];
+
+    expect(getLatestConsolidateEvent(events)?.added.id).toBe(semantic.id);
+    expect(getMemoryPositionById(events, rawA.id)).toEqual(getMemoryPosition(rawA));
+    expect(getMemoryPositionById(events, "missing-memory")).toEqual(
+      getMemoryPosition({ id: "missing-memory", region: "hippocampus" })
+    );
   });
 });
 

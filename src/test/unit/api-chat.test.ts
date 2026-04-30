@@ -85,4 +85,41 @@ describe("/api/chat", () => {
     );
     expect(chunks.at(-1)).toEqual({ kind: "done" });
   });
+
+  it("consolidates repeated same-topic hippocampus memories into temporal memory", async () => {
+    resetLiveMemoryStore();
+
+    await POST(
+      new Request("http://localhost/api/chat", {
+        method: "POST",
+        body: JSON.stringify({
+          sessionId: "api-chat-d",
+          message: "remember that I prefer quiet cyberpunk medical interfaces"
+        })
+      })
+    );
+
+    const response = await POST(
+      new Request("http://localhost/api/chat", {
+        method: "POST",
+        body: JSON.stringify({
+          sessionId: "api-chat-d",
+          message: "remember that I like restrained interface design"
+        })
+      })
+    );
+
+    const chunks = decodeSseChunks(await response.text());
+    const consolidateChunk = chunks.find(
+      (chunk) => chunk.kind === "event" && chunk.event.type === "consolidate"
+    );
+
+    expect(consolidateChunk?.kind).toBe("event");
+    if (consolidateChunk?.kind !== "event" || consolidateChunk.event.type !== "consolidate") {
+      throw new Error("expected consolidate event");
+    }
+    expect(consolidateChunk.event.removed).toHaveLength(2);
+    expect(consolidateChunk.event.added.region).toBe("temporal");
+    expect(consolidateChunk.event.added.text).toContain("recurring design memories");
+  });
 });

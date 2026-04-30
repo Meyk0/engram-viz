@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { createConsolidatedMemory } from "@/lib/memory/consolidate";
+import { findConsolidationCandidate } from "@/lib/memory/consolidationPolicy";
 import { evaluateMemoryCandidate } from "@/lib/memory/rules";
 import { retrieveMemories } from "@/lib/memory/retrieve";
 import { MemoryEngine } from "@/lib/memory/engine";
@@ -102,6 +103,58 @@ describe("memory quality rules", () => {
 });
 
 describe("memory consolidation", () => {
+  it("selects same-topic hippocampus memories for deterministic consolidation", () => {
+    const candidate = findConsolidationCandidate([
+      {
+        id: "a",
+        text: "Remember that I prefer red interfaces",
+        importance: 0.84,
+        topic: "design",
+        region: "hippocampus",
+        created_at: "2026-04-29T17:00:00.000Z",
+        access_count: 0
+      },
+      {
+        id: "b",
+        text: "Remember that I like restrained medical UI",
+        importance: 0.84,
+        topic: "design",
+        region: "hippocampus",
+        created_at: "2026-04-29T17:01:00.000Z",
+        access_count: 0
+      },
+      {
+        id: "c",
+        text: "The deployment target is Vercel",
+        importance: 0.68,
+        topic: "technical",
+        region: "hippocampus",
+        created_at: "2026-04-29T17:02:00.000Z",
+        access_count: 0
+      }
+    ]);
+
+    expect(candidate?.ids).toEqual(["a", "b"]);
+    expect(candidate?.consolidatedText).toContain("recurring design memories");
+    expect(candidate?.consolidatedText).not.toContain("Remember that");
+  });
+
+  it("does not consolidate temporal memories or singleton topics", () => {
+    const candidate = findConsolidationCandidate([
+      {
+        id: "a",
+        text: "User likes red",
+        importance: 0.84,
+        topic: "design",
+        region: "temporal",
+        created_at: "2026-04-29T17:00:00.000Z",
+        access_count: 0
+      }
+    ]);
+
+    expect(candidate).toBeNull();
+  });
+
   it("creates a temporal summary with source importance", () => {
     const consolidated = createConsolidatedMemory({
       id: "summary",

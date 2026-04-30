@@ -5,10 +5,12 @@ import { useMemo, useRef } from "react";
 import * as THREE from "three";
 import {
   getActiveMemoryIds,
+  getLatestConsolidateEvent,
   getLatestFireEvent,
   getLatestRetrieveEvent,
   getLatestStoreEvent,
   getMemoryPosition,
+  getMemoryPositionById,
   getMemoryVisuals,
   memoryColors,
   type MemoryVisual
@@ -26,12 +28,14 @@ export function MemoryLifecycle({ events }: MemoryLifecycleProps) {
   const latestStore = useMemo(() => getLatestStoreEvent(events), [events]);
   const latestRetrieve = useMemo(() => getLatestRetrieveEvent(events), [events]);
   const latestFire = useMemo(() => getLatestFireEvent(events), [events]);
+  const latestConsolidate = useMemo(() => getLatestConsolidateEvent(events), [events]);
 
   return (
     <group renderOrder={6}>
       <MemoryNeurons memories={memories} activeIds={activeIds} latestStoreId={latestStore?.memory.id} />
       <StoreComet memory={latestStore?.memory} />
       <PrefrontalBolt triggerKey={latestRetrieve?.query} />
+      <ConsolidationArc consolidate={latestConsolidate} events={events} />
       <FiredAxons memories={memories} activeIds={activeIds} triggerKey={latestFire ? `${latestFire.region}-${latestFire.ids.join(".")}` : undefined} />
     </group>
   );
@@ -320,6 +324,130 @@ function FiredAxon({ triggerKey, visual }: { triggerKey?: string; visual: Memory
   );
 }
 
+function ConsolidationArc({
+  consolidate,
+  events
+}: {
+  consolidate?: Extract<EngramEvent, { type: "consolidate" }>;
+  events: EngramEvent[];
+}) {
+  const sourceGhosts = useRef<THREE.Group>(null);
+  const shockwave = useRef<THREE.Mesh>(null);
+  const arcMaterial = useRef<THREE.MeshBasicMaterial>(null);
+  const tracer = useRef<THREE.Mesh>(null);
+  const activeKey = useRef<string | undefined>(undefined);
+  const startTime = useRef(-10);
+  const sourcePositions = useMemo(
+    () => consolidate?.removed.map((id) => getMemoryPositionById(events, id)) ?? [],
+    [consolidate, events]
+  );
+  const target = useMemo(
+    () => (consolidate ? getMemoryPosition(consolidate.added) : regionBounds.temporal.center),
+    [consolidate]
+  );
+  const centroid = useMemo(() => getCentroid(sourcePositions), [sourcePositions]);
+  const curve = useMemo(() => getArcCurve(centroid, target, 0.32), [centroid, target]);
+  const geometry = useMemo(() => new THREE.TubeGeometry(curve, 48, 0.006, 8, false), [curve]);
+  const triggerKey = consolidate ? `${consolidate.added.id}-${consolidate.removed.join(".")}` : undefined;
+
+  useFrame(({ clock }) => {
+    if (triggerKey && activeKey.current !== triggerKey) {
+      activeKey.current = triggerKey;
+      startTime.current = clock.elapsedTime;
+    }
+
+    const elapsed = clock.elapsedTime - startTime.current;
+    const active = elapsed >= 0 && elapsed < 1.45;
+    const mergePhase = active ? Math.max(0, 1 - Math.abs(elapsed - 0.45) / 0.45) : 0;
+    const arcPhase = active ? Math.max(0, Math.min(1, (elapsed - 0.45) / 0.72)) : 0;
+    const fade = active ? Math.max(0, 1 - elapsed / 1.45) : 0;
+
+    if (sourceGhosts.current) {
+      sourceGhosts.current.visible = active && elapsed < 0.68;
+      sourceGhosts.current.children.forEach((child) => {
+        if (!(child instanceof THREE.Mesh)) return;
+        const material = child.material;
+        if (material instanceof THREE.MeshBasicMaterial) {
+          material.opacity = Math.max(0, 0.64 * (1 - elapsed / 0.68));
+        }
+        child.scale.setScalar(0.03 * (1 + mergePhase * 0.85));
+      });
+    }
+
+    if (shockwave.current) {
+      shockwave.current.visible = active && elapsed > 0.34 && elapsed < 0.9;
+      shockwave.current.scale.setScalar(0.04 + mergePhase * 0.13);
+      const material = shockwave.current.material;
+      if (material instanceof THREE.MeshBasicMaterial) {
+        material.opacity = mergePhase * 0.16;
+      }
+    }
+
+    if (arcMaterial.current) {
+      arcMaterial.current.opacity = arcPhase > 0 ? Math.max(0, 0.52 * fade) : 0;
+    }
+
+    if (tracer.current) {
+      tracer.current.visible = active && arcPhase > 0;
+      tracer.current.position.copy(curve.getPoint(arcPhase));
+      tracer.current.scale.setScalar(0.55 + Math.sin(arcPhase * Math.PI) * 0.8);
+    }
+  });
+
+  return (
+    <group>
+      <group ref={sourceGhosts}>
+        {sourcePositions.map((position, index) => (
+          <mesh key={`${position.join(".")}-${index}`} position={position} scale={0.03}>
+            <sphereGeometry args={[1, 16, 10]} />
+            <meshBasicMaterial
+              color="#ffffff"
+              transparent
+              opacity={0}
+              depthWrite={false}
+              depthTest={false}
+              blending={THREE.AdditiveBlending}
+            />
+          </mesh>
+        ))}
+      </group>
+      <mesh ref={shockwave} position={centroid} rotation={[Math.PI / 2, 0.2, 0]} visible={false}>
+        <torusGeometry args={[1, 0.018, 8, 56]} />
+        <meshBasicMaterial
+          color={memoryColors.temporal}
+          transparent
+          opacity={0}
+          depthWrite={false}
+          depthTest={false}
+          blending={THREE.AdditiveBlending}
+        />
+      </mesh>
+      <mesh geometry={geometry}>
+        <meshBasicMaterial
+          ref={arcMaterial}
+          color={memoryColors.temporal}
+          transparent
+          opacity={0}
+          depthWrite={false}
+          depthTest={false}
+          blending={THREE.AdditiveBlending}
+        />
+      </mesh>
+      <mesh ref={tracer} visible={false}>
+        <sphereGeometry args={[0.028, 18, 10]} />
+        <meshBasicMaterial
+          color={memoryColors.temporal}
+          transparent
+          opacity={0.86}
+          depthWrite={false}
+          depthTest={false}
+          blending={THREE.AdditiveBlending}
+        />
+      </mesh>
+    </group>
+  );
+}
+
 function getArcCurve(from: [number, number, number], to: [number, number, number], lift: number) {
   const start = new THREE.Vector3(...from);
   const target = new THREE.Vector3(...to);
@@ -327,6 +455,17 @@ function getArcCurve(from: [number, number, number], to: [number, number, number
   midpoint.y += lift;
   midpoint.z += 0.08;
   return new THREE.CatmullRomCurve3([start, midpoint, target]);
+}
+
+function getCentroid(positions: [number, number, number][]): [number, number, number] {
+  if (positions.length === 0) return regionBounds.hippocampus.center;
+
+  const totals = positions.reduce(
+    (sum, position) => [sum[0] + position[0], sum[1] + position[1], sum[2] + position[2]],
+    [0, 0, 0]
+  );
+
+  return [totals[0] / positions.length, totals[1] / positions.length, totals[2] / positions.length];
 }
 
 function easeOutCubic(value: number) {
