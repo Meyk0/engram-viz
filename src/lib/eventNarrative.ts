@@ -71,7 +71,7 @@ export function getCurrentEventNarrative(events: EngramEvent[]): EventNarrative 
 
       return {
         title: "Active context firing",
-        body: `${pluralize(event.ids.length, "memory")} is being used in ${regionLabel(event.region)}.`,
+        body: `${pluralize(event.ids.length, "memory")} ${event.ids.length === 1 ? "is" : "are"} being used in ${regionLabel(event.region)}.`,
         type: event.type,
         region: event.region
       };

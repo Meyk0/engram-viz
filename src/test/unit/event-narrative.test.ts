@@ -30,4 +30,18 @@ describe("event narrative", () => {
       region: "hippocampus"
     });
   });
+
+  it("uses plural grammar for active context firing", () => {
+    expect(
+      getCurrentEventNarrative([{ type: "fire", region: "prefrontal", ids: ["mem-a"] }])
+    ).toMatchObject({
+      body: "1 memory is being used in active context."
+    });
+
+    expect(
+      getCurrentEventNarrative([{ type: "fire", region: "prefrontal", ids: ["mem-a", "mem-b", "mem-c"] }])
+    ).toMatchObject({
+      body: "3 memories are being used in active context."
+    });
+  });
 });
