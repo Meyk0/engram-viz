@@ -1,16 +1,30 @@
 import { z } from "zod";
 import { evaluateMemoryCandidate } from "@/lib/memory/rules";
 
-export const memoryDecisionSchema = z.object({
+const memoryDecisionBaseSchema = {
   provider: z.enum(["deterministic", "llm", "fallback"]),
-  operation: z.enum(["store", "ignore"]),
   confidence: z.number().min(0).max(1),
   reason: z.string().min(1),
-  memoryText: z.string().min(1).optional(),
-  topic: z.string().min(1).optional(),
-  importance: z.number().min(0).max(1).optional(),
   relatedMemoryIds: z.array(z.string().min(1)).default([])
-});
+};
+
+export const memoryDecisionSchema = z.discriminatedUnion("operation", [
+  z
+    .object({
+      ...memoryDecisionBaseSchema,
+      operation: z.literal("store"),
+      memoryText: z.string().min(1),
+      topic: z.string().min(1).optional(),
+      importance: z.number().min(0).max(1)
+    })
+    .strict(),
+  z
+    .object({
+      ...memoryDecisionBaseSchema,
+      operation: z.literal("ignore")
+    })
+    .strict()
+]);
 
 export type MemoryDecision = z.infer<typeof memoryDecisionSchema>;
 

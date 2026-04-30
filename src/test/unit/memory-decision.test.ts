@@ -19,6 +19,7 @@ describe("memory decision planner", () => {
       memoryText: "I prefer restrained medical cyberpunk interfaces.",
       topic: "design"
     });
+    if (decision.operation !== "store") throw new Error("expected store decision");
     expect(decision.importance).toBeGreaterThan(0);
     expect(decision.confidence).toBe(decision.importance);
     expect(decision.relatedMemoryIds).toEqual([]);
@@ -62,6 +63,17 @@ describe("memory decision schema", () => {
         reason: "Out of range",
         memoryText: "User likes red interfaces",
         importance: -0.1
+      })
+    ).toThrow();
+  });
+
+  it("requires store decisions to include memory content and importance", () => {
+    expect(() =>
+      memoryDecisionSchema.parse({
+        provider: "llm",
+        operation: "store",
+        confidence: 0.8,
+        reason: "Durable preference"
       })
     ).toThrow();
   });

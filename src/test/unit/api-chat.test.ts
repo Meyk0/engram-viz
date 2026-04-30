@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { POST } from "@/app/api/chat/route";
 import { decodeSseChunks } from "@/lib/events/sse";
-import { resetLiveMemoryStore } from "@/lib/chat/live";
+import { createLiveMemoryStream, resetLiveMemoryStore } from "@/lib/chat/live";
+import type { MemoryDecisionPlanner } from "@/lib/memory/decision";
 
 describe("/api/chat", () => {
   it("returns live memory SSE chunks in demo mode", async () => {
@@ -151,6 +152,70 @@ describe("/api/chat", () => {
       false
     );
     expect(chunks.at(-1)).toEqual({ kind: "done" });
+  });
+
+  it("stores through an injected memory decision planner", async () => {
+    resetLiveMemoryStore();
+
+    const planner: MemoryDecisionPlanner = {
+      provider: "llm",
+      decide: () => ({
+        provider: "llm",
+        operation: "store",
+        confidence: 0.91,
+        reason: "Mock planner extracted a durable preference.",
+        memoryText: "User wants concise summaries",
+        topic: "preference",
+        importance: 0.82,
+        relatedMemoryIds: []
+      })
+    };
+
+    const chunks = await createLiveMemoryStream({
+      sessionId: "api-chat-planner-store",
+      message: "Please summarize this paragraph for me.",
+      memoryDecisionPlanner: planner
+    });
+    const storeChunk = chunks.find((chunk) => chunk.kind === "event" && chunk.event.type === "store");
+
+    expect(storeChunk?.kind).toBe("event");
+    if (storeChunk?.kind !== "event" || storeChunk.event.type !== "store") {
+      throw new Error("expected store event");
+    }
+    expect(storeChunk.event.memory.text).toBe("User wants concise summaries");
+    expect(storeChunk.event.memory.importance).toBe(0.82);
+  });
+
+  it("passes retrieved memory ids into the decision planner", async () => {
+    resetLiveMemoryStore();
+
+    await createLiveMemoryStream({
+      sessionId: "api-chat-planner-related",
+      message: "I like the color blue"
+    });
+
+    let relatedMemoryIds: string[] = [];
+    const planner: MemoryDecisionPlanner = {
+      provider: "llm",
+      decide: (input) => {
+        relatedMemoryIds = input.relatedMemoryIds ?? [];
+        return {
+          provider: "llm",
+          operation: "ignore",
+          confidence: 0.96,
+          reason: "Question should not become a stored memory.",
+          relatedMemoryIds
+        };
+      }
+    };
+
+    await createLiveMemoryStream({
+      sessionId: "api-chat-planner-related",
+      message: "What is my favorite color?",
+      memoryDecisionPlanner: planner
+    });
+
+    expect(relatedMemoryIds).toHaveLength(1);
   });
 
   it("consolidates repeated same-topic hippocampus memories into temporal memory", async () => {

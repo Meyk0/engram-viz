@@ -1,9 +1,12 @@
 import { createChatProvider, configuredChatProvider } from "@/lib/chat/providers";
 import { MemoryEngine } from "@/lib/memory/engine";
 import { findConsolidationCandidate } from "@/lib/memory/consolidationPolicy";
-import { evaluateMemoryCandidate } from "@/lib/memory/rules";
+import {
+  deterministicMemoryDecisionPlanner,
+  type MemoryDecisionPlanner
+} from "@/lib/memory/decision";
 import { InMemoryMemoryStore } from "@/lib/memory/store-interface";
-import type { ChatMessage, EngramEvent, StreamChunk } from "@/types";
+import type { ChatMessage, StreamChunk } from "@/types";
 
 const memoryStore = new InMemoryMemoryStore();
 const memoryEngine = new MemoryEngine(memoryStore);
@@ -12,11 +15,13 @@ export type LiveChatInput = {
   sessionId: string;
   message: string;
   history?: ChatMessage[];
+  memoryDecisionPlanner?: MemoryDecisionPlanner;
   now?: string;
 };
 
 export async function createLiveMemoryStream(input: LiveChatInput): Promise<StreamChunk[]> {
   const history = input.history ?? [];
+  const memoryDecisionPlanner = input.memoryDecisionPlanner ?? deterministicMemoryDecisionPlanner;
   const chunks: StreamChunk[] = [];
 
   chunks.push({ kind: "event", event: await memoryEngine.initialize(input.sessionId) });
@@ -49,13 +54,17 @@ export async function createLiveMemoryStream(input: LiveChatInput): Promise<Stre
     chunks.push(chunk);
   }
 
-  const candidate = evaluateMemoryCandidate(input.message);
-  if (candidate.shouldStore) {
+  const memoryDecision = memoryDecisionPlanner.decide({
+    message: input.message,
+    relatedMemoryIds: retrievedIds
+  });
+
+  if (memoryDecision.operation === "store") {
     const stored = await memoryEngine.storeMemory({
       sessionId: input.sessionId,
-      text: candidate.text,
-      importance: candidate.importance,
-      topic: candidate.topic,
+      text: memoryDecision.memoryText,
+      importance: memoryDecision.importance,
+      topic: memoryDecision.topic,
       now: input.now
     });
     chunks.push({ kind: "event", event: stored });
