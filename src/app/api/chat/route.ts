@@ -11,14 +11,10 @@ export async function POST(request: Request) {
     history?: ChatMessage[];
   };
 
-  const messages: ChatMessage[] = [
-    ...(body.history ?? []),
-    ...(body.message ? [{ role: "user" as const, content: body.message }] : [])
-  ];
   const chunks = await createLiveMemoryStream({
     sessionId: body.sessionId ?? "demo-session",
     message: body.message ?? "",
-    history: messages
+    history: body.history ?? []
   });
 
   const stream = new ReadableStream({
