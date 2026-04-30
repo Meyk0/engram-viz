@@ -105,6 +105,8 @@ input {
 .status-panel,
 .event-feed,
 .explainability-panel,
+.current-event-banner,
+.memory-inspector,
 .chat-transcript,
 .caption,
 .chat-bar {
@@ -180,6 +182,49 @@ input {
   text-shadow: 0 0 20px rgba(0, 212, 255, 0.45);
 }
 
+.current-event-banner {
+  top: 96px;
+  left: 50%;
+  width: min(560px, 72vw);
+  transform: translateX(-50%);
+  padding: 12px 16px;
+  border: 1px solid rgba(0, 212, 255, 0.12);
+  border-left: 2px solid var(--cyan);
+  border-radius: 0 8px 8px 0;
+  background: rgba(4, 6, 24, 0.54);
+  box-shadow:
+    0 10px 44px rgba(0, 0, 0, 0.38),
+    0 0 18px rgba(0, 212, 255, 0.08);
+  backdrop-filter: blur(14px) saturate(1.25);
+}
+
+.current-event-banner[data-region="hippocampus"] {
+  border-left-color: var(--violet);
+}
+
+.current-event-banner[data-region="temporal"] {
+  border-left-color: var(--blue);
+}
+
+.current-event-banner[data-type="store"] {
+  border-left-color: var(--gold);
+}
+
+.current-event-title {
+  color: rgba(0, 212, 255, 0.66);
+  font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 9px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.current-event-body {
+  margin-top: 5px;
+  color: rgba(230, 242, 255, 0.86);
+  font-size: 14px;
+  line-height: 1.4;
+}
+
 .event-feed {
   right: 16px;
   bottom: 76px;
@@ -201,6 +246,100 @@ input {
     0 0 22px rgba(0, 212, 255, 0.08);
   font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
   backdrop-filter: blur(18px) saturate(1.35);
+}
+
+.memory-inspector {
+  top: 124px;
+  left: 24px;
+  width: min(360px, calc(100vw - 48px));
+  overflow: hidden;
+  border: 1px solid rgba(0, 212, 255, 0.12);
+  border-radius: 8px;
+  background: rgba(4, 6, 26, 0.82);
+  box-shadow:
+    0 8px 40px rgba(0, 0, 0, 0.55),
+    0 0 18px rgba(0, 212, 255, 0.08);
+  font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  backdrop-filter: blur(20px) saturate(1.4);
+}
+
+.memory-inspector-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 12px 10px;
+  border-bottom: 1px solid rgba(0, 212, 255, 0.08);
+}
+
+.memory-inspector-eyebrow {
+  color: rgba(0, 212, 255, 0.42);
+  font-size: 8px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.memory-inspector-title {
+  margin-top: 4px;
+  color: rgba(230, 242, 255, 0.84);
+  font-size: 11px;
+}
+
+.panel-icon-btn {
+  display: grid;
+  width: 26px;
+  height: 26px;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 1px solid rgba(0, 212, 255, 0.16);
+  border-radius: 6px;
+  background: rgba(0, 212, 255, 0.05);
+  color: rgba(0, 212, 255, 0.68);
+  cursor: pointer;
+}
+
+.memory-inspector-text {
+  padding: 12px;
+  color: rgba(230, 242, 255, 0.9);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.memory-inspector-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0;
+  padding: 0 12px 12px;
+}
+
+.memory-inspector-metrics div {
+  min-width: 0;
+  padding: 8px;
+  border: 1px solid rgba(0, 212, 255, 0.08);
+  border-radius: 6px;
+  background: rgba(5, 5, 20, 0.48);
+}
+
+.memory-inspector-metrics dt {
+  margin-bottom: 4px;
+  color: rgba(220, 238, 255, 0.38);
+  font-size: 7px;
+  letter-spacing: 0.16em;
+}
+
+.memory-inspector-metrics dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+  color: rgba(220, 238, 255, 0.82);
+  font-size: 10px;
+}
+
+.memory-inspector-note {
+  padding: 0 12px 12px;
+  color: rgba(220, 238, 255, 0.46);
+  font-size: 9px;
+  line-height: 1.45;
 }
 
 .chat-transcript {
@@ -415,6 +554,24 @@ input {
   gap: 8px;
 }
 
+.raw-event-details {
+  margin-top: 10px;
+}
+
+.raw-event-details summary {
+  cursor: pointer;
+  color: rgba(0, 212, 255, 0.42);
+  font-size: 8px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.raw-event-details .event-list {
+  max-height: 42vh;
+  margin-top: 10px;
+  overflow-y: auto;
+}
+
 .event-item {
   padding: 9px 11px 9px 12px;
   border-left: 2px solid currentColor;
@@ -457,6 +614,15 @@ input {
 .event-explainer {
   margin-top: 4px;
   color: rgba(220, 238, 255, 0.52);
+}
+
+.event-item-summary {
+  border-left-width: 3px;
+  background: rgba(5, 5, 20, 0.82);
+}
+
+.active-context-label {
+  font-size: 7px;
 }
 
 .event-empty {

@@ -5,20 +5,27 @@ import { Send, Square } from "lucide-react";
 import { explainEvent } from "@/lib/explanations";
 import { useChat } from "@/hooks/useChat";
 import { useEventQueue } from "@/hooks/useEventQueue";
-import { useFirstTimeEvents } from "@/hooks/useFirstTimeEvents";
 import { useMemoryExplanations } from "@/hooks/useMemoryExplanations";
+import { useMemoryStore } from "@/hooks/useMemoryStore";
 import { Brain3D } from "@/components/Brain/Brain3D";
 import { ChatTranscript } from "@/components/UI/ChatTranscript";
+import { CurrentEventBanner } from "@/components/UI/CurrentEventBanner";
 import { EventFeed } from "@/components/UI/EventFeed";
 import { ExplainabilityPanel } from "@/components/UI/ExplainabilityPanel";
+import { MemoryInspector } from "@/components/UI/MemoryInspector";
 import type { StreamChunk } from "@/types";
 
 export function EngramApp() {
   const [message, setMessage] = useState("");
   const [draftTurn, setDraftTurn] = useState<{ user: string; assistant: string } | null>(null);
+  const [selectedMemoryId, setSelectedMemoryId] = useState<string | undefined>(undefined);
   const { events, pushEvent } = useEventQueue();
-  const { caption, recordEvent } = useFirstTimeEvents();
+  const memories = useMemoryStore(events);
   const explanations = useMemoryExplanations(events);
+  const selectedMemory = useMemo(
+    () => memories.find((memory) => memory.id === selectedMemoryId),
+    [memories, selectedMemoryId]
+  );
 
   const onChunk = useCallback(
     (chunk: StreamChunk) => {
@@ -29,10 +36,9 @@ export function EngramApp() {
       }
       if (chunk.kind === "event") {
         pushEvent(chunk.event);
-        recordEvent(chunk.event);
       }
     },
-    [pushEvent, recordEvent]
+    [pushEvent]
   );
 
   const { history, isStreaming, error, sendMessage, cancel } = useChat(useMemo(() => ({ onChunk }), [onChunk]));
@@ -55,7 +61,12 @@ export function EngramApp() {
 
   return (
     <main className="engram-shell">
-      <Brain3D events={events} />
+      <Brain3D
+        events={events}
+        onMemorySelect={setSelectedMemoryId}
+        responseActive={isStreaming}
+        selectedMemoryId={selectedMemoryId}
+      />
 
       <header className="topbar">
         <h1 className="title">ENGRAM</h1>
@@ -77,10 +88,11 @@ export function EngramApp() {
         </div>
       </aside>
 
-      {caption ? <div className="caption">{caption}</div> : null}
+      <CurrentEventBanner events={events} />
 
       <EventFeed events={events} explainEvent={explainEvent} />
       <ExplainabilityPanel explanations={explanations} />
+      <MemoryInspector memory={selectedMemory} onClose={() => setSelectedMemoryId(undefined)} />
       <ChatTranscript history={history} draftTurn={draftTurn} error={error} />
 
       <form className="chat-bar" onSubmit={onSubmit}>

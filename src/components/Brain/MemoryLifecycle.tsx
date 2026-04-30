@@ -1,14 +1,19 @@
 "use client";
 
+import { Html } from "@react-three/drei";
 import { useFrame } from "@react-three/fiber";
 import { useMemo, useRef } from "react";
 import * as THREE from "three";
 import {
+  activeContextCapacity,
   getActiveMemoryIds,
+  getActiveContextFill,
   getLatestConsolidateEvent,
   getLatestFireEvent,
+  getLatestLoadEvent,
   getLatestRetrieveEvent,
   getLatestStoreEvent,
+  getLoadedMemoryIds,
   getMemoryPosition,
   getMemoryPositionById,
   getMemoryVisuals,
@@ -18,23 +23,51 @@ import {
 import { regionBounds } from "@/lib/regions";
 import type { EngramEvent, EngramMemory } from "@/types";
 
+const activeContextCenter: [number, number, number] = [
+  regionBounds.prefrontal.center[0],
+  regionBounds.prefrontal.center[1] + 0.07,
+  regionBounds.prefrontal.center[2] + 0.05
+];
+
 type MemoryLifecycleProps = {
   events: EngramEvent[];
+  onMemorySelect?: (id: string) => void;
+  responseActive?: boolean;
+  selectedMemoryId?: string;
 };
 
-export function MemoryLifecycle({ events }: MemoryLifecycleProps) {
+export function MemoryLifecycle({
+  events,
+  onMemorySelect,
+  responseActive = false,
+  selectedMemoryId
+}: MemoryLifecycleProps) {
   const memories = useMemo(() => getMemoryVisuals(events), [events]);
   const activeIds = useMemo(() => new Set(getActiveMemoryIds(events)), [events]);
+  const loadedIds = useMemo(() => getLoadedMemoryIds(events), [events]);
   const latestStore = useMemo(() => getLatestStoreEvent(events), [events]);
   const latestRetrieve = useMemo(() => getLatestRetrieveEvent(events), [events]);
+  const latestLoad = useMemo(() => getLatestLoadEvent(events), [events]);
   const latestFire = useMemo(() => getLatestFireEvent(events), [events]);
   const latestConsolidate = useMemo(() => getLatestConsolidateEvent(events), [events]);
 
   return (
     <group renderOrder={6}>
-      <MemoryNeurons memories={memories} activeIds={activeIds} latestStoreId={latestStore?.memory.id} />
+      <MemoryNeurons
+        memories={memories}
+        activeIds={activeIds}
+        latestStoreId={latestStore?.memory.id}
+        onMemorySelect={onMemorySelect}
+        selectedMemoryId={selectedMemoryId}
+      />
       <StoreComet memory={latestStore?.memory} />
       <PrefrontalBolt triggerKey={latestRetrieve?.query} />
+      <ActiveContextWindow
+        events={events}
+        ids={loadedIds}
+        load={latestLoad}
+        responseActive={responseActive}
+      />
       <ConsolidationArc consolidate={latestConsolidate} events={events} />
       <FiredAxons memories={memories} activeIds={activeIds} triggerKey={latestFire ? `${latestFire.region}-${latestFire.ids.join(".")}` : undefined} />
     </group>
@@ -44,11 +77,15 @@ export function MemoryLifecycle({ events }: MemoryLifecycleProps) {
 function MemoryNeurons({
   memories,
   activeIds,
-  latestStoreId
+  latestStoreId,
+  onMemorySelect,
+  selectedMemoryId
 }: {
   memories: MemoryVisual[];
   activeIds: Set<string>;
   latestStoreId?: string;
+  onMemorySelect?: (id: string) => void;
+  selectedMemoryId?: string;
 }) {
   return (
     <group>
@@ -56,6 +93,8 @@ function MemoryNeurons({
         <MemoryNeuron
           active={activeIds.has(visual.memory.id)}
           key={visual.memory.id}
+          onSelect={onMemorySelect}
+          selected={selectedMemoryId === visual.memory.id}
           storeActive={latestStoreId === visual.memory.id}
           visual={visual}
         />
@@ -66,10 +105,14 @@ function MemoryNeurons({
 
 function MemoryNeuron({
   active,
+  onSelect,
+  selected,
   storeActive,
   visual
 }: {
   active: boolean;
+  onSelect?: (id: string) => void;
+  selected: boolean;
   storeActive: boolean;
   visual: MemoryVisual;
 }) {
@@ -80,14 +123,20 @@ function MemoryNeuron({
   useFrame(({ clock }) => {
     if (!mesh.current || !material.current) return;
     const shimmer = Math.sin(clock.elapsedTime * 3.4 + visual.position[0] * 8) * 0.06;
-    const pulse = active ? 0.42 : storeActive ? 0.3 : 0;
+    const pulse = selected ? 0.58 : active ? 0.42 : storeActive ? 0.3 : 0;
     mesh.current.scale.setScalar(baseScale * (1 + shimmer + pulse));
     material.current.emissiveIntensity = 0.45 + pulse * 2.4 + (visual.isHighImportance ? 0.28 : 0);
   });
 
   return (
     <group position={visual.position}>
-      <mesh ref={mesh}>
+      <mesh
+        ref={mesh}
+        onClick={(event) => {
+          event.stopPropagation();
+          onSelect?.(visual.memory.id);
+        }}
+      >
         <sphereGeometry args={[1, 18, 12]} />
         <meshStandardMaterial
           ref={material}
@@ -109,6 +158,19 @@ function MemoryNeuron({
             color={memoryColors.importance}
             transparent
             opacity={0.18}
+            depthWrite={false}
+            depthTest={false}
+            blending={THREE.AdditiveBlending}
+          />
+        </mesh>
+      ) : null}
+      {selected ? (
+        <mesh scale={baseScale * 2.25}>
+          <sphereGeometry args={[1, 22, 12]} />
+          <meshBasicMaterial
+            color="#ffffff"
+            transparent
+            opacity={0.16}
             depthWrite={false}
             depthTest={false}
             blending={THREE.AdditiveBlending}
@@ -248,6 +310,181 @@ function PrefrontalBolt({ triggerKey }: { triggerKey?: string }) {
   );
 }
 
+function ActiveContextWindow({
+  events,
+  ids,
+  load,
+  responseActive
+}: {
+  events: EngramEvent[];
+  ids: string[];
+  load?: Extract<EngramEvent, { type: "load" }>;
+  responseActive: boolean;
+}) {
+  const fill = useMemo(() => getActiveContextFill(ids), [ids]);
+  const triggerKey = load ? load.ids.join(".") : undefined;
+  const loadedIds = ids.slice(0, activeContextCapacity);
+
+  return (
+    <group>
+      <CapacityRing fill={fill} responseActive={responseActive} triggerKey={triggerKey} />
+      {loadedIds.map((id, index) => (
+        <LoadedGhost
+          events={events}
+          id={id}
+          index={index}
+          key={id}
+          responseActive={responseActive}
+          triggerKey={triggerKey}
+        />
+      ))}
+    </group>
+  );
+}
+
+function CapacityRing({
+  fill,
+  responseActive,
+  triggerKey
+}: {
+  fill: ReturnType<typeof getActiveContextFill>;
+  responseActive: boolean;
+  triggerKey?: string;
+}) {
+  const group = useRef<THREE.Group>(null);
+  const activeKey = useRef<string | undefined>(undefined);
+  const startTime = useRef(-10);
+  const tickIndexes = useMemo(() => Array.from({ length: fill.capacity }, (_, index) => index), [fill.capacity]);
+
+  useFrame(({ clock }) => {
+    if (triggerKey && activeKey.current !== triggerKey) {
+      activeKey.current = triggerKey;
+      startTime.current = clock.elapsedTime;
+    }
+
+    const elapsed = clock.elapsedTime - startTime.current;
+    const visible = fill.used > 0 && (responseActive || elapsed < 3.4);
+    const fade = responseActive ? 1 : Math.max(0, 1 - Math.max(0, elapsed - 1.7) / 1.7);
+
+    if (!group.current) return;
+    group.current.visible = visible;
+    group.current.traverse((child) => {
+      if (!(child instanceof THREE.Mesh)) return;
+      const material = child.material;
+      if (material instanceof THREE.MeshBasicMaterial) {
+        const baseOpacity = Number(child.userData.baseOpacity ?? 0.32);
+        material.opacity = baseOpacity * fade;
+      }
+    });
+  });
+
+  return (
+    <group ref={group} position={activeContextCenter} rotation={[Math.PI / 2, 0.1, 0]} visible={false}>
+      <mesh scale={0.145} userData={{ baseOpacity: 0.14 }}>
+        <torusGeometry args={[1, 0.018, 8, 72]} />
+        <meshBasicMaterial
+          color={memoryColors.prefrontal}
+          transparent
+          opacity={0}
+          depthWrite={false}
+          depthTest={false}
+          blending={THREE.AdditiveBlending}
+        />
+      </mesh>
+      {tickIndexes.map((index) => {
+        const angle = (index / fill.capacity) * Math.PI * 2;
+        const active = index < fill.used;
+        return (
+          <mesh
+            key={index}
+            position={[Math.cos(angle) * 0.145, Math.sin(angle) * 0.145, 0]}
+            scale={active ? 0.014 : 0.008}
+            userData={{ baseOpacity: active ? 0.72 : 0.18 }}
+          >
+            <sphereGeometry args={[1, 10, 8]} />
+            <meshBasicMaterial
+              color={active ? memoryColors.prefrontal : "#6b7b9a"}
+              transparent
+              opacity={0}
+              depthWrite={false}
+              depthTest={false}
+              blending={THREE.AdditiveBlending}
+            />
+          </mesh>
+        );
+      })}
+      <Html
+        center
+        distanceFactor={4.4}
+        position={[0.02, -0.18, 0.01]}
+        transform={false}
+        className="region-label-3d active-context-label"
+        style={{
+          color: memoryColors.prefrontal,
+          opacity: fill.used > 0 ? 0.88 : 0
+        }}
+      >
+        <span>{fill.used}/{fill.capacity} Context</span>
+      </Html>
+    </group>
+  );
+}
+
+function LoadedGhost({
+  events,
+  id,
+  index,
+  responseActive,
+  triggerKey
+}: {
+  events: EngramEvent[];
+  id: string;
+  index: number;
+  responseActive: boolean;
+  triggerKey?: string;
+}) {
+  const ghost = useRef<THREE.Mesh>(null);
+  const material = useRef<THREE.MeshBasicMaterial>(null);
+  const activeKey = useRef<string | undefined>(undefined);
+  const startTime = useRef(-10);
+  const source = useMemo(() => getMemoryPositionById(events, id), [events, id]);
+  const target = useMemo(() => getContextSlotPosition(index), [index]);
+  const curve = useMemo(() => getArcCurve(source, target, 0.2), [source, target]);
+
+  useFrame(({ clock }) => {
+    if (triggerKey && activeKey.current !== triggerKey) {
+      activeKey.current = triggerKey;
+      startTime.current = clock.elapsedTime;
+    }
+
+    const elapsed = clock.elapsedTime - startTime.current;
+    const visible = elapsed >= 0 && (responseActive || elapsed < 3.4);
+    const travel = easeOutCubic(Math.min(1, elapsed / 0.68));
+    const fade = responseActive ? 1 : Math.max(0, 1 - Math.max(0, elapsed - 1.8) / 1.6);
+
+    if (!ghost.current || !material.current) return;
+    ghost.current.visible = visible;
+    ghost.current.position.copy(curve.getPoint(travel));
+    ghost.current.scale.setScalar(0.021 * (1 + Math.sin(Math.min(1, elapsed) * Math.PI) * 0.45));
+    material.current.opacity = 0.68 * fade;
+  });
+
+  return (
+    <mesh ref={ghost} visible={false}>
+      <sphereGeometry args={[1, 16, 10]} />
+      <meshBasicMaterial
+        ref={material}
+        color={memoryColors.prefrontal}
+        transparent
+        opacity={0}
+        depthWrite={false}
+        depthTest={false}
+        blending={THREE.AdditiveBlending}
+      />
+    </mesh>
+  );
+}
+
 function FiredAxons({
   activeIds,
   memories,
@@ -273,7 +510,7 @@ function FiredAxon({ triggerKey, visual }: { triggerKey?: string; visual: Memory
   const tracer = useRef<THREE.Mesh>(null);
   const activeKey = useRef<string | undefined>(undefined);
   const startTime = useRef(-10);
-  const curve = useMemo(() => getArcCurve(visual.position, regionBounds.prefrontal.center, 0.18), [visual.position]);
+  const curve = useMemo(() => getArcCurve(visual.position, activeContextCenter, 0.18), [visual.position]);
   const geometry = useMemo(() => new THREE.TubeGeometry(curve, 36, 0.004, 8, false), [curve]);
 
   useFrame(({ clock }) => {
@@ -466,6 +703,15 @@ function getCentroid(positions: [number, number, number][]): [number, number, nu
   );
 
   return [totals[0] / positions.length, totals[1] / positions.length, totals[2] / positions.length];
+}
+
+function getContextSlotPosition(index: number): [number, number, number] {
+  const angle = (index / activeContextCapacity) * Math.PI * 2;
+  return [
+    activeContextCenter[0] + Math.cos(angle) * 0.09,
+    activeContextCenter[1] + Math.sin(angle) * 0.045,
+    activeContextCenter[2] + 0.045
+  ];
 }
 
 function easeOutCubic(value: number) {

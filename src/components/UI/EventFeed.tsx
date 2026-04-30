@@ -1,3 +1,4 @@
+import { getGroupedEventNarrative } from "@/lib/eventNarrative";
 import type { EngramEvent } from "@/types";
 
 type EventFeedProps = {
@@ -6,24 +7,33 @@ type EventFeedProps = {
 };
 
 export function EventFeed({ events, explainEvent }: EventFeedProps) {
+  const summary = getGroupedEventNarrative(events);
+
   return (
     <aside className="event-feed" aria-label="Memory event stream">
       <div className="event-feed-header">MEMORY STREAM</div>
-      <div className="event-list">
-        {events.length === 0 ? <div className="event-empty">Awaiting first memory event.</div> : null}
-        {events.slice(0, 7).map((event, index) => (
-          <article
-            className="event-item"
-            data-type={event.type}
-            data-region={eventRegion(event)}
-            key={`${event.type}-${index}-${eventKey(event)}`}
-          >
-            <div className="event-kind">{eventLabel(event)}</div>
-            <div className="event-copy">{eventSummary(event)}</div>
-            <div className="event-explainer">{explainEvent(event)}</div>
-          </article>
-        ))}
-      </div>
+      <article className="event-item event-item-summary" data-type={summary.type} data-region={summary.region}>
+        <div className="event-kind">{summary.title}</div>
+        <div className="event-copy">{summary.body}</div>
+      </article>
+      <details className="raw-event-details">
+        <summary>Raw event log</summary>
+        <div className="event-list">
+          {events.length === 0 ? <div className="event-empty">Awaiting first memory event.</div> : null}
+          {events.slice(0, 7).map((event, index) => (
+            <article
+              className="event-item"
+              data-type={event.type}
+              data-region={eventRegion(event)}
+              key={`${event.type}-${index}-${eventKey(event)}`}
+            >
+              <div className="event-kind">{eventLabel(event)}</div>
+              <div className="event-copy">{eventSummary(event)}</div>
+              <div className="event-explainer">{explainEvent(event)}</div>
+            </article>
+          ))}
+        </div>
+      </details>
     </aside>
   );
 }

@@ -31,6 +31,7 @@ export async function createLiveMemoryStream(input: LiveChatInput): Promise<Stre
 
   const retrievedIds = retrieve.type === "retrieve" ? retrieve.ids : [];
   if (retrievedIds.length > 0) {
+    chunks.push({ kind: "event", event: { type: "load", ids: retrievedIds } });
     chunks.push({ kind: "event", event: memoryEngine.fire("prefrontal", retrievedIds) });
   }
 

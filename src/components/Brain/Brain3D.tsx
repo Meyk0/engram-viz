@@ -15,9 +15,12 @@ import type { EngramEvent } from "@/types";
 
 type Brain3DProps = {
   events: EngramEvent[];
+  onMemorySelect?: (id: string) => void;
+  responseActive?: boolean;
+  selectedMemoryId?: string;
 };
 
-export function Brain3D({ events }: Brain3DProps) {
+export function Brain3D({ events, onMemorySelect, responseActive = false, selectedMemoryId }: Brain3DProps) {
   return (
     <section className="brain-scene" aria-label="Engram 3D brain scene">
       <Canvas
@@ -35,7 +38,12 @@ export function Brain3D({ events }: Brain3DProps) {
         <pointLight position={[2.6, 0.1, -1.4]} intensity={0.32} color="#3b82f6" />
         <Stars radius={8} depth={18} count={900} factor={2.2} saturation={0} fade speed={0.35} />
         <Suspense fallback={<FallbackBrain />}>
-          <BrainRig events={events} />
+          <BrainRig
+            events={events}
+            onMemorySelect={onMemorySelect}
+            responseActive={responseActive}
+            selectedMemoryId={selectedMemoryId}
+          />
         </Suspense>
         <OrbitControls
           autoRotate
@@ -54,7 +62,7 @@ export function Brain3D({ events }: Brain3DProps) {
   );
 }
 
-function BrainRig({ events }: Brain3DProps) {
+function BrainRig({ events, onMemorySelect, responseActive = false, selectedMemoryId }: Brain3DProps) {
   const group = useRef<THREE.Group>(null);
   const animation = getBrainAnimationState(events);
 
@@ -68,7 +76,12 @@ function BrainRig({ events }: Brain3DProps) {
     <group ref={group} scale={1.72} rotation={[0.02, -1.05, 0]}>
       <BrainMesh />
       <Axons animation={animation} />
-      <MemoryLifecycle events={events} />
+      <MemoryLifecycle
+        events={events}
+        onMemorySelect={onMemorySelect}
+        responseActive={responseActive}
+        selectedMemoryId={selectedMemoryId}
+      />
       <HippocampusMarker pulse={animation.hippocampusMarker} decayDimming={animation.decayDimming} />
       <RegionLabels animation={animation} />
     </group>

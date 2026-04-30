@@ -55,13 +55,46 @@ describe("/api/chat", () => {
     const retrieveChunk = chunks.find(
       (chunk) => chunk.kind === "event" && chunk.event.type === "retrieve"
     );
+    const loadChunk = chunks.find((chunk) => chunk.kind === "event" && chunk.event.type === "load");
     const fireChunk = chunks.find((chunk) => chunk.kind === "event" && chunk.event.type === "fire");
 
     expect(retrieveChunk?.kind).toBe("event");
     if (retrieveChunk?.kind === "event" && retrieveChunk.event.type === "retrieve") {
       expect(retrieveChunk.event.ids.length).toBeGreaterThan(0);
     }
+    expect(loadChunk?.kind).toBe("event");
     expect(fireChunk?.kind).toBe("event");
+  });
+
+  it("loads retrieved memories into active context before firing prefrontal", async () => {
+    resetLiveMemoryStore();
+
+    await POST(
+      new Request("http://localhost/api/chat", {
+        method: "POST",
+        body: JSON.stringify({
+          sessionId: "api-chat-load",
+          message: "remember that I love red"
+        })
+      })
+    );
+
+    const response = await POST(
+      new Request("http://localhost/api/chat", {
+        method: "POST",
+        body: JSON.stringify({
+          sessionId: "api-chat-load",
+          message: "what color do I love?"
+        })
+      })
+    );
+    const chunks = decodeSseChunks(await response.text());
+    const eventTypes = chunks
+      .filter((chunk) => chunk.kind === "event")
+      .map((chunk) => (chunk.kind === "event" ? chunk.event.type : "none"));
+
+    expect(eventTypes.indexOf("retrieve")).toBeLessThan(eventTypes.indexOf("load"));
+    expect(eventTypes.indexOf("load")).toBeLessThan(eventTypes.indexOf("fire"));
   });
 
   it("does not store trivial questions but still streams a response and done", async () => {

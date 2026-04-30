@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
   getActiveMemoryIds,
+  getActiveContextFill,
   getLatestConsolidateEvent,
+  getLatestLoadEvent,
   getLatestRetrieveEvent,
   getLatestStoreEvent,
   getMemoryPositionById,
@@ -52,6 +54,22 @@ describe("memory visual lifecycle", () => {
     expect(getLatestStoreEvent(events)?.memory.id).toBe(memory.id);
     expect(getLatestRetrieveEvent(events)?.query).toBe("style");
     expect(getActiveMemoryIds(events)).toEqual([memory.id]);
+  });
+
+  it("tracks active context load ids and finite capacity", () => {
+    const events: EngramEvent[] = [{ type: "load", ids: ["a", "b", "c"] }];
+
+    expect(getLatestLoadEvent(events)?.ids).toEqual(["a", "b", "c"]);
+    expect(getActiveContextFill(["a", "b", "c"])).toEqual({
+      used: 3,
+      capacity: 10,
+      ratio: 0.3
+    });
+    expect(getActiveContextFill(Array.from({ length: 12 }, (_, index) => `mem-${index}`))).toEqual({
+      used: 10,
+      capacity: 10,
+      ratio: 1
+    });
   });
 
   it("finds consolidation events and source positions from prior memory events", () => {

@@ -1,6 +1,8 @@
 import { regionBounds } from "@/lib/regions";
 import type { BrainRegion, EngramEvent, EngramMemory } from "@/types";
 
+export const activeContextCapacity = 10;
+
 export type MemoryVisual = {
   memory: EngramMemory;
   position: [number, number, number];
@@ -73,6 +75,10 @@ export function getLatestFireEvent(events: EngramEvent[]) {
   return events.find((event): event is Extract<EngramEvent, { type: "fire" }> => event.type === "fire");
 }
 
+export function getLatestLoadEvent(events: EngramEvent[]) {
+  return events.find((event): event is Extract<EngramEvent, { type: "load" }> => event.type === "load");
+}
+
 export function getLatestConsolidateEvent(events: EngramEvent[]) {
   return events.find(
     (event): event is Extract<EngramEvent, { type: "consolidate" }> => event.type === "consolidate"
@@ -85,6 +91,19 @@ export function getActiveMemoryIds(events: EngramEvent[]): string[] {
 
   const retrieve = getLatestRetrieveEvent(events);
   return retrieve?.ids ?? [];
+}
+
+export function getLoadedMemoryIds(events: EngramEvent[]): string[] {
+  return getLatestLoadEvent(events)?.ids ?? [];
+}
+
+export function getActiveContextFill(ids: string[]) {
+  const used = Math.min(ids.length, activeContextCapacity);
+  return {
+    used,
+    capacity: activeContextCapacity,
+    ratio: used / activeContextCapacity
+  };
 }
 
 export function getMemoryPositionById(events: EngramEvent[], id: string): [number, number, number] {
