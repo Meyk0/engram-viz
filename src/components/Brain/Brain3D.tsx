@@ -1,10 +1,10 @@
 "use client";
 
-import { Canvas, useFrame } from "@react-three/fiber";
+import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { OrbitControls, Stars } from "@react-three/drei";
 import { Bloom, EffectComposer } from "@react-three/postprocessing";
 import { MapPin, RotateCcw } from "lucide-react";
-import { Suspense, useCallback, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useRef, useState, type RefObject } from "react";
 import * as THREE from "three";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 import { Axons } from "@/components/Brain/Axons";
@@ -12,6 +12,7 @@ import { BrainMesh } from "@/components/Brain/BrainMesh";
 import { MemoryLifecycle } from "@/components/Brain/MemoryLifecycle";
 import { RegionLabels } from "@/components/Brain/RegionLabels";
 import { getBrainAnimationState } from "@/lib/animations";
+import { brainCameraProfiles, getBrainCameraProfile } from "@/lib/brainCamera";
 import { regionBounds } from "@/lib/regions";
 import type { EngramEvent } from "@/types";
 
@@ -39,13 +40,13 @@ export function Brain3D({
   return (
     <section className="brain-scene" aria-label="Engram 3D brain scene">
       <Canvas
-        camera={{ position: [0, 0.12, 5.25], fov: 46, near: 0.1, far: 100 }}
+        camera={{ position: brainCameraProfiles.desktop.position, fov: 46, near: 0.1, far: 100 }}
         dpr={[1, 1.75]}
         gl={{ antialias: true, alpha: true, preserveDrawingBuffer: true }}
         data-testid="brain-canvas"
       >
         <color attach="background" args={["#050510"]} />
-        <fog attach="fog" args={["#050510", 5, 9]} />
+        <ResponsiveFog />
         <ambientLight intensity={0.25} />
         <directionalLight position={[1.6, 2.2, 2.6]} intensity={0.52} color="#e7f1ff" />
         <pointLight position={[0, 1.8, 2.4]} intensity={0.2} color="#00d4ff" />
@@ -62,16 +63,8 @@ export function Brain3D({
             selectedMemoryId={selectedMemoryId}
           />
         </Suspense>
-        <OrbitControls
-          ref={controls}
-          autoRotate
-          autoRotateSpeed={0.12}
-          enablePan={false}
-          enableDamping
-          dampingFactor={0.08}
-          minDistance={3.1}
-          maxDistance={6.8}
-        />
+        <ResponsiveBrainCamera controls={controls} />
+        <ResponsiveOrbitControls controls={controls} />
         <EffectComposer>
           <Bloom intensity={0.045} luminanceThreshold={0.92} luminanceSmoothing={0.58} mipmapBlur />
         </EffectComposer>
@@ -93,6 +86,50 @@ export function Brain3D({
         </button>
       </div>
     </section>
+  );
+}
+
+function ResponsiveFog() {
+  const { size } = useThree();
+  const profile = getBrainCameraProfile(size.width, size.height);
+
+  return <fog attach="fog" args={["#050510", profile.fog[0], profile.fog[1]]} />;
+}
+
+function ResponsiveBrainCamera({ controls }: { controls: RefObject<OrbitControlsImpl | null> }) {
+  const { camera, size } = useThree();
+  const profile = getBrainCameraProfile(size.width, size.height);
+
+  useEffect(() => {
+    camera.position.set(...profile.position);
+    camera.updateProjectionMatrix();
+
+    const controlsInstance = controls.current;
+    if (controlsInstance) {
+      controlsInstance.target.set(0, 0, 0);
+      controlsInstance.update();
+      controlsInstance.saveState();
+    }
+  }, [camera, controls, profile]);
+
+  return null;
+}
+
+function ResponsiveOrbitControls({ controls }: { controls: RefObject<OrbitControlsImpl | null> }) {
+  const { size } = useThree();
+  const profile = getBrainCameraProfile(size.width, size.height);
+
+  return (
+    <OrbitControls
+      ref={controls}
+      autoRotate
+      autoRotateSpeed={0.12}
+      enablePan={false}
+      enableDamping
+      dampingFactor={0.08}
+      minDistance={profile.minDistance}
+      maxDistance={profile.maxDistance}
+    />
   );
 }
 
