@@ -44,14 +44,17 @@ export function evaluateMemoryCandidate(message: string): MemoryCandidate {
     return reject(text, "too-short");
   }
 
+  const question = isQuestion(text);
+  if (question) {
+    return reject(text, "trivial-question");
+  }
+
   const explicitMemory = EXPLICIT_MEMORY_PATTERN.test(text);
   const preference = PREFERENCE_PATTERN.test(text);
   const personalFact = PERSONAL_FACT_PATTERN.test(text);
-  const question = isQuestion(text);
-  const projectFact = !question && PROJECT_FACT_PATTERN.test(text) && hasDeclarativeCue(text);
+  const projectFact = PROJECT_FACT_PATTERN.test(text) && hasDeclarativeCue(text);
 
   if (!explicitMemory && !preference && !personalFact && !projectFact) {
-    if (question) return reject(text, "trivial-question");
     if (TRANSIENT_PATTERNS.some((pattern) => pattern.test(text))) return reject(text, "transient");
     return reject(text, "transient");
   }

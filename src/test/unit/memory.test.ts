@@ -87,6 +87,10 @@ describe("memory quality rules", () => {
     const question = evaluateMemoryCandidate("What is the weather today?");
     expect(question.shouldStore).toBe(false);
     expect(question.reason).toBe("trivial-question");
+
+    const preferenceQuestion = evaluateMemoryCandidate("What interface style do I prefer?");
+    expect(preferenceQuestion.shouldStore).toBe(false);
+    expect(preferenceQuestion.reason).toBe("trivial-question");
   });
 
   it("rejects transient commands that are not durable user facts", () => {

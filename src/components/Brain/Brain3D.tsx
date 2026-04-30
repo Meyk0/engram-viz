@@ -7,6 +7,7 @@ import { Suspense, useRef } from "react";
 import * as THREE from "three";
 import { Axons } from "@/components/Brain/Axons";
 import { BrainMesh } from "@/components/Brain/BrainMesh";
+import { MemoryLifecycle } from "@/components/Brain/MemoryLifecycle";
 import { RegionLabels } from "@/components/Brain/RegionLabels";
 import { getBrainAnimationState } from "@/lib/animations";
 import { regionBounds } from "@/lib/regions";
@@ -67,6 +68,7 @@ function BrainRig({ events }: Brain3DProps) {
     <group ref={group} scale={1.72} rotation={[0.02, -1.05, 0]}>
       <BrainMesh />
       <Axons animation={animation} />
+      <MemoryLifecycle events={events} />
       <HippocampusMarker pulse={animation.hippocampusMarker} decayDimming={animation.decayDimming} />
       <RegionLabels animation={animation} />
     </group>
@@ -79,15 +81,15 @@ function HippocampusMarker({ pulse, decayDimming }: { pulse: number; decayDimmin
   useFrame(({ clock }) => {
     const material = mesh.current?.material;
     if (!(material instanceof THREE.MeshStandardMaterial)) return;
-    material.opacity = Math.max(0.2, 0.3 + pulse * 0.22 - decayDimming * 0.18);
-    material.emissiveIntensity = 0.45 + pulse * 0.95 + Math.sin(clock.elapsedTime * 3.8) * 0.04;
+    material.opacity = Math.max(0.03, 0.05 + pulse * 0.12 - decayDimming * 0.08);
+    material.emissiveIntensity = 0.22 + pulse * 0.65 + Math.sin(clock.elapsedTime * 3.8) * 0.03;
     if (mesh.current) {
-      mesh.current.scale.set(0.12 + pulse * 0.022, 0.045 + pulse * 0.009, 0.055 + pulse * 0.011);
+      mesh.current.scale.set(0.095 + pulse * 0.016, 0.034 + pulse * 0.006, 0.044 + pulse * 0.008);
     }
   });
 
   return (
-    <mesh ref={mesh} position={regionBounds.hippocampus.center} rotation={[0.2, -0.55, 0.1]} scale={[0.12, 0.045, 0.055]} renderOrder={3}>
+    <mesh ref={mesh} position={regionBounds.hippocampus.center} rotation={[0.2, -0.55, 0.1]} scale={[0.095, 0.034, 0.044]} renderOrder={3}>
       <sphereGeometry args={[1, 32, 16]} />
       <meshStandardMaterial
         color={regionBounds.hippocampus.color}
