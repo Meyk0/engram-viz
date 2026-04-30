@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { Send, Square } from "lucide-react";
 import { explainEvent } from "@/lib/explanations";
 import { getActiveContextFill, getLoadedMemoryIds } from "@/lib/memoryVisuals";
@@ -15,14 +15,19 @@ import { CurrentEventBanner } from "@/components/UI/CurrentEventBanner";
 import { EventFeed } from "@/components/UI/EventFeed";
 import { ExplainabilityPanel } from "@/components/UI/ExplainabilityPanel";
 import { MemoryInspector } from "@/components/UI/MemoryInspector";
+import { OnboardingPanel } from "@/components/UI/OnboardingPanel";
 import { SecondaryDock, type SecondaryPanel } from "@/components/UI/SecondaryDock";
 import type { StreamChunk } from "@/types";
+
+const demoPrompt = "I prefer deep red interfaces and dark cyberpunk visuals.";
 
 export function EngramApp() {
   const [message, setMessage] = useState("");
   const [draftTurn, setDraftTurn] = useState<{ user: string; assistant: string } | null>(null);
   const [activePanel, setActivePanel] = useState<SecondaryPanel | null>(null);
+  const [onboardingDismissed, setOnboardingDismissed] = useState(false);
   const [selectedMemoryId, setSelectedMemoryId] = useState<string | undefined>(undefined);
+  const inputRef = useRef<HTMLInputElement>(null);
   const { events, pushEvent } = useEventQueue();
   const memories = useMemoryStore(events);
   const explanations = useMemoryExplanations(events);
@@ -64,6 +69,7 @@ export function EngramApp() {
     [draftTurn, history]
   );
   const memoryDetailCount = selectedMemory ? 1 : explanations.length;
+  const showOnboarding = events.length === 0 && !onboardingDismissed;
 
   const onMemorySelect = useCallback((id: string) => {
     setSelectedMemoryId(id);
@@ -82,6 +88,16 @@ export function EngramApp() {
   const openActiveContext = useCallback(() => {
     setSelectedMemoryId(undefined);
     setActivePanel("context");
+  }, []);
+
+  const dismissOnboarding = useCallback(() => {
+    setOnboardingDismissed(true);
+  }, []);
+
+  const startOnboardingDemo = useCallback(() => {
+    setMessage(demoPrompt);
+    setOnboardingDismissed(true);
+    inputRef.current?.focus();
   }, []);
 
   const onDockSelect = useCallback(
@@ -125,7 +141,11 @@ export function EngramApp() {
         <h1 className="title">ENGRAM</h1>
       </header>
 
-      <CurrentEventBanner events={events} />
+      {showOnboarding ? (
+        <OnboardingPanel onDismiss={dismissOnboarding} onStartDemo={startOnboardingDemo} />
+      ) : (
+        <CurrentEventBanner events={events} />
+      )}
 
       <EventFeed
         events={events}
@@ -169,6 +189,7 @@ export function EngramApp() {
       <form className="chat-bar" onSubmit={onSubmit}>
         <span className="chat-prefix">›</span>
         <input
+          ref={inputRef}
           className="chat-input"
           value={message}
           onChange={(event) => setMessage(event.target.value)}

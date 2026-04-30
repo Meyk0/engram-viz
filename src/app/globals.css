@@ -126,8 +126,14 @@ input {
 }
 
 .region-label-3d span::before {
-  content: "> ";
-  color: rgba(220, 245, 255, 0.72);
+  display: inline-block;
+  width: 22px;
+  height: 1px;
+  margin-right: 7px;
+  vertical-align: middle;
+  background: currentColor;
+  box-shadow: 0 0 8px currentColor;
+  content: "";
 }
 
 .region-label-3d span {
@@ -209,6 +215,128 @@ input {
   color: rgba(230, 242, 255, 0.86);
   font-size: 14px;
   line-height: 1.4;
+}
+
+.onboarding-panel {
+  position: fixed;
+  top: 120px;
+  left: min(7vw, 96px);
+  z-index: 10;
+  width: min(430px, calc(100vw - 40px));
+  padding: 18px 20px 18px;
+  border: 1px solid rgba(0, 212, 255, 0.12);
+  border-left: 2px solid var(--cyan);
+  border-radius: 0 8px 8px 0;
+  background: rgba(4, 6, 24, 0.62);
+  box-shadow:
+    0 16px 52px rgba(0, 0, 0, 0.48),
+    0 0 22px rgba(0, 212, 255, 0.07);
+  backdrop-filter: blur(18px) saturate(1.25);
+}
+
+.onboarding-eyebrow {
+  color: rgba(0, 212, 255, 0.62);
+  font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 8px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+}
+
+.onboarding-panel h2 {
+  margin: 8px 0 0;
+  color: rgba(230, 242, 255, 0.94);
+  font-size: 19px;
+  font-weight: 650;
+  letter-spacing: 0;
+  line-height: 1.18;
+}
+
+.onboarding-panel p {
+  margin: 10px 0 0;
+  color: rgba(220, 238, 255, 0.68);
+  font-size: 12px;
+  line-height: 1.52;
+}
+
+.onboarding-regions {
+  display: grid;
+  gap: 7px;
+  margin: 15px 0 0;
+}
+
+.onboarding-regions div {
+  display: grid;
+  grid-template-columns: 112px minmax(0, 1fr);
+  gap: 10px;
+  align-items: baseline;
+  min-width: 0;
+  padding: 7px 9px;
+  border: 1px solid rgba(0, 212, 255, 0.08);
+  border-left: 2px solid currentColor;
+  border-radius: 0 6px 6px 0;
+  background: rgba(5, 5, 20, 0.38);
+  color: var(--cyan);
+}
+
+.onboarding-regions div[data-region="hippocampus"] {
+  color: var(--violet);
+}
+
+.onboarding-regions div[data-region="temporal"] {
+  color: var(--temporal);
+}
+
+.onboarding-regions dt,
+.onboarding-regions dd {
+  min-width: 0;
+  margin: 0;
+  font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.onboarding-regions dt {
+  color: currentColor;
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.onboarding-regions dd {
+  color: rgba(220, 238, 255, 0.7);
+  font-size: 10px;
+  line-height: 1.35;
+}
+
+.onboarding-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.onboarding-primary,
+.onboarding-secondary {
+  height: 32px;
+  padding: 0 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.onboarding-primary {
+  border: 1px solid rgba(0, 212, 255, 0.34);
+  background: rgba(0, 212, 255, 0.12);
+  color: rgba(220, 245, 255, 0.94);
+}
+
+.onboarding-secondary {
+  border: 1px solid rgba(220, 238, 255, 0.11);
+  background: rgba(220, 238, 255, 0.04);
+  color: rgba(220, 238, 255, 0.58);
 }
 
 .secondary-panel {

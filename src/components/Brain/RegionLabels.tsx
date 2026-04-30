@@ -1,6 +1,6 @@
 "use client";
 
-import { Html } from "@react-three/drei";
+import { Html, Line } from "@react-three/drei";
 import { useFrame } from "@react-three/fiber";
 import { useMemo, useRef, useState } from "react";
 import * as THREE from "three";
@@ -72,6 +72,15 @@ function RegionAnnotation({ animation, region }: { animation: BrainAnimationStat
 
   return (
     <group>
+      <Line
+        points={[anchor, labelPosition]}
+        color={bounds.color}
+        transparent
+        opacity={opacity * 0.58}
+        lineWidth={0.9}
+        depthWrite={false}
+        depthTest={false}
+      />
       <group ref={anchorRef} position={anchor} />
       <Html
         position={labelPosition}
