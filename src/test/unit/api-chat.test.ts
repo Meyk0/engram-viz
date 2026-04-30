@@ -97,6 +97,40 @@ describe("/api/chat", () => {
     expect(eventTypes.indexOf("load")).toBeLessThan(eventTypes.indexOf("fire"));
   });
 
+  it("does not load active context for unrelated standalone preference stores", async () => {
+    resetLiveMemoryStore();
+
+    await POST(
+      new Request("http://localhost/api/chat", {
+        method: "POST",
+        body: JSON.stringify({
+          sessionId: "api-chat-unrelated-store",
+          message: "I like the color blue"
+        })
+      })
+    );
+
+    const response = await POST(
+      new Request("http://localhost/api/chat", {
+        method: "POST",
+        body: JSON.stringify({
+          sessionId: "api-chat-unrelated-store",
+          message: "I like the ocean"
+        })
+      })
+    );
+    const chunks = decodeSseChunks(await response.text());
+    const events = chunks
+      .filter((chunk) => chunk.kind === "event")
+      .map((chunk) => (chunk.kind === "event" ? chunk.event : null))
+      .filter((event): event is NonNullable<typeof event> => Boolean(event));
+    const eventTypes = events.map((event) => event.type);
+
+    expect(eventTypes).toContain("store");
+    expect(eventTypes).not.toContain("load");
+    expect(events.some((event) => event.type === "fire" && event.region === "prefrontal")).toBe(false);
+  });
+
   it("does not store trivial questions but still streams a response and done", async () => {
     resetLiveMemoryStore();
 

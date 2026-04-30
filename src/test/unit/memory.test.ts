@@ -60,6 +60,41 @@ describe("memory retrieval", () => {
     const results = retrieveMemories(listMemories(session), "glowing brain design", 1);
     expect(results[0].memory.id).toBe(design.id);
   });
+
+  it("does not retrieve memories by importance alone", () => {
+    const session = createMemorySession("session-d");
+    createMemory(session, {
+      text: "User likes the color blue",
+      importance: 0.9,
+      topic: "design"
+    });
+
+    expect(retrieveMemories(listMemories(session), "I like the ocean")).toEqual([]);
+  });
+
+  it("maps concrete color words so color questions retrieve color memories", () => {
+    const session = createMemorySession("session-e");
+    const color = createMemory(session, {
+      text: "User loves red",
+      importance: 0.78,
+      topic: "preference"
+    });
+
+    const results = retrieveMemories(listMemories(session), "what is my favorite color?");
+    expect(results.map((result) => result.memory.id)).toEqual([color.id]);
+  });
+
+  it("normalizes simple plurals for interface and color follow-ups", () => {
+    const session = createMemorySession("session-f");
+    const design = createMemory(session, {
+      text: "User prefers deep red interfaces and dark dashboards",
+      importance: 0.78,
+      topic: "design"
+    });
+
+    const results = retrieveMemories(listMemories(session), "What interface colors do I prefer?");
+    expect(results.map((result) => result.memory.id)).toEqual([design.id]);
+  });
 });
 
 describe("memory quality rules", () => {

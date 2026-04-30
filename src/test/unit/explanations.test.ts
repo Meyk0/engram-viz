@@ -24,11 +24,11 @@ describe("explanations", () => {
 
   it("extracts deterministic matched words from query and memory metadata", () => {
     expect(
-      getMatchedWords("What should Engram remember about this user's interface?", {
+      getMatchedWords("What should Engram remember about memory interfaces?", {
         text: "User is a designer exploring AI memory interfaces",
         topic: "user-profile"
       })
-    ).toEqual(["user"]);
+    ).toEqual(["interface", "memory"]);
   });
 
   it("builds retrieval explanations from events and memory-derived state", () => {
@@ -55,7 +55,7 @@ describe("explanations", () => {
     expect(explanations).toEqual([
       expect.objectContaining({
         id: "mem-user-product-context",
-        matchedWords: ["clarity", "user", "visual"],
+        matchedWords: ["clarity", "visual"],
         region: "temporal",
         regionLabel: "Temporal Cortex",
         accessCount: 1,
