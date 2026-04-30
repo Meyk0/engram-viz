@@ -15,7 +15,7 @@ export function BrainMesh() {
       color: "#00d4ff",
       wireframe: true,
       transparent: true,
-      opacity: 0.006,
+      opacity: 0.014,
       depthWrite: false
     });
 
@@ -58,13 +58,13 @@ function prepareBrainMaterial(material: THREE.Material): THREE.Material {
   const next = material.clone();
 
   if (next instanceof THREE.MeshStandardMaterial) {
-    next.color.lerp(new THREE.Color("#111827"), 0.38);
-    next.color.multiplyScalar(0.7);
+    next.color.lerp(new THREE.Color("#050816"), 0.6);
+    next.color.multiplyScalar(0.5);
     next.emissive.set("#00040a");
     next.emissiveIntensity = 0;
     next.transparent = true;
-    next.opacity = 0.56;
-    next.roughness = Math.max(next.roughness, 0.78);
+    next.opacity = 0.36;
+    next.roughness = Math.max(next.roughness, 0.84);
     next.metalness = 0.015;
     next.depthWrite = true;
     next.needsUpdate = true;
