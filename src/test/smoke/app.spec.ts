@@ -4,7 +4,15 @@ test("loads the Engram shell", async ({ page }) => {
   await page.goto("/");
   await expect(page.getByRole("heading", { name: "ENGRAM" })).toBeVisible();
   await expect(page.getByLabel("Current memory event")).toContainText("Ready for a memory");
+  await expect(page.getByLabel("Secondary views")).toBeVisible();
+  await expect(page.getByLabel("Chat transcript")).toBeHidden();
   await expect(page.getByLabel("Chat message")).toBeVisible();
+});
+
+test("opens transcript only from the dock", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "Transcript" }).click();
+  await expect(page.getByLabel("Chat transcript")).toBeVisible();
 });
 
 test("renders a nonblank brain canvas", async ({ page }) => {

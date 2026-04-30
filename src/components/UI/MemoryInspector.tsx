@@ -5,16 +5,17 @@ import type { EngramMemory } from "@/types";
 type MemoryInspectorProps = {
   memory: EngramMemory | undefined;
   onClose: () => void;
+  open: boolean;
 };
 
-export function MemoryInspector({ memory, onClose }: MemoryInspectorProps) {
-  if (!memory) return null;
+export function MemoryInspector({ memory, onClose, open }: MemoryInspectorProps) {
+  if (!open || !memory) return null;
 
   const region = regionExplanations[memory.region];
 
   return (
-    <aside className="memory-inspector" aria-label="Selected memory">
-      <div className="memory-inspector-header">
+    <aside className="secondary-panel secondary-panel-right memory-inspector" aria-label="Selected memory">
+      <div className="secondary-panel-header memory-inspector-header">
         <div>
           <div className="memory-inspector-eyebrow">{region.concept}</div>
           <div className="memory-inspector-title">{region.label}</div>

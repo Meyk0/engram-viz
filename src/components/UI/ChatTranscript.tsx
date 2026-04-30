@@ -1,3 +1,4 @@
+import { X } from "lucide-react";
 import type { ChatMessage } from "@/types";
 
 type DraftTurn = {
@@ -9,9 +10,13 @@ type ChatTranscriptProps = {
   history: ChatMessage[];
   draftTurn: DraftTurn | null;
   error: string | null;
+  onClose: () => void;
+  open: boolean;
 };
 
-export function ChatTranscript({ history, draftTurn, error }: ChatTranscriptProps) {
+export function ChatTranscript({ history, draftTurn, error, onClose, open }: ChatTranscriptProps) {
+  if (!open) return null;
+
   const messages = draftTurn
     ? [
         ...history,
@@ -23,8 +28,16 @@ export function ChatTranscript({ history, draftTurn, error }: ChatTranscriptProp
     : history;
 
   return (
-    <aside className="chat-transcript" aria-label="Chat transcript">
-      <div className="transcript-header">CONVERSATION</div>
+    <aside className="secondary-panel secondary-panel-left chat-transcript" aria-label="Chat transcript">
+      <div className="secondary-panel-header">
+        <div>
+          <div className="secondary-panel-eyebrow">Transcript</div>
+          <div className="secondary-panel-title">Conversation</div>
+        </div>
+        <button className="panel-icon-btn" type="button" onClick={onClose} aria-label="Close transcript">
+          <X size={13} />
+        </button>
+      </div>
       <div className="transcript-list">
         {messages.length === 0 ? (
           <div className="transcript-empty">No turns yet. Tell Engram something worth remembering.</div>

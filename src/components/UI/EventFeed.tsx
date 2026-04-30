@@ -1,34 +1,41 @@
+import { X } from "lucide-react";
 import type { EngramEvent } from "@/types";
 
 type EventFeedProps = {
   events: EngramEvent[];
   explainEvent: (event: EngramEvent) => string;
+  onClose: () => void;
+  open: boolean;
 };
 
-export function EventFeed({ events, explainEvent }: EventFeedProps) {
-  if (events.length === 0) return null;
+export function EventFeed({ events, explainEvent, onClose, open }: EventFeedProps) {
+  if (!open || events.length === 0) return null;
 
   return (
-    <aside className="event-feed" aria-label="Event log">
-      <details className="raw-event-details">
-        <summary>
-          Event log <span>{events.length}</span>
-        </summary>
-        <div className="event-list">
-          {events.slice(0, 7).map((event, index) => (
-            <article
-              className="event-item"
-              data-type={event.type}
-              data-region={eventRegion(event)}
-              key={`${event.type}-${index}-${eventKey(event)}`}
-            >
-              <div className="event-kind">{eventLabel(event)}</div>
-              <div className="event-copy">{eventSummary(event)}</div>
-              <div className="event-explainer">{explainEvent(event)}</div>
-            </article>
-          ))}
+    <aside className="secondary-panel secondary-panel-right event-feed" aria-label="Event log">
+      <div className="secondary-panel-header">
+        <div>
+          <div className="secondary-panel-eyebrow">{events.length} events</div>
+          <div className="secondary-panel-title">Event log</div>
         </div>
-      </details>
+        <button className="panel-icon-btn" type="button" onClick={onClose} aria-label="Close events panel">
+          <X size={13} />
+        </button>
+      </div>
+      <div className="event-list">
+        {events.slice(0, 7).map((event, index) => (
+          <article
+            className="event-item"
+            data-type={event.type}
+            data-region={eventRegion(event)}
+            key={`${event.type}-${index}-${eventKey(event)}`}
+          >
+            <div className="event-kind">{eventLabel(event)}</div>
+            <div className="event-copy">{eventSummary(event)}</div>
+            <div className="event-explainer">{explainEvent(event)}</div>
+          </article>
+        ))}
+      </div>
     </aside>
   );
 }
