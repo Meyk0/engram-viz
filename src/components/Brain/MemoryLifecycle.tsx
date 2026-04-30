@@ -52,6 +52,7 @@ export function MemoryLifecycle({
   const latestLoad = useMemo(() => getLatestLoadEvent(events), [events]);
   const latestFire = useMemo(() => getLatestFireEvent(events), [events]);
   const latestConsolidate = useMemo(() => getLatestConsolidateEvent(events), [events]);
+  const prefrontalBoltKey = latestRetrieve && latestRetrieve.ids.length > 0 ? latestRetrieve.query : undefined;
 
   return (
     <group renderOrder={6}>
@@ -63,7 +64,7 @@ export function MemoryLifecycle({
         selectedMemoryId={selectedMemoryId}
       />
       <StoreComet memory={latestStore?.memory} />
-      <PrefrontalBolt triggerKey={latestRetrieve?.query} />
+      <PrefrontalBolt triggerKey={prefrontalBoltKey} />
       <ActiveContextWindow
         events={events}
         ids={loadedIds}

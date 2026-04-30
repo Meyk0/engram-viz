@@ -6,6 +6,7 @@ import {
   getLatestLoadEvent,
   getLatestRetrieveEvent,
   getLatestStoreEvent,
+  getLoadedMemoryIds,
   getMemoryPositionById,
   getMemoryPosition,
   getMemoryVisuals,
@@ -70,6 +71,33 @@ describe("memory visual lifecycle", () => {
       capacity: 10,
       ratio: 1
     });
+  });
+
+  it("reserves active context for prefrontal loads and clears it after empty searches", () => {
+    const events: EngramEvent[] = [
+      { type: "fire", region: "hippocampus", ids: ["new-store"] },
+      { type: "store", memory: makeMemory("new-store", "hippocampus") }
+    ];
+
+    expect(getActiveMemoryIds(events)).toEqual([]);
+    expect(getLoadedMemoryIds(events)).toEqual([]);
+
+    const loadedEvents: EngramEvent[] = [
+      { type: "fire", region: "prefrontal", ids: ["mem-a"] },
+      { type: "load", ids: ["mem-a"] },
+      { type: "retrieve", query: "red", ids: ["mem-a"] }
+    ];
+
+    expect(getActiveMemoryIds(loadedEvents)).toEqual(["mem-a"]);
+    expect(getLoadedMemoryIds(loadedEvents)).toEqual(["mem-a"]);
+
+    const staleContextEvents: EngramEvent[] = [
+      { type: "retrieve", query: "unmatched new fact", ids: [] },
+      ...loadedEvents
+    ];
+
+    expect(getActiveMemoryIds(staleContextEvents)).toEqual([]);
+    expect(getLoadedMemoryIds(staleContextEvents)).toEqual([]);
   });
 
   it("finds consolidation events and source positions from prior memory events", () => {

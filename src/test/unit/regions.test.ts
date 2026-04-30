@@ -42,6 +42,12 @@ describe("event to region mapping", () => {
     expect(getEventRegions(fixtureEvents[2])).toEqual(["prefrontal"]);
   });
 
+  it("does not route empty retrieval searches to prefrontal activity", () => {
+    expect(getEventRegions({ type: "retrieve", query: "new standalone fact", ids: [] })).toEqual([]);
+    expect(getEventRegions({ type: "load", ids: [] })).toEqual([]);
+    expect(getEventRegions({ type: "fire", region: "prefrontal", ids: [] })).toEqual([]);
+  });
+
   it("routes consolidation through hippocampus and temporal memory", () => {
     expect(getEventRegions(fixtureEvents[4])).toEqual(["hippocampus", "temporal"]);
   });

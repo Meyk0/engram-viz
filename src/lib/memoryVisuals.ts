@@ -86,15 +86,27 @@ export function getLatestConsolidateEvent(events: EngramEvent[]) {
 }
 
 export function getActiveMemoryIds(events: EngramEvent[]): string[] {
-  const fire = getLatestFireEvent(events);
-  if (fire?.ids.length) return fire.ids;
+  const retrieveIndex = events.findIndex((event) => event.type === "retrieve");
+  const fireIndex = events.findIndex(
+    (event) => event.type === "fire" && event.region === "prefrontal" && event.ids.length > 0
+  );
 
-  const retrieve = getLatestRetrieveEvent(events);
-  return retrieve?.ids ?? [];
+  if (fireIndex === -1) return [];
+  if (retrieveIndex !== -1 && retrieveIndex < fireIndex) return [];
+
+  const fire = events[fireIndex];
+  return fire.type === "fire" ? fire.ids : [];
 }
 
 export function getLoadedMemoryIds(events: EngramEvent[]): string[] {
-  return getLatestLoadEvent(events)?.ids ?? [];
+  const retrieveIndex = events.findIndex((event) => event.type === "retrieve");
+  const loadIndex = events.findIndex((event) => event.type === "load");
+
+  if (loadIndex === -1) return [];
+  if (retrieveIndex !== -1 && retrieveIndex < loadIndex) return [];
+
+  const load = events[loadIndex];
+  return load.type === "load" ? load.ids : [];
 }
 
 export function getActiveContextFill(ids: string[]) {

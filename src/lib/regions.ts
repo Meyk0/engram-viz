@@ -45,12 +45,13 @@ export function getEventRegions(event: EngramEvent): BrainRegion[] {
     case "store":
       return [event.memory.region];
     case "fire":
-      return [event.region];
+      return event.ids.length > 0 ? [event.region] : [];
     case "consolidate":
       return ["hippocampus", event.added.region];
     case "load":
+      return event.ids.length > 0 ? ["prefrontal"] : [];
     case "retrieve":
-      return ["prefrontal"];
+      return event.ids.length > 0 ? ["prefrontal"] : [];
     case "decay":
       return ["hippocampus", "temporal"];
     case "init":
