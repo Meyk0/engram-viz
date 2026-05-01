@@ -14,21 +14,33 @@ type AxonsProps = {
 export function Axons({ animation }: AxonsProps) {
   const material = useRef<THREE.MeshBasicMaterial>(null);
   const tracer = useRef<THREE.Mesh>(null);
+  const activeKey = useRef<string | undefined>(undefined);
+  const startTime = useRef(-10);
   const { transfer } = animation;
   const curve = useMemo(() => getTransferCurve(transfer.to), [transfer.to]);
   const geometry = useMemo(() => new THREE.TubeGeometry(curve, 48, 0.006, 8, false), [curve]);
 
   useFrame(({ clock }) => {
+    if (transfer.active && transfer.triggerKey && activeKey.current !== transfer.triggerKey) {
+      activeKey.current = transfer.triggerKey;
+      startTime.current = clock.elapsedTime;
+    }
+
+    const elapsed = clock.elapsedTime - startTime.current;
+    const active = transfer.active && elapsed >= 0 && elapsed < 1.6;
+    const fade = active ? Math.max(0, 1 - elapsed / 1.6) : 0;
+    const visibleStrength = transfer.strength * fade;
+
     if (material.current) {
-      material.current.opacity = transfer.active ? 0.1 + transfer.strength * 0.48 : 0;
+      material.current.opacity = active ? 0.08 + visibleStrength * 0.42 : 0;
     }
 
     if (!tracer.current) return;
-    const progress = transfer.active ? (clock.elapsedTime * 0.72) % 1 : 0;
+    const progress = active ? Math.min(1, elapsed / 1.2) : 0;
     const position = curve.getPoint(progress);
     tracer.current.position.copy(position);
-    tracer.current.visible = transfer.active && transfer.strength > 0.08;
-    tracer.current.scale.setScalar(0.55 + transfer.strength * 0.9);
+    tracer.current.visible = active && visibleStrength > 0.08;
+    tracer.current.scale.setScalar(0.55 + visibleStrength * 0.9);
   });
 
   return (

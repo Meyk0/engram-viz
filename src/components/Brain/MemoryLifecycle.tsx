@@ -142,7 +142,8 @@ function MemoryNeuron({
 
     const storeElapsed = storeActive ? clock.elapsedTime - storeStartTime.current : 10;
     const storePulse = storeActive ? Math.max(0, 1 - storeElapsed / 2.4) : 0;
-    const shimmer = Math.sin(clock.elapsedTime * 3.4 + visual.position[0] * 8) * 0.06;
+    const shimmerMagnitude = visual.memory.region === "temporal" ? 0.018 : 0.045;
+    const shimmer = Math.sin(clock.elapsedTime * 3.4 + visual.position[0] * 8) * shimmerMagnitude;
     const pulse = selected ? 0.58 : active ? 0.42 : 0;
     mesh.current.scale.setScalar(baseScale * (1 + shimmer + pulse + storePulse * 1.55));
     material.current.emissiveIntensity = 0.45 + pulse * 2.4 + storePulse * 3.1 + (visual.isHighImportance ? 0.28 : 0);

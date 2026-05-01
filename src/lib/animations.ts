@@ -13,6 +13,7 @@ export type RegionAnimationState = Record<BrainRegion, number>;
 export type TransferAnimationState = {
   active: boolean;
   from: BrainRegion;
+  triggerKey?: string;
   to: BrainRegion;
   strength: number;
 };
@@ -39,6 +40,7 @@ export function getBrainAnimationState(events: EngramEvent[]): BrainAnimationSta
   let transfer: TransferAnimationState = {
     active: false,
     from: "hippocampus",
+    triggerKey: undefined,
     to: "temporal",
     strength: 0
   };
@@ -61,6 +63,7 @@ export function getBrainAnimationState(events: EngramEvent[]): BrainAnimationSta
         transfer = {
           active: true,
           from: "hippocampus",
+          triggerKey: `${event.added.id}-${event.removed.join(".")}`,
           to: event.added.region,
           strength
         };

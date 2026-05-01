@@ -33,11 +33,14 @@ describe("brain animation state", () => {
   });
 
   it("marks consolidation as hippocampus-to-memory-region transfer", () => {
-    const state = getBrainAnimationState([fixtureEvents[4]]);
+    const consolidate = fixtureEvents[4];
+    if (consolidate.type !== "consolidate") throw new Error("expected consolidation fixture");
+    const state = getBrainAnimationState([consolidate]);
 
     expect(state.transfer).toMatchObject({
       active: true,
       from: "hippocampus",
+      triggerKey: `${consolidate.added.id}-${consolidate.removed.join(".")}`,
       to: "temporal",
       strength: 1
     });
