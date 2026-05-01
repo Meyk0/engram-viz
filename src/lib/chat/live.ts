@@ -1,10 +1,8 @@
 import { createChatProvider, configuredChatProvider } from "@/lib/chat/providers";
 import { MemoryEngine } from "@/lib/memory/engine";
 import { findConsolidationCandidate } from "@/lib/memory/consolidationPolicy";
-import {
-  deterministicMemoryDecisionPlanner,
-  type MemoryDecisionPlanner
-} from "@/lib/memory/decision";
+import type { MemoryDecisionPlanner } from "@/lib/memory/decision";
+import { configuredMemoryDecisionPlanner } from "@/lib/memory/planner-config";
 import { InMemoryMemoryStore } from "@/lib/memory/store-interface";
 import type { ChatMessage, StreamChunk } from "@/types";
 
@@ -21,7 +19,7 @@ export type LiveChatInput = {
 
 export async function createLiveMemoryStream(input: LiveChatInput): Promise<StreamChunk[]> {
   const history = input.history ?? [];
-  const memoryDecisionPlanner = input.memoryDecisionPlanner ?? deterministicMemoryDecisionPlanner;
+  const memoryDecisionPlanner = input.memoryDecisionPlanner ?? configuredMemoryDecisionPlanner();
   const chunks: StreamChunk[] = [];
 
   chunks.push({ kind: "event", event: await memoryEngine.initialize(input.sessionId) });
@@ -56,15 +54,18 @@ export async function createLiveMemoryStream(input: LiveChatInput): Promise<Stre
 
   const memoryDecision = memoryDecisionPlanner.decide({
     message: input.message,
-    relatedMemoryIds: retrievedIds
+    relatedMemoryIds: retrievedIds,
+    relatedMemories: retrievedMemories
   });
 
-  if (memoryDecision.operation === "store") {
+  const resolvedMemoryDecision = await memoryDecision;
+
+  if (resolvedMemoryDecision.operation === "store") {
     const stored = await memoryEngine.storeMemory({
       sessionId: input.sessionId,
-      text: memoryDecision.memoryText,
-      importance: memoryDecision.importance,
-      topic: memoryDecision.topic,
+      text: resolvedMemoryDecision.memoryText,
+      importance: resolvedMemoryDecision.importance,
+      topic: resolvedMemoryDecision.topic,
       now: input.now
     });
     chunks.push({ kind: "event", event: stored });

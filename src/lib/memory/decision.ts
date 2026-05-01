@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { evaluateMemoryCandidate } from "@/lib/memory/rules";
+import type { EngramMemory } from "@/types";
 
 const memoryDecisionBaseSchema = {
   provider: z.enum(["deterministic", "llm", "fallback"]),
@@ -31,11 +32,12 @@ export type MemoryDecision = z.infer<typeof memoryDecisionSchema>;
 export type MemoryPlanningInput = {
   message: string;
   relatedMemoryIds?: string[];
+  relatedMemories?: Pick<EngramMemory, "id" | "text" | "topic" | "importance">[];
 };
 
 export interface MemoryDecisionPlanner {
   readonly provider: MemoryDecision["provider"];
-  decide(input: MemoryPlanningInput): MemoryDecision;
+  decide(input: MemoryPlanningInput): MemoryDecision | Promise<MemoryDecision>;
 }
 
 export function parseMemoryDecision(input: unknown): MemoryDecision {
