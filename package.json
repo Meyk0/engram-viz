@@ -13,6 +13,7 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
+    "eval:memory": "vitest run src/test/unit/memory-evals.test.ts --reporter=verbose",
     "test:watch": "vitest",
     "test:ui": "vitest --ui",
     "smoke": "playwright test"

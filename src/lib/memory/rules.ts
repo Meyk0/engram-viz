@@ -44,12 +44,12 @@ export function evaluateMemoryCandidate(message: string): MemoryCandidate {
     return reject(text, "too-short");
   }
 
+  const explicitMemory = EXPLICIT_MEMORY_PATTERN.test(text);
   const question = isQuestion(text);
-  if (question) {
+  if (question && !explicitMemory) {
     return reject(text, "trivial-question");
   }
 
-  const explicitMemory = EXPLICIT_MEMORY_PATTERN.test(text);
   const preference = PREFERENCE_PATTERN.test(text);
   const personalFact = PERSONAL_FACT_PATTERN.test(text);
   const projectFact = PROJECT_FACT_PATTERN.test(text) && hasDeclarativeCue(text);

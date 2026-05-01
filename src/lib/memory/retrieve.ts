@@ -131,8 +131,10 @@ export function scoreMemory(memory: EngramMemory, queryTokens: Set<string>): num
   const lexicalScore = queryTokens.size === 0 ? 0 : overlap / queryTokens.size;
   const importanceBoost = memory.importance * 0.2;
   const accessBoost = Math.min(memory.access_count, 5) * 0.03;
+  const colorPreferenceBoost =
+    queryTokens.has("color") && memory.topic === "preference" && memoryTokens.has("color") ? 0.2 : 0;
 
-  return lexicalScore + importanceBoost + accessBoost;
+  return lexicalScore + importanceBoost + accessBoost + colorPreferenceBoost;
 }
 
 export function tokenize(text: string): Set<string> {

@@ -49,8 +49,12 @@ OpenAI calls are server-side only. Normal tests use mocked providers and do not 
 npm run typecheck
 npm run lint
 npm test
+npm run eval:memory
 npm run build
 ```
+
+`npm run eval:memory` runs the deterministic memory eval harness. It covers storage decisions,
+retrieval relevance, and hippocampus-to-temporal consolidation without calling a live LLM.
 
 ## Provider Direction
 
