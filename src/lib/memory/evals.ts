@@ -1,7 +1,15 @@
 import type { EngramMemory } from "@/types";
+import { createConsolidatedMemory } from "@/lib/memory/consolidate";
 import { findConsolidationCandidate } from "@/lib/memory/consolidationPolicy";
 import { evaluateMemoryCandidate, type MemoryCandidate } from "@/lib/memory/rules";
 import { retrieveMemories } from "@/lib/memory/retrieve";
+import {
+  createMemory,
+  createMemorySession,
+  listMemories,
+  markAccessed,
+  replaceMemories
+} from "@/lib/memory/store";
 
 type EvalMemoryInput = {
   id: string;
@@ -21,7 +29,17 @@ type RetrievalExpectation = {
   maxResults?: number;
 };
 
-export type MemoryEvalSuite = "conversation" | "retrieval" | "consolidation";
+type ScenarioTurnExpectation = {
+  shouldStore?: boolean;
+  shouldLoadContext?: boolean;
+  shouldConsolidate?: boolean;
+  retrievedTextIncludes?: string[];
+  excludedRetrievedTextIncludes?: string[];
+  storedTextIncludes?: string[];
+  consolidatedTextIncludes?: string[];
+};
+
+export type MemoryEvalSuite = "conversation" | "retrieval" | "consolidation" | "scenario";
 
 export type MemoryConversationEvalFixture = {
   name: string;
@@ -51,6 +69,21 @@ export type MemoryConsolidationEvalFixture = {
   };
 };
 
+export type MemoryScenarioEvalFixture = {
+  name: string;
+  turns: {
+    message: string;
+    expected: ScenarioTurnExpectation;
+  }[];
+  expectedFinal?: {
+    memoryTextIncludes?: string[];
+    missingMemoryTextIncludes?: string[];
+    missingHippocampusTextIncludes?: string[];
+    temporalTextIncludes?: string[];
+    hippocampusTextIncludes?: string[];
+  };
+};
+
 export type MemoryEvalResult = {
   suite: MemoryEvalSuite;
   fixtureName: string;
@@ -71,7 +104,12 @@ export type MemoryEvalReport = {
   results: MemoryEvalResult[];
 };
 
-const MEMORY_EVAL_SUITES: MemoryEvalSuite[] = ["conversation", "retrieval", "consolidation"];
+const MEMORY_EVAL_SUITES: MemoryEvalSuite[] = [
+  "conversation",
+  "retrieval",
+  "consolidation",
+  "scenario"
+];
 const BASE_TIME = Date.parse("2026-04-29T17:00:00.000Z");
 
 const retrievalMemoryBank: EvalMemoryInput[] = [
@@ -421,6 +459,97 @@ export const memoryConsolidationEvalFixtures: MemoryConsolidationEvalFixture[] =
   }
 ];
 
+export const memoryScenarioEvalFixtures: MemoryScenarioEvalFixture[] = [
+  {
+    name: "standalone stores do not load active context until a related question",
+    turns: [
+      {
+        message: "I like the color blue",
+        expected: {
+          shouldStore: true,
+          shouldLoadContext: false,
+          storedTextIncludes: ["color blue"],
+          excludedRetrievedTextIncludes: ["color blue"]
+        }
+      },
+      {
+        message: "I like the ocean",
+        expected: {
+          shouldStore: true,
+          shouldLoadContext: false,
+          storedTextIncludes: ["ocean"],
+          excludedRetrievedTextIncludes: ["color blue"]
+        }
+      },
+      {
+        message: "What color do I love?",
+        expected: {
+          shouldStore: false,
+          shouldLoadContext: true,
+          retrievedTextIncludes: ["color blue"],
+          excludedRetrievedTextIncludes: ["ocean"]
+        }
+      }
+    ],
+    expectedFinal: {
+      memoryTextIncludes: ["color blue", "ocean"],
+      hippocampusTextIncludes: ["color blue", "ocean"]
+    }
+  },
+  {
+    name: "related hippocampus memories consolidate into temporal and remain retrievable",
+    turns: [
+      {
+        message: "I prefer red interface accents",
+        expected: {
+          shouldStore: true,
+          shouldLoadContext: false,
+          shouldConsolidate: false,
+          storedTextIncludes: ["red interface"]
+        }
+      },
+      {
+        message: "I like restrained medical UI",
+        expected: {
+          shouldStore: true,
+          shouldLoadContext: false,
+          shouldConsolidate: true,
+          storedTextIncludes: ["restrained medical UI"],
+          consolidatedTextIncludes: ["red interface", "restrained medical UI"]
+        }
+      },
+      {
+        message: "What design style do I prefer?",
+        expected: {
+          shouldStore: false,
+          shouldLoadContext: true,
+          retrievedTextIncludes: ["recurring design memories"]
+        }
+      }
+    ],
+    expectedFinal: {
+      temporalTextIncludes: ["recurring design memories", "red interface", "restrained medical UI"],
+      missingHippocampusTextIncludes: ["I prefer red interface accents", "I like restrained medical UI"]
+    }
+  },
+  {
+    name: "explicit memory phrased as a question stores without immediate context load",
+    turns: [
+      {
+        message: "Can you remember that I prefer red accents for Engram?",
+        expected: {
+          shouldStore: true,
+          shouldLoadContext: false,
+          storedTextIncludes: ["red accents"]
+        }
+      }
+    ],
+    expectedFinal: {
+      hippocampusTextIncludes: ["red accents"]
+    }
+  }
+];
+
 export function runConversationEvalFixture(
   fixture: MemoryConversationEvalFixture
 ): MemoryEvalResult {
@@ -477,11 +606,68 @@ export function runConsolidationEvalFixture(
   return { suite: "consolidation", fixtureName: fixture.name, failures };
 }
 
+export function runMemoryScenarioEvalFixture(fixture: MemoryScenarioEvalFixture): MemoryEvalResult {
+  const session = createMemorySession(`eval-${slugify(fixture.name)}`);
+  const failures: string[] = [];
+
+  fixture.turns.forEach((turn, index) => {
+    const now = evalTime(index);
+    const retrieved = retrieveMemories(listMemories(session), turn.message, 3).map(
+      (result) => result.memory
+    );
+    const retrievedIds = retrieved.map((memory) => memory.id);
+    markAccessed(session, retrievedIds, now);
+
+    const candidate = evaluateMemoryCandidate(turn.message);
+    const stored = candidate.shouldStore
+      ? createMemory(session, {
+          text: candidate.text,
+          importance: candidate.importance,
+          topic: candidate.topic,
+          now
+        })
+      : undefined;
+
+    const consolidationCandidate = findConsolidationCandidate(listMemories(session));
+    const consolidated =
+      consolidationCandidate && stored
+        ? replaceMemories(
+            session,
+            consolidationCandidate.ids,
+            createConsolidatedMemory({
+              id: `${session.sessionId}-temporal-${index + 1}`,
+              text: consolidationCandidate.consolidatedText,
+              sourceMemories: listMemories(session).filter((memory) =>
+                consolidationCandidate.ids.includes(memory.id)
+              ),
+              now
+            })
+          )
+        : undefined;
+
+    failures.push(
+      ...assertScenarioTurnExpectation({
+        fixture,
+        turnIndex: index,
+        expected: turn.expected,
+        retrieved,
+        stored,
+        consolidated
+      })
+    );
+  });
+
+  failures.push(...assertScenarioFinalExpectation(fixture, listMemories(session)));
+
+  return { suite: "scenario", fixtureName: fixture.name, failures };
+}
+
 export function runMemoryEvalReport(): MemoryEvalReport {
   const results = [
     ...memoryConversationEvalFixtures.map(runConversationEvalFixture),
     ...memoryRetrievalEvalFixtures.map(runRetrievalEvalFixture),
-    ...memoryConsolidationEvalFixtures.map(runConsolidationEvalFixture)
+    ...memoryConsolidationEvalFixtures.map(runConsolidationEvalFixture),
+    ...memoryScenarioEvalFixtures.map(runMemoryScenarioEvalFixture)
   ];
   const bySuite = createEmptySuiteSummary();
 
@@ -576,6 +762,108 @@ function assertRetrievalExpectation(
   return failures;
 }
 
+function assertScenarioTurnExpectation(input: {
+  fixture: MemoryScenarioEvalFixture;
+  turnIndex: number;
+  expected: ScenarioTurnExpectation;
+  retrieved: EngramMemory[];
+  stored?: EngramMemory;
+  consolidated?: EngramMemory;
+}): string[] {
+  const failures: string[] = [];
+  const turnLabel = `${input.fixture.name} turn ${input.turnIndex + 1}`;
+  const loadedContext = input.retrieved.length > 0;
+
+  if (input.expected.shouldStore !== undefined && Boolean(input.stored) !== input.expected.shouldStore) {
+    failures.push(`${turnLabel}: expected shouldStore ${input.expected.shouldStore}, got ${Boolean(input.stored)}`);
+  }
+
+  if (input.expected.shouldLoadContext !== undefined && loadedContext !== input.expected.shouldLoadContext) {
+    failures.push(`${turnLabel}: expected context load ${input.expected.shouldLoadContext}, got ${loadedContext}`);
+  }
+
+  if (
+    input.expected.shouldConsolidate !== undefined &&
+    Boolean(input.consolidated) !== input.expected.shouldConsolidate
+  ) {
+    failures.push(
+      `${turnLabel}: expected consolidation ${input.expected.shouldConsolidate}, got ${Boolean(input.consolidated)}`
+    );
+  }
+
+  input.expected.retrievedTextIncludes?.forEach((text) => {
+    if (!memoriesContainText(input.retrieved, text)) {
+      failures.push(`${turnLabel}: expected retrieved memory to include "${text}", got ${formatMemoryTexts(input.retrieved)}`);
+    }
+  });
+
+  input.expected.excludedRetrievedTextIncludes?.forEach((text) => {
+    if (memoriesContainText(input.retrieved, text)) {
+      failures.push(`${turnLabel}: expected retrieved memory to exclude "${text}", got ${formatMemoryTexts(input.retrieved)}`);
+    }
+  });
+
+  input.expected.storedTextIncludes?.forEach((text) => {
+    if (!input.stored?.text.includes(text)) {
+      failures.push(`${turnLabel}: expected stored memory to include "${text}", got "${input.stored?.text ?? "none"}"`);
+    }
+  });
+
+  input.expected.consolidatedTextIncludes?.forEach((text) => {
+    if (!input.consolidated?.text.includes(text)) {
+      failures.push(
+        `${turnLabel}: expected consolidated memory to include "${text}", got "${input.consolidated?.text ?? "none"}"`
+      );
+    }
+  });
+
+  return failures;
+}
+
+function assertScenarioFinalExpectation(
+  fixture: MemoryScenarioEvalFixture,
+  memories: EngramMemory[]
+): string[] {
+  const failures: string[] = [];
+  const expected = fixture.expectedFinal;
+  if (!expected) return failures;
+
+  expected.memoryTextIncludes?.forEach((text) => {
+    if (!memoriesContainText(memories, text)) {
+      failures.push(`${fixture.name}: expected final memories to include "${text}", got ${formatMemoryTexts(memories)}`);
+    }
+  });
+
+  expected.missingMemoryTextIncludes?.forEach((text) => {
+    if (memoriesContainText(memories, text)) {
+      failures.push(`${fixture.name}: expected final memories to omit "${text}", got ${formatMemoryTexts(memories)}`);
+    }
+  });
+
+  expected.missingHippocampusTextIncludes?.forEach((text) => {
+    const hippocampusMemories = memories.filter((memory) => memory.region === "hippocampus");
+    if (memoriesContainText(hippocampusMemories, text)) {
+      failures.push(
+        `${fixture.name}: expected hippocampus memories to omit "${text}", got ${formatMemoryTexts(hippocampusMemories)}`
+      );
+    }
+  });
+
+  expected.temporalTextIncludes?.forEach((text) => {
+    if (!memoriesContainText(memories.filter((memory) => memory.region === "temporal"), text)) {
+      failures.push(`${fixture.name}: expected temporal memory to include "${text}", got ${formatMemoryTexts(memories)}`);
+    }
+  });
+
+  expected.hippocampusTextIncludes?.forEach((text) => {
+    if (!memoriesContainText(memories.filter((memory) => memory.region === "hippocampus"), text)) {
+      failures.push(`${fixture.name}: expected hippocampus memory to include "${text}", got ${formatMemoryTexts(memories)}`);
+    }
+  });
+
+  return failures;
+}
+
 function candidateToMemories(
   fixture: MemoryConversationEvalFixture,
   candidate: MemoryCandidate
@@ -608,7 +896,8 @@ function createEmptySuiteSummary(): Record<MemoryEvalSuite, MemoryEvalSuiteSumma
   return {
     conversation: createEmptySummary(),
     retrieval: createEmptySummary(),
-    consolidation: createEmptySummary()
+    consolidation: createEmptySummary(),
+    scenario: createEmptySummary()
   };
 }
 
@@ -626,4 +915,20 @@ function sameItems(actual: string[], expected: string[]) {
 
 function formatIds(ids: string[]) {
   return ids.length === 0 ? "[]" : ids.join(", ");
+}
+
+function memoriesContainText(memories: EngramMemory[], text: string) {
+  return memories.some((memory) => memory.text.includes(text));
+}
+
+function formatMemoryTexts(memories: EngramMemory[]) {
+  return memories.length === 0 ? "[]" : memories.map((memory) => `"${memory.text}"`).join(", ");
+}
+
+function evalTime(index: number) {
+  return new Date(BASE_TIME + index * 60_000).toISOString();
+}
+
+function slugify(text: string) {
+  return text.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
 }
