@@ -74,6 +74,7 @@ export function MemoryLifecycle({
       />
       <ConsolidationArc consolidate={latestConsolidate} events={events} />
       <FiredAxons memories={memories} activeIds={activeIds} triggerKey={latestFire ? `${latestFire.region}-${latestFire.ids.join(".")}` : undefined} />
+      <ProcessingHalo active={responseActive} />
     </group>
   );
 }
@@ -347,6 +348,74 @@ function PrefrontalBolt({ triggerKey }: { triggerKey?: string }) {
           blending={THREE.AdditiveBlending}
         />
       </mesh>
+    </group>
+  );
+}
+
+function ProcessingHalo({ active }: { active: boolean }) {
+  const ring = useRef<THREE.Mesh>(null);
+  const material = useRef<THREE.MeshBasicMaterial>(null);
+  const dots = useRef<THREE.Group>(null);
+
+  useFrame(({ clock }) => {
+    const wave = active ? 0.58 + Math.sin(clock.elapsedTime * 4.6) * 0.24 : 0;
+
+    if (ring.current) {
+      ring.current.visible = wave > 0.02;
+      ring.current.scale.setScalar(0.12 + wave * 0.055);
+      ring.current.rotation.z = clock.elapsedTime * 0.9;
+    }
+
+    if (material.current) {
+      material.current.opacity = wave * 0.32;
+    }
+
+    if (dots.current) {
+      dots.current.visible = wave > 0.02;
+      dots.current.rotation.z = -clock.elapsedTime * 1.4;
+      dots.current.children.forEach((child, index) => {
+        if (!(child instanceof THREE.Mesh)) return;
+        child.scale.setScalar(0.006 + (0.003 * (1 + Math.sin(clock.elapsedTime * 5.2 + index))) / 2);
+        const childMaterial = child.material;
+        if (childMaterial instanceof THREE.MeshBasicMaterial) {
+          childMaterial.opacity = 0.36 + wave * 0.34;
+        }
+      });
+    }
+  });
+
+  return (
+    <group position={activeContextCenter} rotation={[Math.PI / 2, 0.1, 0]}>
+      <mesh ref={ring} visible={false}>
+        <torusGeometry args={[1, 0.018, 8, 72]} />
+        <meshBasicMaterial
+          ref={material}
+          color={memoryColors.prefrontal}
+          transparent
+          opacity={0}
+          depthWrite={false}
+          depthTest={false}
+          blending={THREE.AdditiveBlending}
+        />
+      </mesh>
+      <group ref={dots} visible={false}>
+        {[0, 1, 2].map((index) => {
+          const angle = (index / 3) * Math.PI * 2;
+          return (
+            <mesh key={index} position={[Math.cos(angle) * 0.16, Math.sin(angle) * 0.16, 0.01]}>
+              <sphereGeometry args={[1, 10, 8]} />
+              <meshBasicMaterial
+                color={memoryColors.prefrontal}
+                transparent
+                opacity={0}
+                depthWrite={false}
+                depthTest={false}
+                blending={THREE.AdditiveBlending}
+              />
+            </mesh>
+          );
+        })}
+      </group>
     </group>
   );
 }

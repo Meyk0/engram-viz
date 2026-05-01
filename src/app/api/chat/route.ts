@@ -1,4 +1,4 @@
-import { createLiveMemoryStream } from "@/lib/chat/live";
+import { streamLiveMemoryChunks } from "@/lib/chat/live";
 import { encodeSseChunk } from "@/lib/events/sse";
 import type { ChatMessage } from "@/types";
 
@@ -11,19 +11,30 @@ export async function POST(request: Request) {
     history?: ChatMessage[];
   };
 
-  const chunks = await createLiveMemoryStream({
-    sessionId: body.sessionId ?? "demo-session",
-    message: body.message ?? "",
-    history: body.history ?? []
-  });
-
   const stream = new ReadableStream({
-    start(controller) {
+    async start(controller) {
       const encoder = new TextEncoder();
-      chunks.forEach((chunk) => {
-        controller.enqueue(encoder.encode(encodeSseChunk(chunk)));
-      });
-      controller.close();
+
+      try {
+        for await (const chunk of streamLiveMemoryChunks({
+          sessionId: body.sessionId ?? "demo-session",
+          message: body.message ?? "",
+          history: body.history ?? []
+        })) {
+          controller.enqueue(encoder.encode(encodeSseChunk(chunk)));
+        }
+      } catch (error) {
+        controller.enqueue(
+          encoder.encode(
+            encodeSseChunk({
+              kind: "error",
+              message: error instanceof Error ? error.message : "Chat stream failed."
+            })
+          )
+        );
+      } finally {
+        controller.close();
+      }
     }
   });
 

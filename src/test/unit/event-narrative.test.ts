@@ -31,7 +31,7 @@ describe("event narrative", () => {
     });
   });
 
-  it("surfaces planner reasoning for skipped memory decisions", () => {
+  it("keeps skipped memory decisions user-facing", () => {
     expect(
       getCurrentEventNarrative([
         {
@@ -47,8 +47,29 @@ describe("event narrative", () => {
         }
       ])
     ).toMatchObject({
-      title: "Memory skipped",
-      body: "OpenAI planner skipped storage: This is a question, not a durable fact."
+      title: "No new memory saved",
+      body: "This message did not add a durable fact or preference."
+    });
+  });
+
+  it("explains retrieved question turns without exposing planner internals", () => {
+    expect(
+      getCurrentEventNarrative([
+        {
+          type: "plan",
+          decision: {
+            stage: "memory",
+            operation: "ignore",
+            provider: "llm",
+            confidence: 0.93,
+            reason: "This is a question, not a durable fact.",
+            relatedMemoryIds: ["indigo"]
+          }
+        }
+      ])
+    ).toMatchObject({
+      title: "Answered from memory",
+      body: "1 memory loaded into working memory. No new memory was saved for the question."
     });
   });
 

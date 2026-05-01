@@ -10,11 +10,13 @@ import type { EngramMemory } from "@/types";
 const OPENAI_EMBEDDINGS_URL = "https://api.openai.com/v1/embeddings";
 const DEFAULT_OPENAI_EMBEDDING_MODEL = "text-embedding-3-small";
 const DEFAULT_MIN_SCORE = 0.32;
+const DEFAULT_LEXICAL_PREFLIGHT_SCORE = 0.8;
 
 export type OpenAISemanticMemoryRetrieverOptions = {
   apiKey?: string;
   fallbackRetriever?: MemoryRetriever;
   fetcher?: typeof fetch;
+  lexicalPreflightScore?: number;
   minScore?: number;
   model?: string;
 };
@@ -24,6 +26,7 @@ export class OpenAISemanticMemoryRetriever implements MemoryRetriever {
   private readonly apiKey?: string;
   private readonly fallbackRetriever: MemoryRetriever;
   private readonly fetcher: typeof fetch;
+  private readonly lexicalPreflightScore: number;
   private readonly minScore: number;
   private readonly model: string;
 
@@ -31,6 +34,7 @@ export class OpenAISemanticMemoryRetriever implements MemoryRetriever {
     this.apiKey = options.apiKey ?? process.env.OPENAI_API_KEY;
     this.fallbackRetriever = options.fallbackRetriever ?? lexicalMemoryRetriever;
     this.fetcher = options.fetcher ?? fetch;
+    this.lexicalPreflightScore = options.lexicalPreflightScore ?? DEFAULT_LEXICAL_PREFLIGHT_SCORE;
     this.minScore = options.minScore ?? DEFAULT_MIN_SCORE;
     this.model =
       options.model ??
@@ -49,7 +53,17 @@ export class OpenAISemanticMemoryRetriever implements MemoryRetriever {
     }
 
     if (!this.apiKey) {
-      return this.fallback(input, "OpenAI semantic retrieval is enabled but OPENAI_API_KEY is missing.");
+      const lexicalPreflight = await this.fallbackRetriever.retrieve(input);
+      return this.fallback(lexicalPreflight, "OpenAI semantic retrieval is enabled but OPENAI_API_KEY is missing.");
+    }
+
+    const lexicalPreflight = await this.fallbackRetriever.retrieve(input);
+    if (hasStrongLexicalMatch(lexicalPreflight.results, this.lexicalPreflightScore)) {
+      return {
+        provider: this.provider,
+        reason: "A direct stored-memory match was found before semantic retrieval.",
+        results: lexicalPreflight.results
+      };
     }
 
     let response: Response;
@@ -66,43 +80,77 @@ export class OpenAISemanticMemoryRetriever implements MemoryRetriever {
         })
       });
     } catch (error) {
-      return this.fallback(input, `OpenAI semantic retrieval request failed: ${formatError(error)}.`);
+      return this.fallback(lexicalPreflight, `OpenAI semantic retrieval request failed: ${formatError(error)}.`);
     }
 
     if (!response.ok) {
-      return this.fallback(input, `OpenAI semantic retrieval returned HTTP ${response.status}.`);
+      return this.fallback(lexicalPreflight, `OpenAI semantic retrieval returned HTTP ${response.status}.`);
     }
 
     let payload: unknown;
     try {
       payload = await response.json();
     } catch (error) {
-      return this.fallback(input, `OpenAI semantic retrieval response was not JSON: ${formatError(error)}.`);
+      return this.fallback(lexicalPreflight, `OpenAI semantic retrieval response was not JSON: ${formatError(error)}.`);
     }
 
     try {
       const vectors = parseEmbeddings(payload, input.memories.length + 1);
       const [queryVector, ...memoryVectors] = vectors;
+      const semanticResults = rankSemanticResults(
+        input.memories,
+        queryVector,
+        memoryVectors,
+        this.minScore,
+        input.limit
+      );
+      const results = mergeRetrievalResults(semanticResults, lexicalPreflight.results, input.limit);
 
       return {
         provider: this.provider,
-        reason: "OpenAI embeddings ranked stored memory traces by semantic similarity.",
-        results: rankSemanticResults(input.memories, queryVector, memoryVectors, this.minScore, input.limit)
+        reason:
+          results.length > semanticResults.length
+            ? "OpenAI embeddings ranked stored memories, with direct lexical matches added as guardrails."
+            : "OpenAI embeddings ranked stored memory traces by semantic similarity.",
+        results
       };
     } catch (error) {
-      return this.fallback(input, `OpenAI semantic retrieval output failed validation: ${formatError(error)}.`);
+      return this.fallback(lexicalPreflight, `OpenAI semantic retrieval output failed validation: ${formatError(error)}.`);
     }
   }
 
-  private async fallback(input: MemoryRetrievalInput, reason: string): Promise<MemoryRetrievalOutput> {
-    const result = await this.fallbackRetriever.retrieve(input);
-
+  private fallback(result: MemoryRetrievalOutput, reason: string): MemoryRetrievalOutput {
     return {
       ...result,
       provider: "fallback",
       reason: `${reason} Lexical fallback returned ${result.results.length} result${result.results.length === 1 ? "" : "s"}.`
     };
   }
+}
+
+function hasStrongLexicalMatch(results: RetrievalResult[], threshold: number) {
+  return (results[0]?.score ?? 0) >= threshold;
+}
+
+function mergeRetrievalResults(
+  semanticResults: RetrievalResult[],
+  lexicalResults: RetrievalResult[],
+  limit = 5
+): RetrievalResult[] {
+  const byId = new Map<string, RetrievalResult>();
+
+  semanticResults.forEach((result) => {
+    byId.set(result.memory.id, result);
+  });
+
+  lexicalResults.forEach((result) => {
+    const existing = byId.get(result.memory.id);
+    if (!existing || result.score > existing.score) {
+      byId.set(result.memory.id, result);
+    }
+  });
+
+  return [...byId.values()].sort((a, b) => b.score - a.score).slice(0, limit);
 }
 
 function rankSemanticResults(

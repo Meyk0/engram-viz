@@ -27,14 +27,23 @@ export type LiveChatInput = {
 };
 
 export async function createLiveMemoryStream(input: LiveChatInput): Promise<StreamChunk[]> {
+  const chunks: StreamChunk[] = [];
+
+  for await (const chunk of streamLiveMemoryChunks(input)) {
+    chunks.push(chunk);
+  }
+
+  return chunks;
+}
+
+export async function* streamLiveMemoryChunks(input: LiveChatInput): AsyncIterable<StreamChunk> {
   const history = input.history ?? [];
   const memoryConsolidationPlanner =
     input.memoryConsolidationPlanner ?? configuredMemoryConsolidationPlanner();
   const memoryDecisionPlanner = input.memoryDecisionPlanner ?? configuredMemoryDecisionPlanner();
   const memoryRetriever = input.memoryRetriever ?? configuredMemoryRetriever();
-  const chunks: StreamChunk[] = [];
 
-  chunks.push({ kind: "event", event: await memoryEngine.initialize(input.sessionId) });
+  yield { kind: "event", event: await memoryEngine.initialize(input.sessionId) };
 
   const retrieve = await memoryEngine.retrieve({
     sessionId: input.sessionId,
@@ -43,12 +52,12 @@ export async function createLiveMemoryStream(input: LiveChatInput): Promise<Stre
     retriever: memoryRetriever,
     now: input.now
   });
-  chunks.push({ kind: "event", event: retrieve });
+  yield { kind: "event", event: retrieve };
 
   const retrievedIds = retrieve.type === "retrieve" ? retrieve.ids : [];
   if (retrievedIds.length > 0) {
-    chunks.push({ kind: "event", event: { type: "load", ids: retrievedIds } });
-    chunks.push({ kind: "event", event: memoryEngine.fire("prefrontal", retrievedIds) });
+    yield { kind: "event", event: { type: "load", ids: retrievedIds } };
+    yield { kind: "event", event: memoryEngine.fire("prefrontal", retrievedIds) };
   }
 
   const retrievedMemories = (await memoryStore.list(input.sessionId)).filter((memory) =>
@@ -62,7 +71,7 @@ export async function createLiveMemoryStream(input: LiveChatInput): Promise<Stre
     retrievedMemories
   })) {
     if (chunk.kind === "done") continue;
-    chunks.push(chunk);
+    yield chunk;
   }
 
   const memoryDecision = memoryDecisionPlanner.decide({
@@ -85,13 +94,13 @@ export async function createLiveMemoryStream(input: LiveChatInput): Promise<Stre
       stored.type === "store"
         ? { ...stored, decision: memoryDecisionTrace(resolvedMemoryDecision) }
         : stored;
-    chunks.push({ kind: "event", event: storeEvent });
+    yield { kind: "event", event: storeEvent };
 
     const storedRegion = storeEvent.type === "store" ? storeEvent.memory.region : "hippocampus";
-    chunks.push({
+    yield {
       kind: "event",
       event: memoryEngine.fire(storedRegion, storeEvent.type === "store" ? [storeEvent.memory.id] : [])
-    });
+    };
 
     const consolidationDecision = await memoryConsolidationPlanner.decide({
       memories: await memoryStore.list(input.sessionId)
@@ -107,30 +116,26 @@ export async function createLiveMemoryStream(input: LiveChatInput): Promise<Stre
       });
 
       if (consolidated?.type === "consolidate") {
-        chunks.push({ kind: "event", event: consolidated });
-        chunks.push({
+        yield { kind: "event", event: consolidated };
+        yield {
           kind: "event",
           event: memoryEngine.fire(consolidated.added.region, [consolidated.added.id])
-        });
+        };
       }
     }
   } else {
-    chunks.push({
+    yield {
       kind: "event",
       event: { type: "plan", decision: memoryDecisionTrace(resolvedMemoryDecision) }
-    });
+    };
   }
 
   const decay = await memoryEngine.decay(input.sessionId);
   if (decay) {
-    chunks.push({ kind: "event", event: decay });
+    yield { kind: "event", event: decay };
   }
 
-  if (chunks.at(-1)?.kind !== "done") {
-    chunks.push({ kind: "done" });
-  }
-
-  return chunks;
+  yield { kind: "done" };
 }
 
 function memoryDecisionTrace(decision: MemoryDecision): MemoryDecisionTrace {

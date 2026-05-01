@@ -12,7 +12,16 @@ export function CurrentEventBanner({ draftAssistant = "", events, streaming = fa
 
   return (
     <aside className="current-event-banner" data-type={narrative.type} data-region={narrative.region} aria-label="Current memory event">
-      <div className="current-event-title">{narrative.title}</div>
+      <div className="current-event-title">
+        {narrative.title}
+        {streaming && !draftAssistant ? (
+          <span className="event-thinking-dots" aria-hidden="true">
+            <span />
+            <span />
+            <span />
+          </span>
+        ) : null}
+      </div>
       <div className="current-event-body">{narrative.body}</div>
     </aside>
   );
@@ -40,8 +49,8 @@ function getLiveNarrative({
 
   if (streaming) {
     return {
-      title: "Thinking through memory",
-      body: "Searching stored memories, preparing context, and waiting for the model response.",
+      title: "Checking memory",
+      body: "Searching for relevant traces and preparing the answer.",
       type: "retrieve" as const,
       region: "prefrontal" as const
     };

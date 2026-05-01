@@ -19,9 +19,21 @@ export function getCurrentEventNarrative(events: EngramEvent[]): EventNarrative 
 
   switch (event.type) {
     case "plan":
+      if (event.decision.operation === "ignore" && (event.decision.relatedMemoryIds?.length ?? 0) > 0) {
+        return {
+          title: "Answered from memory",
+          body: `${pluralize(event.decision.relatedMemoryIds?.length ?? 0, "memory")} loaded into working memory. No new memory was saved for the question.`,
+          type: event.type,
+          region: "prefrontal"
+        };
+      }
+
       return {
-        title: event.decision.operation === "ignore" ? "Memory skipped" : "Memory decision",
-        body: `${providerLabel(event.decision.provider)} skipped storage: ${event.decision.reason}`,
+        title: event.decision.operation === "ignore" ? "No new memory saved" : "Memory decision",
+        body:
+          event.decision.operation === "ignore"
+            ? "This message did not add a durable fact or preference."
+            : "Engram checked whether this message should change memory.",
         type: event.type
       };
     case "init":
@@ -37,7 +49,7 @@ export function getCurrentEventNarrative(events: EngramEvent[]): EventNarrative 
       return {
         title: "New fact stored",
         body: event.decision
-          ? `${providerLabel(event.decision.provider)} stored this because ${lowercaseFirst(event.decision.reason)}`
+          ? `Stored because this looked like ${memoryReasonLabel(event.decision.reason)}.`
           : "A raw memory landed in the hippocampus.",
         type: event.type,
         region: event.memory.region
@@ -48,7 +60,7 @@ export function getCurrentEventNarrative(events: EngramEvent[]): EventNarrative 
         body:
           event.ids.length > 0
             ? `${pluralize(event.ids.length, "memory")} matched this question.`
-            : `${retrievalLabel(event.retrieval?.provider)} did not find a stored memory for this question yet.`,
+            : "No matching stored memory was found for this question yet.",
         type: event.type
       };
     case "load":
@@ -87,7 +99,7 @@ export function getCurrentEventNarrative(events: EngramEvent[]): EventNarrative 
       return {
         title: "Memories consolidated",
         body: event.decision
-          ? `${providerLabel(event.decision.provider)} merged ${pluralize(event.removed.length, "episode")}: ${event.decision.reason}`
+          ? `${pluralize(event.removed.length, "episode")} merged into one longer-term memory.`
           : `${event.removed.length} related episodes merged into one temporal memory.`,
         type: event.type,
         region: event.added.region
@@ -101,25 +113,24 @@ export function getCurrentEventNarrative(events: EngramEvent[]): EventNarrative 
   }
 }
 
-function providerLabel(provider: "deterministic" | "llm" | "fallback") {
-  if (provider === "llm") return "OpenAI planner";
-  if (provider === "fallback") return "Fallback planner";
-  return "Deterministic planner";
-}
-
-function retrievalLabel(provider?: "lexical" | "semantic" | "fallback") {
-  if (provider === "semantic") return "Semantic retrieval";
-  if (provider === "fallback") return "Fallback retrieval";
-  return "Retrieval";
-}
-
-function lowercaseFirst(text: string) {
-  return text ? `${text[0]?.toLowerCase()}${text.slice(1)}` : text;
-}
-
 function pluralize(count: number, word: string) {
   if (count === 1) return `${count} ${word}`;
   return `${count} ${word.endsWith("y") ? `${word.slice(0, -1)}ies` : `${word}s`}`;
+}
+
+function memoryReasonLabel(reason: string) {
+  switch (reason) {
+    case "explicit-memory":
+      return "something you explicitly asked Engram to remember";
+    case "preference":
+      return "a stable preference";
+    case "personal-fact":
+      return "durable personal information";
+    case "project-fact":
+      return "a durable project fact";
+    default:
+      return "a durable memory";
+  }
 }
 
 function regionLabel(region: BrainRegion) {

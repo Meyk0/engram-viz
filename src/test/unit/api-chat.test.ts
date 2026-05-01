@@ -35,14 +35,16 @@ describe("/api/chat", () => {
   it("retrieves memories stored by prior turns in the same session", async () => {
     resetLiveMemoryStore();
 
-    await POST(
-      new Request("http://localhost/api/chat", {
-        method: "POST",
-        body: JSON.stringify({
-          sessionId: "api-chat-b",
-          message: "remember that I prefer restrained medical cyberpunk design"
+    await drainResponse(
+      await POST(
+        new Request("http://localhost/api/chat", {
+          method: "POST",
+          body: JSON.stringify({
+            sessionId: "api-chat-b",
+            message: "remember that I prefer restrained medical cyberpunk design"
+          })
         })
-      })
+      )
     );
 
     const response = await POST(
@@ -72,14 +74,16 @@ describe("/api/chat", () => {
   it("loads retrieved memories into active context before firing prefrontal", async () => {
     resetLiveMemoryStore();
 
-    await POST(
-      new Request("http://localhost/api/chat", {
-        method: "POST",
-        body: JSON.stringify({
-          sessionId: "api-chat-load",
-          message: "remember that I love red"
+    await drainResponse(
+      await POST(
+        new Request("http://localhost/api/chat", {
+          method: "POST",
+          body: JSON.stringify({
+            sessionId: "api-chat-load",
+            message: "remember that I love red"
+          })
         })
-      })
+      )
     );
 
     const response = await POST(
@@ -100,17 +104,60 @@ describe("/api/chat", () => {
     expect(eventTypes.indexOf("load")).toBeLessThan(eventTypes.indexOf("fire"));
   });
 
-  it("does not load active context for unrelated standalone preference stores", async () => {
+  it("retrieves indigo preference before answering a favorite-color question", async () => {
     resetLiveMemoryStore();
 
-    await POST(
+    await drainResponse(
+      await POST(
+        new Request("http://localhost/api/chat", {
+          method: "POST",
+          body: JSON.stringify({
+            sessionId: "api-chat-indigo",
+            message: "I love the color indigo"
+          })
+        })
+      )
+    );
+
+    const response = await POST(
       new Request("http://localhost/api/chat", {
         method: "POST",
         body: JSON.stringify({
-          sessionId: "api-chat-unrelated-store",
-          message: "I like the color blue"
+          sessionId: "api-chat-indigo",
+          message: "what is my favorite color?"
         })
       })
+    );
+    const chunks = decodeSseChunks(await response.text());
+    const retrieveChunk = chunks.find(
+      (chunk) => chunk.kind === "event" && chunk.event.type === "retrieve"
+    );
+    const planChunk = chunks.find((chunk) => chunk.kind === "event" && chunk.event.type === "plan");
+
+    expect(retrieveChunk?.kind).toBe("event");
+    if (retrieveChunk?.kind !== "event" || retrieveChunk.event.type !== "retrieve") {
+      throw new Error("expected retrieve event");
+    }
+    expect(retrieveChunk.event.ids).toHaveLength(1);
+    expect(planChunk?.kind).toBe("event");
+    if (planChunk?.kind === "event" && planChunk.event.type === "plan") {
+      expect(planChunk.event.decision.relatedMemoryIds).toEqual(retrieveChunk.event.ids);
+    }
+  });
+
+  it("does not load active context for unrelated standalone preference stores", async () => {
+    resetLiveMemoryStore();
+
+    await drainResponse(
+      await POST(
+        new Request("http://localhost/api/chat", {
+          method: "POST",
+          body: JSON.stringify({
+            sessionId: "api-chat-unrelated-store",
+            message: "I like the color blue"
+          })
+        })
+      )
     );
 
     const response = await POST(
@@ -298,14 +345,16 @@ describe("/api/chat", () => {
   it("consolidates repeated same-topic hippocampus memories into temporal memory", async () => {
     resetLiveMemoryStore();
 
-    await POST(
-      new Request("http://localhost/api/chat", {
-        method: "POST",
-        body: JSON.stringify({
-          sessionId: "api-chat-d",
-          message: "remember that I prefer quiet cyberpunk medical interfaces"
+    await drainResponse(
+      await POST(
+        new Request("http://localhost/api/chat", {
+          method: "POST",
+          body: JSON.stringify({
+            sessionId: "api-chat-d",
+            message: "remember that I prefer quiet cyberpunk medical interfaces"
+          })
         })
-      })
+      )
     );
 
     const response = await POST(
@@ -391,3 +440,7 @@ describe("/api/chat", () => {
     });
   });
 });
+
+async function drainResponse(response: Response) {
+  await response.text();
+}

@@ -66,7 +66,11 @@ describe("OpenAISemanticMemoryRetriever", () => {
 
   it("falls back to lexical retrieval when OpenAI returns invalid embeddings", async () => {
     const fetcher = vi.fn<typeof fetch>().mockResolvedValue(Response.json({ data: [{ embedding: [1, 0] }] }));
-    const retriever = new OpenAISemanticMemoryRetriever({ apiKey: "test-key", fetcher });
+    const retriever = new OpenAISemanticMemoryRetriever({
+      apiKey: "test-key",
+      fetcher,
+      lexicalPreflightScore: 2
+    });
 
     const result = await retriever.retrieve({
       query: "favorite color",
@@ -76,6 +80,48 @@ describe("OpenAISemanticMemoryRetriever", () => {
     expect(result.provider).toBe("fallback");
     expect(result.results.map((item) => item.memory.id)).toEqual(["blue"]);
     expect(result.reason).toContain("failed validation");
+  });
+
+  it("uses lexical preflight for obvious preference matches without calling OpenAI", async () => {
+    const fetcher = vi.fn<typeof fetch>();
+    const retriever = new OpenAISemanticMemoryRetriever({ apiKey: "test-key", fetcher });
+
+    const result = await retriever.retrieve({
+      query: "What is my favorite color?",
+      memories: [memory("indigo", "I love the color indigo", "preference")]
+    });
+
+    expect(fetcher).not.toHaveBeenCalled();
+    expect(result.provider).toBe("semantic");
+    expect(result.reason).toContain("direct stored-memory match");
+    expect(result.results.map((item) => item.memory.id)).toEqual(["indigo"]);
+  });
+
+  it("adds lexical guardrail matches when semantic scores are below threshold", async () => {
+    const fetcher = vi.fn<typeof fetch>().mockResolvedValue(
+      Response.json({
+        data: [
+          { embedding: [1, 0, 0] },
+          { embedding: [0, 1, 0] }
+        ]
+      })
+    );
+    const retriever = new OpenAISemanticMemoryRetriever({
+      apiKey: "test-key",
+      fetcher,
+      lexicalPreflightScore: 2,
+      minScore: 0.95
+    });
+
+    const result = await retriever.retrieve({
+      query: "What is my favorite color?",
+      memories: [memory("indigo", "I love the color indigo", "preference")]
+    });
+
+    expect(fetcher).toHaveBeenCalled();
+    expect(result.provider).toBe("semantic");
+    expect(result.reason).toContain("direct lexical matches");
+    expect(result.results.map((item) => item.memory.id)).toEqual(["indigo"]);
   });
 
   it("falls back to lexical retrieval when no API key is configured", async () => {

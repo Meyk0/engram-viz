@@ -28,18 +28,22 @@ export const regionExplanations: Record<
 export function explainEvent(event: EngramEvent): string {
   switch (event.type) {
     case "plan":
-      return `${plannerLabel(event.decision.provider)}: ${event.decision.reason}`;
+      return event.decision.operation === "ignore"
+        ? "This turn did not add a new durable memory."
+        : "Engram checked whether this turn should change memory.";
     case "store":
       return event.decision
-        ? `${plannerLabel(event.decision.provider)} stored this: ${event.decision.reason}`
+        ? "A durable fact or preference was stored as a raw memory."
         : "New facts land here as raw episodes.";
     case "retrieve":
-      return `${retrievalLabel(event.retrieval?.provider)} pulled memories into active consideration.`;
+      return event.ids.length > 0
+        ? "Stored memories matched this question and entered active consideration."
+        : "No stored memories matched this question yet.";
     case "fire":
       return "Retrieved memories are loaded into the active context window.";
     case "consolidate":
       return event.decision
-        ? `${plannerLabel(event.decision.provider)} consolidated this: ${event.decision.reason}`
+        ? "Related raw memories were merged into one longer-term memory."
         : "Repeated facts about a topic are distilled into one summary.";
     case "load":
       return "Selected memories are being prepared for the next response.";
@@ -48,18 +52,6 @@ export function explainEvent(event: EngramEvent): string {
     case "init":
       return "The current session memory state is assembling.";
   }
-}
-
-function plannerLabel(provider: "deterministic" | "llm" | "fallback") {
-  if (provider === "llm") return "OpenAI planner";
-  if (provider === "fallback") return "Fallback planner";
-  return "Deterministic planner";
-}
-
-function retrievalLabel(provider?: "lexical" | "semantic" | "fallback") {
-  if (provider === "semantic") return "Semantic retrieval";
-  if (provider === "fallback") return "Fallback retrieval";
-  return "Lexical retrieval";
 }
 
 export type MemoryExplanation = {

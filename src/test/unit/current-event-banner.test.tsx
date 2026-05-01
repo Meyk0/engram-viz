@@ -6,8 +6,8 @@ describe("CurrentEventBanner", () => {
   it("shows immediate memory thinking state while waiting for first response text", () => {
     render(<CurrentEventBanner events={[]} streaming />);
 
-    expect(screen.getByText("Thinking through memory")).toBeInTheDocument();
-    expect(screen.getByText(/Searching stored memories/)).toBeInTheDocument();
+    expect(screen.getByText("Checking memory")).toBeInTheDocument();
+    expect(screen.getByText(/Searching for relevant traces/)).toBeInTheDocument();
   });
 
   it("shows a live response preview while the assistant is streaming", () => {
