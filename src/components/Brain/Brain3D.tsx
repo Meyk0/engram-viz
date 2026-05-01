@@ -10,6 +10,7 @@ import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 import { Axons } from "@/components/Brain/Axons";
 import { BrainMesh } from "@/components/Brain/BrainMesh";
 import { MemoryLifecycle } from "@/components/Brain/MemoryLifecycle";
+import { RegionHighlights } from "@/components/Brain/RegionHighlights";
 import { RegionLabels } from "@/components/Brain/RegionLabels";
 import { getBrainAnimationState } from "@/lib/animations";
 import { brainCameraProfiles, getBrainCameraProfile } from "@/lib/brainCamera";
@@ -153,6 +154,7 @@ function BrainRig({
   return (
     <group ref={group} scale={1.58} rotation={[0.02, -1.05, 0]}>
       <BrainMesh />
+      <RegionHighlights animation={animation} />
       <Axons animation={animation} />
       <MemoryLifecycle
         events={events}

@@ -100,6 +100,28 @@ describe("memory visual lifecycle", () => {
     expect(getLoadedMemoryIds(staleContextEvents)).toEqual([]);
   });
 
+  it("keeps retrieved memories active after the final skip-plan event", () => {
+    const events: EngramEvent[] = [
+      {
+        type: "plan",
+        decision: {
+          stage: "memory",
+          operation: "ignore",
+          provider: "llm",
+          confidence: 0.92,
+          reason: "Question turns are not stored.",
+          relatedMemoryIds: ["mem-indigo"]
+        }
+      },
+      { type: "fire", region: "prefrontal", ids: ["mem-indigo"] },
+      { type: "load", ids: ["mem-indigo"] },
+      { type: "retrieve", query: "what is my favorite color?", ids: ["mem-indigo"] }
+    ];
+
+    expect(getActiveMemoryIds(events)).toEqual(["mem-indigo"]);
+    expect(getLoadedMemoryIds(events)).toEqual(["mem-indigo"]);
+  });
+
   it("finds consolidation events and source positions from prior memory events", () => {
     const rawA = makeMemory("mem-a", "hippocampus");
     const rawB = makeMemory("mem-b", "hippocampus");
