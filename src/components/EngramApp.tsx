@@ -64,7 +64,9 @@ export function EngramApp() {
     [pushEvent]
   );
 
-  const { history, isStreaming, error, sendMessage, cancel } = useChat(useMemo(() => ({ onChunk }), [onChunk]));
+  const { history, isStreaming, error, sendMessage, cancel } = useChat(
+    useMemo(() => ({ clientMemories: memories, onChunk }), [memories, onChunk])
+  );
   const transcriptCount = useMemo(
     () => history.filter((turn) => turn.role === "user").length + (draftTurn ? 1 : 0),
     [draftTurn, history]

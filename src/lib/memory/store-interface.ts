@@ -28,6 +28,7 @@ export class InMemoryMemoryStore implements MemoryStore {
   async upsert(sessionId: string, memory: EngramMemory): Promise<void> {
     const session = await this.getSession(sessionId);
     session.memories.set(memory.id, memory);
+    session.sequence = Math.max(session.sequence, getMemorySequence(sessionId, memory.id));
   }
 
   async remove(sessionId: string, ids: string[]): Promise<void> {
@@ -38,4 +39,12 @@ export class InMemoryMemoryStore implements MemoryStore {
   clear() {
     this.sessions.clear();
   }
+}
+
+function getMemorySequence(sessionId: string, memoryId: string) {
+  const prefix = `${sessionId}-mem-`;
+  if (!memoryId.startsWith(prefix)) return 0;
+
+  const sequence = Number(memoryId.slice(prefix.length));
+  return Number.isInteger(sequence) && sequence > 0 ? sequence : 0;
 }

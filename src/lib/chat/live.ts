@@ -12,12 +12,13 @@ import { configuredMemoryRetriever } from "@/lib/memory/retriever-config";
 import { evaluateMemoryCandidate } from "@/lib/memory/rules";
 import type { MemoryRetriever } from "@/lib/memory/retrieve";
 import { InMemoryMemoryStore } from "@/lib/memory/store-interface";
-import type { ChatMessage, MemoryDecisionTrace, StreamChunk } from "@/types";
+import type { ChatMessage, EngramMemory, MemoryDecisionTrace, StreamChunk } from "@/types";
 
 const memoryStore = new InMemoryMemoryStore();
 const memoryEngine = new MemoryEngine(memoryStore);
 
 export type LiveChatInput = {
+  clientMemories?: EngramMemory[];
   sessionId: string;
   message: string;
   history?: ChatMessage[];
@@ -43,6 +44,8 @@ export async function* streamLiveMemoryChunks(input: LiveChatInput): AsyncIterab
     input.memoryConsolidationPlanner ?? configuredMemoryConsolidationPlanner();
   const memoryDecisionPlanner = input.memoryDecisionPlanner ?? configuredMemoryDecisionPlanner();
   const memoryRetriever = input.memoryRetriever ?? configuredMemoryRetriever();
+
+  await hydrateSessionFromClient(input.sessionId, input.clientMemories);
 
   yield { kind: "event", event: await memoryEngine.initialize(input.sessionId) };
 
@@ -173,4 +176,13 @@ export function resetLiveMemoryStore() {
 
 function shouldRetrieveBeforeResponse(message: string) {
   return !evaluateMemoryCandidate(message).shouldStore;
+}
+
+async function hydrateSessionFromClient(sessionId: string, clientMemories: EngramMemory[] = []) {
+  if (clientMemories.length === 0) return;
+
+  const existing = await memoryStore.list(sessionId);
+  if (existing.length > 0) return;
+
+  await Promise.all(clientMemories.map((memory) => memoryStore.upsert(sessionId, memory)));
 }

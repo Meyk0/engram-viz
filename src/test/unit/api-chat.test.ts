@@ -145,6 +145,48 @@ describe("/api/chat", () => {
     }
   });
 
+  it("hydrates client-visible memories before retrieval when server memory was reset", async () => {
+    resetLiveMemoryStore();
+
+    const storeChunks = await createLiveMemoryStream({
+      sessionId: "api-chat-client-hydration",
+      message: "I love the color indigo"
+    });
+    const storeChunk = storeChunks.find(
+      (chunk) => chunk.kind === "event" && chunk.event.type === "store"
+    );
+
+    expect(storeChunk?.kind).toBe("event");
+    if (storeChunk?.kind !== "event" || storeChunk.event.type !== "store") {
+      throw new Error("expected store event");
+    }
+
+    resetLiveMemoryStore();
+
+    const chunks = await createLiveMemoryStream({
+      sessionId: "api-chat-client-hydration",
+      message: "What color do I love?",
+      clientMemories: [storeChunk.event.memory]
+    });
+    const initChunk = chunks.find((chunk) => chunk.kind === "event" && chunk.event.type === "init");
+    const retrieveChunk = chunks.find(
+      (chunk) => chunk.kind === "event" && chunk.event.type === "retrieve"
+    );
+    const fireChunk = chunks.find(
+      (chunk) => chunk.kind === "event" && chunk.event.type === "fire" && chunk.event.region === "prefrontal"
+    );
+
+    expect(initChunk?.kind).toBe("event");
+    if (initChunk?.kind === "event" && initChunk.event.type === "init") {
+      expect(initChunk.event.memories).toHaveLength(1);
+    }
+    expect(retrieveChunk?.kind).toBe("event");
+    if (retrieveChunk?.kind === "event" && retrieveChunk.event.type === "retrieve") {
+      expect(retrieveChunk.event.ids).toEqual([storeChunk.event.memory.id]);
+    }
+    expect(fireChunk?.kind).toBe("event");
+  });
+
   it("does not load active context for unrelated standalone preference stores", async () => {
     resetLiveMemoryStore();
 

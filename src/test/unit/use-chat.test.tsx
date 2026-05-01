@@ -5,6 +5,7 @@ import { useChat } from "@/hooks/useChat";
 import type { ChatMessage, StreamChunk } from "@/types";
 
 afterEach(() => {
+  window.localStorage.clear();
   vi.restoreAllMocks();
 });
 
@@ -75,6 +76,29 @@ describe("useChat", () => {
     });
   });
 
+  it("sends client-visible memories so the server can recover session state", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      streamResponse([
+        { kind: "text", delta: "Indigo is still in memory." },
+        { kind: "done" }
+      ])
+    );
+
+    render(<ChatHarness clientMemories={[makeMemory()]} onChunk={() => undefined} />);
+
+    await userEvent.click(screen.getByRole("button", { name: "Send message" }));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("streaming")).toHaveTextContent("idle");
+    });
+
+    const [, request] = fetchMock.mock.calls[0] ?? [];
+    const body = JSON.parse(String((request as RequestInit).body));
+
+    expect(body.clientMemories).toEqual([expect.objectContaining({ id: "mem-indigo", text: "User loves indigo." })]);
+    expect(body.sessionId).toMatch(/^engram-/);
+  });
+
   it("can cancel an in-flight response", async () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValue(hangingResponse());
 
@@ -94,8 +118,14 @@ describe("useChat", () => {
   });
 });
 
-function ChatHarness({ onChunk }: { onChunk: (chunk: StreamChunk) => void }) {
-  const chat = useChat({ onChunk });
+function ChatHarness({
+  clientMemories = [],
+  onChunk
+}: {
+  clientMemories?: Parameters<typeof useChat>[0]["clientMemories"];
+  onChunk: (chunk: StreamChunk) => void;
+}) {
+  const chat = useChat({ clientMemories, onChunk });
 
   return (
     <div>
@@ -110,6 +140,18 @@ function ChatHarness({ onChunk }: { onChunk: (chunk: StreamChunk) => void }) {
       <output data-testid="history">{JSON.stringify(chat.history)}</output>
     </div>
   );
+}
+
+function makeMemory() {
+  return {
+    id: "mem-indigo",
+    text: "User loves indigo.",
+    importance: 0.84,
+    topic: "preference",
+    region: "hippocampus" as const,
+    created_at: "2026-04-30T00:00:00.000Z",
+    access_count: 0
+  };
 }
 
 function streamResponse(chunks: StreamChunk[]) {

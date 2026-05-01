@@ -1,13 +1,13 @@
 "use client";
 
 import { useCallback, useRef, useState } from "react";
-import type { ChatMessage, StreamChunk } from "@/types";
+import type { ChatMessage, EngramMemory, StreamChunk } from "@/types";
 
-export function useChat(options: { onChunk: (chunk: StreamChunk) => void }) {
+export function useChat(options: { clientMemories?: EngramMemory[]; onChunk: (chunk: StreamChunk) => void }) {
   const [history, setHistory] = useState<ChatMessage[]>([]);
   const [isStreaming, setIsStreaming] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const sessionId = useRef(`engram-${crypto.randomUUID()}`);
+  const sessionId = useRef(getStoredSessionId());
   const abortController = useRef<AbortController | null>(null);
   const streamReader = useRef<ReadableStreamDefaultReader<Uint8Array> | null>(null);
   const canceled = useRef(false);
@@ -36,7 +36,12 @@ export function useChat(options: { onChunk: (chunk: StreamChunk) => void }) {
         const response = await fetch("/api/chat", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ sessionId: sessionId.current, message: trimmed, history }),
+          body: JSON.stringify({
+            sessionId: sessionId.current,
+            message: trimmed,
+            history,
+            clientMemories: options.clientMemories ?? []
+          }),
           signal: controller.signal
         });
 
@@ -97,4 +102,17 @@ export function useChat(options: { onChunk: (chunk: StreamChunk) => void }) {
   );
 
   return { history, isStreaming, error, sendMessage, cancel };
+}
+
+function getStoredSessionId() {
+  const nextId = () => `engram-${crypto.randomUUID()}`;
+
+  if (typeof window === "undefined") return nextId();
+
+  const existing = window.localStorage.getItem("engram-session-id");
+  if (existing) return existing;
+
+  const next = nextId();
+  window.localStorage.setItem("engram-session-id", next);
+  return next;
 }
