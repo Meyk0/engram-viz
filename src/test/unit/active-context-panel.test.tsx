@@ -41,6 +41,7 @@ describe("ActiveContextPanel", () => {
     expect(screen.getByText("1/10 loaded into active context")).toBeVisible();
     expect(screen.getByText(memory.text)).toBeVisible();
     expect(screen.getByText("Loaded for response context")).toBeVisible();
+    expect(screen.getByText("RETRIEVED")).toBeVisible();
     expect(screen.getByText("QUERY: What style do I prefer?")).toBeVisible();
     expect(screen.getByText("red")).toBeVisible();
   });

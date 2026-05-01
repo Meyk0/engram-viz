@@ -20,6 +20,12 @@ import { RegionInspector } from "@/components/UI/RegionInspector";
 import { SecondaryDock, type SecondaryPanel } from "@/components/UI/SecondaryDock";
 import type { BrainRegion, StreamChunk } from "@/types";
 
+const regionShortcuts: Array<{ label: string; region: BrainRegion }> = [
+  { label: "Hippocampus", region: "hippocampus" },
+  { label: "Prefrontal", region: "prefrontal" },
+  { label: "Temporal", region: "temporal" }
+];
+
 export function EngramApp() {
   const [message, setMessage] = useState("");
   const [draftTurn, setDraftTurn] = useState<{ user: string; assistant: string } | null>(null);
@@ -159,6 +165,23 @@ export function EngramApp() {
         <h1 className="title">ENGRAM</h1>
         <p className="tagline">Shows what the AI stores, recalls, and uses to answer.</p>
       </header>
+
+      {!showOnboarding ? (
+        <nav className="mobile-region-shortcuts" aria-label="Brain region shortcuts">
+          {regionShortcuts.map((item) => (
+            <button
+              aria-label={`Open ${item.label} explanation`}
+              data-region={item.region}
+              key={item.region}
+              onClick={() => onRegionSelect(item.region)}
+              type="button"
+            >
+              <span aria-hidden="true" />
+              {item.label}
+            </button>
+          ))}
+        </nav>
+      ) : null}
 
       {showOnboarding ? (
         <OnboardingPanel onStart={startOnboarding} />

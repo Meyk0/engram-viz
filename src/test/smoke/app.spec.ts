@@ -40,6 +40,18 @@ test("exposes brain label and reset controls", async ({ page }) => {
   await page.getByLabel("Reset brain view").click();
 });
 
+test("opens region explanations from mobile shortcuts", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/");
+  await page.getByRole("button", { name: "Start", exact: true }).click();
+
+  await expect(page.getByLabel("Brain region shortcuts")).toBeVisible();
+  await page.getByRole("button", { name: "Open Hippocampus explanation" }).click();
+  const regionPanel = page.getByRole("complementary", { name: "Hippocampus explanation" });
+  await expect(regionPanel).toBeVisible();
+  await expect(regionPanel).toContainText("new memories land");
+});
+
 test("opens working memory details after retrieval", async ({ page }) => {
   await page.goto("/");
 
@@ -54,7 +66,7 @@ test("opens working memory details after retrieval", async ({ page }) => {
     name: /Open working memory details: ([1-9]|10) of 10 loaded/i
   });
   await expect(workingMemory).toBeVisible({ timeout: 10_000 });
-  await workingMemory.click({ force: true });
+  await page.getByRole("button", { name: /Context/i }).click();
   await expect(page.getByLabel("Active context panel")).toContainText("loaded into active context");
 });
 

@@ -62,7 +62,7 @@ export function ActiveContextPanel({
                     <dd>{explanation?.sourceLabel ?? "Selected for this response"}</dd>
                   </div>
                   <div>
-                    <dt>ACCESS</dt>
+                    <dt>RETRIEVED</dt>
                     <dd>{memory.access_count}</dd>
                   </div>
                   <div>

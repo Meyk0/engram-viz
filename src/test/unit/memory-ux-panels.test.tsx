@@ -40,7 +40,22 @@ describe("memory UX panels", () => {
     expect(screen.getByText("Used in the latest answer")).toBeVisible();
     expect(screen.getByText("User loves indigo.")).toBeVisible();
     expect(screen.getByText("LATEST QUESTION: What color do I love?")).toBeVisible();
+    expect(screen.getByText("RETRIEVED")).toBeVisible();
     expect(screen.getByText(/Why here:/)).toBeVisible();
+  });
+
+  it("explains temporal memories that moved after repeated retrievals", () => {
+    render(
+      <MemoryInspector
+        memory={{ ...makeMemory(), region: "temporal", access_count: 3 }}
+        onClose={vi.fn()}
+        open
+      />
+    );
+
+    expect(screen.getAllByText("Semantic Memory").length).toBeGreaterThan(0);
+    expect(screen.getByText("RETRIEVED")).toBeVisible();
+    expect(screen.getByText(/Moved to semantic memory after being retrieved 3 times/)).toBeVisible();
   });
 
   it("rewrites low-level events as a user-facing memory story", () => {

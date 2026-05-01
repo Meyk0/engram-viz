@@ -35,7 +35,7 @@ export function ExplainabilityPanel({ explanations, onClose, open }: Explainabil
                 </dd>
               </div>
               <div>
-                <dt>ACCESS</dt>
+                <dt>RETRIEVED</dt>
                 <dd>{explanation.accessCount}</dd>
               </div>
               <div>

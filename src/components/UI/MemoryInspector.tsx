@@ -21,6 +21,7 @@ export function MemoryInspector({
 
   const region = regionExplanations[memory.region];
   const createdAt = formatTimestamp(memory.created_at);
+  const locationExplanation = getLocationExplanation(memory);
 
   return (
     <aside className="secondary-panel secondary-panel-right memory-inspector" aria-label="Selected memory">
@@ -47,7 +48,7 @@ export function MemoryInspector({
           <dd>{Math.round(memory.importance * 100)}%</dd>
         </div>
         <div>
-          <dt>ACCESS</dt>
+          <dt>RETRIEVED</dt>
           <dd>{memory.access_count}</dd>
         </div>
         <div>
@@ -61,10 +62,10 @@ export function MemoryInspector({
       </dl>
       {latestQuery ? <div className="memory-inspector-query">LATEST QUESTION: {latestQuery}</div> : null}
       <div className="memory-inspector-note">
-        <strong>Why here:</strong> {region.llmRole}
+        <strong>Why here:</strong> {locationExplanation.whyHere}
       </div>
       <div className="memory-inspector-note">
-        <strong>What to watch:</strong> {region.visualBehavior}
+        <strong>What to watch:</strong> {locationExplanation.whatToWatch}
       </div>
     </aside>
   );
@@ -74,4 +75,27 @@ function formatTimestamp(value: string) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "unknown";
   return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
+
+function getLocationExplanation(memory: EngramMemory) {
+  const region = regionExplanations[memory.region];
+
+  if (memory.region === "temporal" && !memory.id.includes("-consolidated-")) {
+    return {
+      whyHere: `Moved to semantic memory after being retrieved ${memory.access_count} times. It keeps being useful, so Engram treats it as more stable knowledge.`,
+      whatToWatch: "Green memory dots mark stable memories. This one should move less and act more like background knowledge."
+    };
+  }
+
+  if (memory.region === "temporal") {
+    return {
+      whyHere: "Created by merging related hippocampus memories into one more durable summary.",
+      whatToWatch: region.visualBehavior
+    };
+  }
+
+  return {
+    whyHere: region.llmRole,
+    whatToWatch: region.visualBehavior
+  };
 }
