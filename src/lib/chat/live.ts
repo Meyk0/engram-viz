@@ -9,6 +9,7 @@ import {
   configuredMemoryDecisionPlanner
 } from "@/lib/memory/planner-config";
 import { configuredMemoryRetriever } from "@/lib/memory/retriever-config";
+import { evaluateMemoryCandidate } from "@/lib/memory/rules";
 import type { MemoryRetriever } from "@/lib/memory/retrieve";
 import { InMemoryMemoryStore } from "@/lib/memory/store-interface";
 import type { ChatMessage, MemoryDecisionTrace, StreamChunk } from "@/types";
@@ -45,16 +46,22 @@ export async function* streamLiveMemoryChunks(input: LiveChatInput): AsyncIterab
 
   yield { kind: "event", event: await memoryEngine.initialize(input.sessionId) };
 
-  const retrieve = await memoryEngine.retrieve({
-    sessionId: input.sessionId,
-    query: input.message,
-    limit: 3,
-    retriever: memoryRetriever,
-    now: input.now
-  });
-  yield { kind: "event", event: retrieve };
+  const shouldRetrieve = shouldRetrieveBeforeResponse(input.message);
+  const retrieve = shouldRetrieve
+    ? await memoryEngine.retrieve({
+        sessionId: input.sessionId,
+        query: input.message,
+        limit: 3,
+        retriever: memoryRetriever,
+        now: input.now
+      })
+    : undefined;
 
-  const retrievedIds = retrieve.type === "retrieve" ? retrieve.ids : [];
+  if (retrieve) {
+    yield { kind: "event", event: retrieve };
+  }
+
+  const retrievedIds = retrieve?.type === "retrieve" ? retrieve.ids : [];
   if (retrievedIds.length > 0) {
     yield { kind: "event", event: { type: "load", ids: retrievedIds } };
     yield { kind: "event", event: memoryEngine.fire("prefrontal", retrievedIds) };
@@ -162,4 +169,8 @@ function consolidationDecisionTrace(decision: ConsolidationDecision): MemoryDeci
 
 export function resetLiveMemoryStore() {
   memoryStore.clear();
+}
+
+function shouldRetrieveBeforeResponse(message: string) {
+  return !evaluateMemoryCandidate(message).shouldStore;
 }

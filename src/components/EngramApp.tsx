@@ -3,7 +3,7 @@
 import { useCallback, useMemo, useRef, useState } from "react";
 import { Send, Square } from "lucide-react";
 import { explainEvent } from "@/lib/explanations";
-import { getActiveContextFill, getLoadedMemoryIds } from "@/lib/memoryVisuals";
+import { getActiveContextFill, getLatestRetrieveEvent, getLoadedMemoryIds } from "@/lib/memoryVisuals";
 import { useChat } from "@/hooks/useChat";
 import { useEventQueue } from "@/hooks/useEventQueue";
 import { useMemoryExplanations } from "@/hooks/useMemoryExplanations";
@@ -16,8 +16,9 @@ import { EventFeed } from "@/components/UI/EventFeed";
 import { ExplainabilityPanel } from "@/components/UI/ExplainabilityPanel";
 import { MemoryInspector } from "@/components/UI/MemoryInspector";
 import { OnboardingPanel } from "@/components/UI/OnboardingPanel";
+import { RegionInspector } from "@/components/UI/RegionInspector";
 import { SecondaryDock, type SecondaryPanel } from "@/components/UI/SecondaryDock";
-import type { StreamChunk } from "@/types";
+import type { BrainRegion, StreamChunk } from "@/types";
 
 export function EngramApp() {
   const [message, setMessage] = useState("");
@@ -25,11 +26,13 @@ export function EngramApp() {
   const [activePanel, setActivePanel] = useState<SecondaryPanel | null>(null);
   const [onboardingDismissed, setOnboardingDismissed] = useState(false);
   const [selectedMemoryId, setSelectedMemoryId] = useState<string | undefined>(undefined);
+  const [selectedRegion, setSelectedRegion] = useState<BrainRegion | undefined>(undefined);
   const inputRef = useRef<HTMLInputElement>(null);
   const { events, pushEvent } = useEventQueue();
   const memories = useMemoryStore(events);
   const explanations = useMemoryExplanations(events);
   const loadedMemoryIds = useMemo(() => getLoadedMemoryIds(events), [events]);
+  const latestRetrieve = useMemo(() => getLatestRetrieveEvent(events), [events]);
   const activeContextFill = useMemo(() => getActiveContextFill(loadedMemoryIds), [loadedMemoryIds]);
   const activeContextMemories = useMemo(
     () =>
@@ -67,14 +70,18 @@ export function EngramApp() {
     [draftTurn, history]
   );
   const memoryDetailCount = selectedMemory ? 1 : explanations.length;
+  const regionDetailCount = selectedRegion ? 1 : 0;
   const showOnboarding = events.length === 0 && !onboardingDismissed;
 
   const onMemorySelect = useCallback((id: string) => {
     setSelectedMemoryId(id);
+    setSelectedRegion(undefined);
     setActivePanel("memory");
   }, []);
 
   const closeSecondaryPanel = useCallback(() => {
+    setSelectedRegion(undefined);
+    setSelectedMemoryId(undefined);
     setActivePanel(null);
   }, []);
 
@@ -83,9 +90,21 @@ export function EngramApp() {
     setActivePanel(null);
   }, []);
 
+  const closeRegionPanel = useCallback(() => {
+    setSelectedRegion(undefined);
+    setActivePanel(null);
+  }, []);
+
   const openActiveContext = useCallback(() => {
     setSelectedMemoryId(undefined);
+    setSelectedRegion(undefined);
     setActivePanel("context");
+  }, []);
+
+  const onRegionSelect = useCallback((region: BrainRegion) => {
+    setSelectedMemoryId(undefined);
+    setSelectedRegion(region);
+    setActivePanel("region");
   }, []);
 
   const startOnboarding = useCallback(() => {
@@ -99,6 +118,9 @@ export function EngramApp() {
       setActivePanel(nextPanel);
       if (nextPanel !== "memory") {
         setSelectedMemoryId(undefined);
+      }
+      if (nextPanel !== "region") {
+        setSelectedRegion(undefined);
       }
     },
     [activePanel]
@@ -126,12 +148,14 @@ export function EngramApp() {
         events={events}
         onActiveContextSelect={openActiveContext}
         onMemorySelect={onMemorySelect}
+        onRegionSelect={onRegionSelect}
         responseActive={isStreaming}
         selectedMemoryId={selectedMemoryId}
       />
 
       <header className="topbar">
         <h1 className="title">ENGRAM</h1>
+        <p className="tagline">Shows what the AI stores, recalls, and uses to answer.</p>
       </header>
 
       {showOnboarding ? (
@@ -163,7 +187,20 @@ export function EngramApp() {
         open={activePanel === "context"}
         used={activeContextFill.used}
       />
-      <MemoryInspector memory={selectedMemory} onClose={closeMemoryPanel} open={activePanel === "memory"} />
+      <MemoryInspector
+        active={Boolean(selectedMemory && loadedMemoryIds.includes(selectedMemory.id))}
+        latestQuery={
+          selectedMemory && latestRetrieve?.ids.includes(selectedMemory.id) ? latestRetrieve.query : undefined
+        }
+        memory={selectedMemory}
+        onClose={closeMemoryPanel}
+        open={activePanel === "memory"}
+      />
+      <RegionInspector
+        onClose={closeRegionPanel}
+        open={activePanel === "region"}
+        region={selectedRegion}
+      />
       <ChatTranscript
         draftTurn={draftTurn}
         error={error}
@@ -180,6 +217,8 @@ export function EngramApp() {
         activeContextCount={activeContextFill.used}
         memoryCount={memoryDetailCount}
         onSelect={onDockSelect}
+        hasRegionDetails={regionDetailCount > 0}
+        regionCount={regionDetailCount}
         transcriptCount={transcriptCount}
       />
 

@@ -12,8 +12,8 @@ export function getCurrentEventNarrative(events: EngramEvent[]): EventNarrative 
 
   if (!event) {
     return {
-      title: "Ready for a memory",
-      body: "Tell Engram a durable fact or preference, then ask about it."
+      title: "Ready to map memory",
+      body: "Tell Engram a durable fact, then ask about it to see what gets stored, recalled, and used."
     };
   }
 

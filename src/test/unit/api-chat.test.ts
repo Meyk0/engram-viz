@@ -26,7 +26,7 @@ describe("/api/chat", () => {
     const chunks = decodeSseChunks(text);
 
     expect(chunks[0]).toEqual({ kind: "event", event: { type: "init", memories: [] } });
-    expect(chunks.some((chunk) => chunk.kind === "event" && chunk.event.type === "retrieve")).toBe(true);
+    expect(chunks.some((chunk) => chunk.kind === "event" && chunk.event.type === "retrieve")).toBe(false);
     expect(chunks.some((chunk) => chunk.kind === "event" && chunk.event.type === "store")).toBe(true);
     expect(chunks.at(-1)).toEqual({ kind: "done" });
     expect(chunks.slice(0, -1).some((chunk) => chunk.kind === "done")).toBe(false);
@@ -177,8 +177,47 @@ describe("/api/chat", () => {
     const eventTypes = events.map((event) => event.type);
 
     expect(eventTypes).toContain("store");
+    expect(eventTypes).not.toContain("retrieve");
     expect(eventTypes).not.toContain("load");
     expect(events.some((event) => event.type === "fire" && event.region === "prefrontal")).toBe(false);
+  });
+
+  it("does not retrieve before declarative memory stores even when a retriever would match", async () => {
+    resetLiveMemoryStore();
+
+    await createLiveMemoryStream({
+      sessionId: "api-chat-store-gate",
+      message: "I like the color blue"
+    });
+
+    let retrievalCalls = 0;
+    const retriever: MemoryRetriever = {
+      provider: "semantic",
+      retrieve: ({ memories }) => {
+        retrievalCalls += 1;
+        return {
+          provider: "semantic",
+          reason: "Mock retriever would over-match blue to ocean.",
+          results: memories.map((memory) => ({ memory, score: 0.92 }))
+        };
+      }
+    };
+
+    const chunks = await createLiveMemoryStream({
+      sessionId: "api-chat-store-gate",
+      message: "I like the ocean",
+      memoryRetriever: retriever
+    });
+    const eventTypes = chunks
+      .filter((chunk) => chunk.kind === "event")
+      .map((chunk) => (chunk.kind === "event" ? chunk.event.type : "none"));
+
+    expect(retrievalCalls).toBe(0);
+    expect(eventTypes).toContain("store");
+    expect(eventTypes).not.toContain("retrieve");
+    expect(eventTypes).not.toContain("load");
+    expect(eventTypes).not.toContain("consolidate");
+    expect(chunks.some((chunk) => chunk.kind === "event" && chunk.event.type === "fire" && chunk.event.region === "prefrontal")).toBe(false);
   });
 
   it("does not store trivial questions but still streams a response and done", async () => {

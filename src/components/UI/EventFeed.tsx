@@ -12,11 +12,11 @@ export function EventFeed({ events, explainEvent, onClose, open }: EventFeedProp
   if (!open || events.length === 0) return null;
 
   return (
-    <aside className="secondary-panel secondary-panel-right event-feed" aria-label="Event log">
+    <aside className="secondary-panel secondary-panel-right event-feed" aria-label="Memory story">
       <div className="secondary-panel-header">
         <div>
-          <div className="secondary-panel-eyebrow">{events.length} events</div>
-          <div className="secondary-panel-title">Event log</div>
+          <div className="secondary-panel-eyebrow">{events.length} steps</div>
+          <div className="secondary-panel-title">Memory story</div>
         </div>
         <button className="panel-icon-btn" type="button" onClick={onClose} aria-label="Close events panel">
           <X size={13} />
@@ -48,33 +48,57 @@ function eventRegion(event: EngramEvent) {
 }
 
 function eventLabel(event: EngramEvent) {
-  if (event.type === "plan") return `${event.decision.stage} - ${event.decision.operation}`;
-  const region = eventRegion(event);
-  return region ? `${region} - ${event.type}` : event.type;
+  switch (event.type) {
+    case "plan":
+      if (event.decision.operation === "ignore" && (event.decision.relatedMemoryIds?.length ?? 0) > 0) {
+        return "Answered from memory";
+      }
+      return event.decision.operation === "ignore" ? "No new memory saved" : "Memory decision";
+    case "store":
+      return "Stored a new memory";
+    case "retrieve":
+      return event.ids.length > 0 ? "Found relevant memory" : "Searched memory";
+    case "fire":
+      return event.region === "prefrontal" ? "Used working memory" : `${regionName(event.region)} lit up`;
+    case "consolidate":
+      return "Consolidated memory";
+    case "load":
+      return "Loaded active context";
+    case "decay":
+      return "Dimmed older signal";
+    case "init":
+      return "Loaded memory map";
+  }
 }
 
 function eventSummary(event: EngramEvent) {
   switch (event.type) {
     case "plan":
-      return `${plannerLabel(event.decision.provider)} ${event.decision.operation}: ${event.decision.reason}`;
+      if (event.decision.operation === "ignore" && (event.decision.relatedMemoryIds?.length ?? 0) > 0) {
+        return "The question used retrieved memory, so nothing new was stored.";
+      }
+      return event.decision.operation === "ignore"
+        ? "This turn did not contain a durable fact or stable preference to remember."
+        : "Engram checked whether this turn should change memory.";
     case "store":
-      return event.decision
-        ? `Stored: "${event.memory.text}" (${percent(event.decision.confidence)} confidence)`
-        : `Stored: "${event.memory.text}"`;
+      return `New raw memory: "${event.memory.text}"`;
     case "retrieve":
-      return `Retrieved ${event.ids.length} memories via ${retrievalLabel(event.retrieval?.provider)} for: "${event.query}"`;
+      return event.ids.length > 0
+        ? `${pluralize(event.ids.length, "memory")} matched: "${event.query}"`
+        : `No stored memory matched: "${event.query}"`;
     case "fire":
-      return `Fired ${event.ids.length} memories in ${event.region}`;
+      if (event.region === "prefrontal") {
+        return `${pluralize(event.ids.length, "memory")} influenced the active answer.`;
+      }
+      return `${pluralize(event.ids.length, "memory")} pulsed in ${regionName(event.region)}.`;
     case "consolidate":
-      return event.decision
-        ? `Consolidated ${event.removed.length} memories -> "${event.added.text}" (${percent(event.decision.confidence)} confidence)`
-        : `Consolidated ${event.removed.length} memories -> "${event.added.text}"`;
+      return `${pluralize(event.removed.length, "raw memory")} merged into: "${event.added.text}"`;
     case "load":
-      return `Loaded ${event.ids.length} memories`;
+      return `${pluralize(event.ids.length, "memory")} copied into prefrontal working memory.`;
     case "decay":
-      return `Dimmed ${event.ids.length} lower-ranked memories`;
+      return `${pluralize(event.ids.length, "memory")} stayed stored, but became less relevant to this turn.`;
     case "init":
-      return `Initialized ${event.memories.length} memories`;
+      return `The brain started with ${pluralize(event.memories.length, "stored memory")}.`;
   }
 }
 
@@ -95,18 +119,18 @@ function eventKey(event: EngramEvent) {
   }
 }
 
-function plannerLabel(provider: "deterministic" | "llm" | "fallback") {
-  if (provider === "llm") return "OpenAI";
-  if (provider === "fallback") return "Fallback";
-  return "Deterministic";
+function regionName(region: "prefrontal" | "hippocampus" | "temporal") {
+  switch (region) {
+    case "prefrontal":
+      return "prefrontal working memory";
+    case "hippocampus":
+      return "hippocampus";
+    case "temporal":
+      return "temporal semantic memory";
+  }
 }
 
-function retrievalLabel(provider?: "lexical" | "semantic" | "fallback") {
-  if (provider === "semantic") return "semantic search";
-  if (provider === "fallback") return "fallback search";
-  return "lexical search";
-}
-
-function percent(value: number) {
-  return `${Math.round(value * 100)}%`;
+function pluralize(count: number, word: string) {
+  const nextWord = count === 1 ? word : word.endsWith("y") ? `${word.slice(0, -1)}ies` : `${word}s`;
+  return `${count} ${nextWord}`;
 }

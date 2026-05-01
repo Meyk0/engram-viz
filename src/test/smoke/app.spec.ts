@@ -3,7 +3,7 @@ import { expect, test } from "@playwright/test";
 test("loads the Engram shell", async ({ page }) => {
   await page.goto("/");
   await expect(page.getByRole("heading", { name: "ENGRAM", exact: true })).toBeVisible();
-  await expect(page.getByLabel("Engram memory model introduction")).toContainText("Engram makes LLM memory visible");
+  await expect(page.getByLabel("Engram memory model introduction")).toContainText("See what the AI remembers, recalls, and uses");
   await expect(page.getByLabel("Secondary views")).toBeVisible();
   await expect(page.getByLabel("Chat transcript")).toBeHidden();
   await expect(page.getByLabel("Chat message")).toBeVisible();

@@ -3,15 +3,24 @@ import { regionExplanations } from "@/lib/explanations";
 import type { EngramMemory } from "@/types";
 
 type MemoryInspectorProps = {
+  active?: boolean;
+  latestQuery?: string;
   memory: EngramMemory | undefined;
   onClose: () => void;
   open: boolean;
 };
 
-export function MemoryInspector({ memory, onClose, open }: MemoryInspectorProps) {
+export function MemoryInspector({
+  active = false,
+  latestQuery,
+  memory,
+  onClose,
+  open
+}: MemoryInspectorProps) {
   if (!open || !memory) return null;
 
   const region = regionExplanations[memory.region];
+  const createdAt = formatTimestamp(memory.created_at);
 
   return (
     <aside className="secondary-panel secondary-panel-right memory-inspector" aria-label="Selected memory">
@@ -24,8 +33,15 @@ export function MemoryInspector({ memory, onClose, open }: MemoryInspectorProps)
           <X size={13} />
         </button>
       </div>
+      <div className="memory-inspector-status" data-active={active}>
+        {active ? "Used in the latest answer" : "Stored, not currently in working memory"}
+      </div>
       <div className="memory-inspector-text">{memory.text}</div>
       <dl className="memory-inspector-metrics">
+        <div>
+          <dt>REGION</dt>
+          <dd>{region.concept}</dd>
+        </div>
         <div>
           <dt>IMPORTANCE</dt>
           <dd>{Math.round(memory.importance * 100)}%</dd>
@@ -38,8 +54,24 @@ export function MemoryInspector({ memory, onClose, open }: MemoryInspectorProps)
           <dt>TOPIC</dt>
           <dd>{memory.topic ?? "none"}</dd>
         </div>
+        <div>
+          <dt>CREATED</dt>
+          <dd>{createdAt}</dd>
+        </div>
       </dl>
-      <div className="memory-inspector-note">{region.description}</div>
+      {latestQuery ? <div className="memory-inspector-query">LATEST QUESTION: {latestQuery}</div> : null}
+      <div className="memory-inspector-note">
+        <strong>Why here:</strong> {region.llmRole}
+      </div>
+      <div className="memory-inspector-note">
+        <strong>What to watch:</strong> {region.visualBehavior}
+      </div>
     </aside>
   );
+}
+
+function formatTimestamp(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "unknown";
+  return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }

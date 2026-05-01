@@ -10,10 +10,11 @@ import type { BrainRegion } from "@/types";
 
 type RegionLabelsProps = {
   animation: BrainAnimationState;
+  onRegionSelect?: (region: BrainRegion) => void;
   visible?: boolean;
 };
 
-export function RegionLabels({ animation, visible = true }: RegionLabelsProps) {
+export function RegionLabels({ animation, onRegionSelect, visible = true }: RegionLabelsProps) {
   if (!visible) return null;
 
   return (
@@ -23,6 +24,7 @@ export function RegionLabels({ animation, visible = true }: RegionLabelsProps) {
           <RegionAnnotation
             animation={animation}
             key={region}
+            onRegionSelect={onRegionSelect}
             region={region}
           />
         );
@@ -31,7 +33,15 @@ export function RegionLabels({ animation, visible = true }: RegionLabelsProps) {
   );
 }
 
-function RegionAnnotation({ animation, region }: { animation: BrainAnimationState; region: BrainRegion }) {
+function RegionAnnotation({
+  animation,
+  onRegionSelect,
+  region
+}: {
+  animation: BrainAnimationState;
+  onRegionSelect?: (region: BrainRegion) => void;
+  region: BrainRegion;
+}) {
   const anchorRef = useRef<THREE.Group>(null);
   const [cameraOpacity, setCameraOpacity] = useState(1);
   const bounds = regionBounds[region];
@@ -95,7 +105,19 @@ function RegionAnnotation({ animation, region }: { animation: BrainAnimationStat
           textShadow: `0 0 10px ${bounds.color}, 0 1px 4px rgba(0,0,0,0.9)`
         }}
       >
-        <span style={{ borderColor: `${bounds.color}55` }}>{bounds.label}</span>
+        <button
+          aria-label={`Explain ${bounds.label}`}
+          className="region-label-button"
+          onClick={(event) => {
+            event.stopPropagation();
+            onRegionSelect?.(region);
+          }}
+          style={{ borderColor: `${bounds.color}55` }}
+          title={`Explain ${bounds.label}`}
+          type="button"
+        >
+          {bounds.label}
+        </button>
       </Html>
     </group>
   );

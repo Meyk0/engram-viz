@@ -21,6 +21,7 @@ type Brain3DProps = {
   events: EngramEvent[];
   onActiveContextSelect?: () => void;
   onMemorySelect?: (id: string) => void;
+  onRegionSelect?: (region: keyof typeof regionBounds) => void;
   responseActive?: boolean;
   selectedMemoryId?: string;
 };
@@ -29,6 +30,7 @@ export function Brain3D({
   events,
   onActiveContextSelect,
   onMemorySelect,
+  onRegionSelect,
   responseActive = false,
   selectedMemoryId
 }: Brain3DProps) {
@@ -60,6 +62,7 @@ export function Brain3D({
             labelsVisible={labelsVisible}
             onActiveContextSelect={onActiveContextSelect}
             onMemorySelect={onMemorySelect}
+            onRegionSelect={onRegionSelect}
             responseActive={responseActive}
             selectedMemoryId={selectedMemoryId}
           />
@@ -139,6 +142,7 @@ function BrainRig({
   labelsVisible,
   onActiveContextSelect,
   onMemorySelect,
+  onRegionSelect,
   responseActive = false,
   selectedMemoryId
 }: Brain3DProps & { labelsVisible: boolean }) {
@@ -164,7 +168,7 @@ function BrainRig({
         selectedMemoryId={selectedMemoryId}
       />
       <HippocampusMarker pulse={animation.hippocampusMarker} decayDimming={animation.decayDimming} />
-      <RegionLabels animation={animation} visible={labelsVisible} />
+      <RegionLabels animation={animation} onRegionSelect={onRegionSelect} visible={labelsVisible} />
     </group>
   );
 }

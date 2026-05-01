@@ -3,25 +3,42 @@ import type { BrainRegion, EngramEvent, EngramMemory } from "@/types";
 
 export const regionExplanations: Record<
   BrainRegion,
-  { label: string; concept: string; description: string; capacity: number }
+  {
+    label: string;
+    concept: string;
+    description: string;
+    capacity: number;
+    humanAnalogy: string;
+    llmRole: string;
+    visualBehavior: string;
+  }
 > = {
   prefrontal: {
     label: "Prefrontal Cortex",
     concept: "Active Context Window",
     description: "Everything the model has loaded right now. Finite - when full, older memories drop out.",
-    capacity: 10
+    capacity: 10,
+    humanAnalogy: "Working memory: the small set of facts held in mind while solving the current task.",
+    llmRole: "Retrieved memories are copied here when they are being used to shape the next answer.",
+    visualBehavior: "Cyan flashes, ghost copies, and the capacity ring show what is active right now."
   },
   hippocampus: {
     label: "Hippocampus",
     concept: "Episodic Store",
     description: "Where new memories land. Recent, raw, awaiting distillation.",
-    capacity: 20
+    capacity: 20,
+    humanAnalogy: "New experiences enter here first before they become stable long-term knowledge.",
+    llmRole: "Durable facts and preferences are saved here as raw memory traces.",
+    visualBehavior: "New memory dots appear here first and pulse when a fact is stored."
   },
   temporal: {
     label: "Temporal Cortex",
     concept: "Semantic Memory",
     description: "Long-term semantic memory. Facts that have been consolidated from many episodes.",
-    capacity: 50
+    capacity: 50,
+    humanAnalogy: "Semantic memory: stable knowledge distilled from repeated related experiences.",
+    llmRole: "Related hippocampus memories can merge here into a more durable summary.",
+    visualBehavior: "Green memory dots appear here after consolidation and should change less often."
   }
 };
 
