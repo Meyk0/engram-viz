@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { POST } from "@/app/api/chat/route";
 import { decodeSseChunks } from "@/lib/events/sse";
 import { createLiveMemoryStream, resetLiveMemoryStore } from "@/lib/chat/live";
+import type { MemoryConsolidationPlanner } from "@/lib/memory/consolidationPolicy";
 import type { MemoryDecisionPlanner } from "@/lib/memory/decision";
 
 describe("/api/chat", () => {
@@ -253,5 +254,59 @@ describe("/api/chat", () => {
     expect(consolidateChunk.event.removed).toHaveLength(2);
     expect(consolidateChunk.event.added.region).toBe("temporal");
     expect(consolidateChunk.event.added.text).toContain("recurring design memories");
+  });
+
+  it("consolidates through an injected async consolidation planner", async () => {
+    resetLiveMemoryStore();
+
+    const planner: MemoryConsolidationPlanner = {
+      provider: "llm",
+      decide: async ({ memories }) => {
+        const hippocampusMemories = memories.filter((memory) => memory.region === "hippocampus");
+
+        if (hippocampusMemories.length < 2) {
+          return {
+            provider: "llm",
+            operation: "skip",
+            confidence: 0.94,
+            reason: "Not enough raw memories yet."
+          };
+        }
+
+        return {
+          provider: "llm",
+          operation: "consolidate",
+          confidence: 0.93,
+          reason: "Mock planner found a stable design preference.",
+          ids: hippocampusMemories.slice(0, 2).map((memory) => memory.id),
+          consolidatedText: "User prefers restrained red medical interface design."
+        };
+      }
+    };
+
+    await createLiveMemoryStream({
+      sessionId: "api-chat-consolidation-planner",
+      message: "remember that I prefer red interface accents",
+      memoryConsolidationPlanner: planner
+    });
+
+    const chunks = await createLiveMemoryStream({
+      sessionId: "api-chat-consolidation-planner",
+      message: "remember that I like restrained medical UI",
+      memoryConsolidationPlanner: planner
+    });
+    const consolidateChunk = chunks.find(
+      (chunk) => chunk.kind === "event" && chunk.event.type === "consolidate"
+    );
+
+    expect(consolidateChunk?.kind).toBe("event");
+    if (consolidateChunk?.kind !== "event" || consolidateChunk.event.type !== "consolidate") {
+      throw new Error("expected consolidate event");
+    }
+    expect(consolidateChunk.event.removed).toHaveLength(2);
+    expect(consolidateChunk.event.added.region).toBe("temporal");
+    expect(consolidateChunk.event.added.text).toBe(
+      "User prefers restrained red medical interface design."
+    );
   });
 });

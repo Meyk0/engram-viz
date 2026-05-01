@@ -1,8 +1,11 @@
 import { createChatProvider, configuredChatProvider } from "@/lib/chat/providers";
 import { MemoryEngine } from "@/lib/memory/engine";
-import { findConsolidationCandidate } from "@/lib/memory/consolidationPolicy";
+import type { MemoryConsolidationPlanner } from "@/lib/memory/consolidationPolicy";
 import type { MemoryDecisionPlanner } from "@/lib/memory/decision";
-import { configuredMemoryDecisionPlanner } from "@/lib/memory/planner-config";
+import {
+  configuredMemoryConsolidationPlanner,
+  configuredMemoryDecisionPlanner
+} from "@/lib/memory/planner-config";
 import { InMemoryMemoryStore } from "@/lib/memory/store-interface";
 import type { ChatMessage, StreamChunk } from "@/types";
 
@@ -13,12 +16,15 @@ export type LiveChatInput = {
   sessionId: string;
   message: string;
   history?: ChatMessage[];
+  memoryConsolidationPlanner?: MemoryConsolidationPlanner;
   memoryDecisionPlanner?: MemoryDecisionPlanner;
   now?: string;
 };
 
 export async function createLiveMemoryStream(input: LiveChatInput): Promise<StreamChunk[]> {
   const history = input.history ?? [];
+  const memoryConsolidationPlanner =
+    input.memoryConsolidationPlanner ?? configuredMemoryConsolidationPlanner();
   const memoryDecisionPlanner = input.memoryDecisionPlanner ?? configuredMemoryDecisionPlanner();
   const chunks: StreamChunk[] = [];
 
@@ -76,12 +82,15 @@ export async function createLiveMemoryStream(input: LiveChatInput): Promise<Stre
       event: memoryEngine.fire(storedRegion, stored.type === "store" ? [stored.memory.id] : [])
     });
 
-    const consolidationCandidate = findConsolidationCandidate(await memoryStore.list(input.sessionId));
-    if (consolidationCandidate) {
+    const consolidationDecision = await memoryConsolidationPlanner.decide({
+      memories: await memoryStore.list(input.sessionId)
+    });
+
+    if (consolidationDecision.operation === "consolidate") {
       const consolidated = await memoryEngine.consolidate({
         sessionId: input.sessionId,
-        ids: consolidationCandidate.ids,
-        consolidatedText: consolidationCandidate.consolidatedText,
+        ids: consolidationDecision.ids,
+        consolidatedText: consolidationDecision.consolidatedText,
         now: input.now
       });
 

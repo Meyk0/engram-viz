@@ -1,9 +1,17 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { configuredChatProvider } from "@/lib/chat/providers";
-import { configuredMemoryPlannerProvider } from "@/lib/memory/planner-config";
+import {
+  configuredConsolidationPlannerProvider,
+  configuredMemoryPlannerProvider
+} from "@/lib/memory/planner-config";
 
 const PROVIDER_ENV_KEYS = ["ENGRAM_CHAT_PROVIDER", "CHAT_PROVIDER", "OPENAI_API_KEY", "OPENAI_LIVE_ENABLED"] as const;
 const MEMORY_PLANNER_ENV_KEYS = ["ENGRAM_MEMORY_PLANNER", "MEMORY_PLANNER", "OPENAI_MEMORY_PLANNER_ENABLED"] as const;
+const CONSOLIDATION_PLANNER_ENV_KEYS = [
+  "ENGRAM_CONSOLIDATION_PLANNER",
+  "CONSOLIDATION_PLANNER",
+  "OPENAI_CONSOLIDATION_PLANNER_ENABLED"
+] as const;
 
 afterEach(() => {
   resetProviderEnv();
@@ -53,8 +61,29 @@ describe("configuredMemoryPlannerProvider", () => {
   });
 });
 
+describe("configuredConsolidationPlannerProvider", () => {
+  it("defaults to deterministic consolidation planning", () => {
+    resetProviderEnv();
+
+    expect(configuredConsolidationPlannerProvider()).toBe("deterministic");
+  });
+
+  it("enables OpenAI consolidation planning only behind its explicit flag", () => {
+    process.env.ENGRAM_CONSOLIDATION_PLANNER = "openai";
+    process.env.OPENAI_CONSOLIDATION_PLANNER_ENABLED = "true";
+
+    expect(configuredConsolidationPlannerProvider()).toBe("openai");
+  });
+
+  it("keeps deterministic consolidation planning when OpenAI is not enabled", () => {
+    process.env.ENGRAM_CONSOLIDATION_PLANNER = "openai";
+
+    expect(configuredConsolidationPlannerProvider()).toBe("deterministic");
+  });
+});
+
 function resetProviderEnv() {
-  [...PROVIDER_ENV_KEYS, ...MEMORY_PLANNER_ENV_KEYS].forEach((key) => {
+  [...PROVIDER_ENV_KEYS, ...MEMORY_PLANNER_ENV_KEYS, ...CONSOLIDATION_PLANNER_ENV_KEYS].forEach((key) => {
     delete process.env[key];
   });
 }

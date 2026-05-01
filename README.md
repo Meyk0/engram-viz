@@ -24,6 +24,15 @@ OPENAI_API_KEY=...
 OPENAI_MODEL=gpt-5.4-mini
 ```
 
+Memory extraction and consolidation are separate guarded planners. To let OpenAI decide what to store and when repeated hippocampus memories should merge into temporal memory, set:
+
+```bash
+ENGRAM_MEMORY_PLANNER=openai
+OPENAI_MEMORY_PLANNER_ENABLED=true
+ENGRAM_CONSOLIDATION_PLANNER=openai
+OPENAI_CONSOLIDATION_PLANNER_ENABLED=true
+```
+
 OpenAI calls are server-side only. Normal tests use mocked providers and do not require an API key.
 
 ## Verification

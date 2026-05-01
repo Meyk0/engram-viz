@@ -1,9 +1,44 @@
 import type { EngramMemory } from "@/types";
+import { z } from "zod";
 
 export type ConsolidationCandidate = {
   ids: string[];
   consolidatedText: string;
 };
+
+const consolidationDecisionBaseSchema = {
+  provider: z.enum(["deterministic", "llm", "fallback"]),
+  confidence: z.number().min(0).max(1),
+  reason: z.string().min(1)
+};
+
+export const consolidationDecisionSchema = z.discriminatedUnion("operation", [
+  z
+    .object({
+      ...consolidationDecisionBaseSchema,
+      operation: z.literal("consolidate"),
+      ids: z.array(z.string().min(1)).min(2),
+      consolidatedText: z.string().min(1)
+    })
+    .strict(),
+  z
+    .object({
+      ...consolidationDecisionBaseSchema,
+      operation: z.literal("skip")
+    })
+    .strict()
+]);
+
+export type ConsolidationDecision = z.infer<typeof consolidationDecisionSchema>;
+
+export type ConsolidationPlanningInput = {
+  memories: EngramMemory[];
+};
+
+export interface MemoryConsolidationPlanner {
+  readonly provider: ConsolidationDecision["provider"];
+  decide(input: ConsolidationPlanningInput): ConsolidationDecision | Promise<ConsolidationDecision>;
+}
 
 const MIN_TOPIC_MEMORIES = 2;
 
@@ -32,6 +67,34 @@ export function findConsolidationCandidate(memories: EngramMemory[]): Consolidat
     consolidatedText: summarizeTopic(topic, selected)
   };
 }
+
+export class DeterministicMemoryConsolidationPlanner implements MemoryConsolidationPlanner {
+  readonly provider = "deterministic" as const;
+
+  decide(input: ConsolidationPlanningInput): ConsolidationDecision {
+    const candidate = findConsolidationCandidate(input.memories);
+
+    if (!candidate) {
+      return consolidationDecisionSchema.parse({
+        provider: this.provider,
+        operation: "skip",
+        confidence: 0.82,
+        reason: "No hippocampus topic group has enough related memories to consolidate."
+      });
+    }
+
+    return consolidationDecisionSchema.parse({
+      provider: this.provider,
+      operation: "consolidate",
+      confidence: 0.78,
+      reason: "Found repeated same-topic hippocampus memories.",
+      ids: candidate.ids,
+      consolidatedText: candidate.consolidatedText
+    });
+  }
+}
+
+export const deterministicMemoryConsolidationPlanner = new DeterministicMemoryConsolidationPlanner();
 
 function summarizeTopic(topic: string, memories: EngramMemory[]) {
   const facts = memories.map((memory) => stripExplicitMemoryCue(memory.text));
