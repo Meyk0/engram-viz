@@ -42,6 +42,8 @@ export function getRegionColor(region: BrainRegion): string {
 
 export function getEventRegions(event: EngramEvent): BrainRegion[] {
   switch (event.type) {
+    case "plan":
+      return [];
     case "store":
       return [event.memory.region];
     case "fire":

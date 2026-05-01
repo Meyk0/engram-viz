@@ -25,6 +25,34 @@ describe("event schema", () => {
       })
     ).toThrow();
   });
+
+  it("accepts planner and semantic retrieval metadata", () => {
+    expect(() =>
+      parseEngramEvent({
+        type: "plan",
+        decision: {
+          stage: "memory",
+          operation: "ignore",
+          provider: "llm",
+          confidence: 0.91,
+          reason: "Question should not be stored.",
+          relatedMemoryIds: ["mem-blue"]
+        }
+      })
+    ).not.toThrow();
+
+    expect(() =>
+      parseEngramEvent({
+        type: "retrieve",
+        query: "What color do I like?",
+        ids: ["mem-blue"],
+        retrieval: {
+          provider: "semantic",
+          reason: "OpenAI embeddings ranked stored memory traces by semantic similarity."
+        }
+      })
+    ).not.toThrow();
+  });
 });
 
 describe("SSE encoding", () => {

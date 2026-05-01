@@ -31,6 +31,27 @@ describe("event narrative", () => {
     });
   });
 
+  it("surfaces planner reasoning for skipped memory decisions", () => {
+    expect(
+      getCurrentEventNarrative([
+        {
+          type: "plan",
+          decision: {
+            stage: "memory",
+            operation: "ignore",
+            provider: "llm",
+            confidence: 0.93,
+            reason: "This is a question, not a durable fact.",
+            relatedMemoryIds: []
+          }
+        }
+      ])
+    ).toMatchObject({
+      title: "Memory skipped",
+      body: "OpenAI planner skipped storage: This is a question, not a durable fact."
+    });
+  });
+
   it("uses plural grammar for active context firing", () => {
     expect(
       getCurrentEventNarrative([{ type: "fire", region: "prefrontal", ids: ["mem-a"] }])

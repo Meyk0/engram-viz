@@ -27,14 +27,20 @@ export const regionExplanations: Record<
 
 export function explainEvent(event: EngramEvent): string {
   switch (event.type) {
+    case "plan":
+      return `${plannerLabel(event.decision.provider)}: ${event.decision.reason}`;
     case "store":
-      return "New facts land here as raw episodes.";
+      return event.decision
+        ? `${plannerLabel(event.decision.provider)} stored this: ${event.decision.reason}`
+        : "New facts land here as raw episodes.";
     case "retrieve":
-      return "Semantic search pulled memories into active consideration.";
+      return `${retrievalLabel(event.retrieval?.provider)} pulled memories into active consideration.`;
     case "fire":
       return "Retrieved memories are loaded into the active context window.";
     case "consolidate":
-      return "Repeated facts about a topic are distilled into one summary.";
+      return event.decision
+        ? `${plannerLabel(event.decision.provider)} consolidated this: ${event.decision.reason}`
+        : "Repeated facts about a topic are distilled into one summary.";
     case "load":
       return "Selected memories are being prepared for the next response.";
     case "decay":
@@ -42,6 +48,18 @@ export function explainEvent(event: EngramEvent): string {
     case "init":
       return "The current session memory state is assembling.";
   }
+}
+
+function plannerLabel(provider: "deterministic" | "llm" | "fallback") {
+  if (provider === "llm") return "OpenAI planner";
+  if (provider === "fallback") return "Fallback planner";
+  return "Deterministic planner";
+}
+
+function retrievalLabel(provider?: "lexical" | "semantic" | "fallback") {
+  if (provider === "semantic") return "Semantic retrieval";
+  if (provider === "fallback") return "Fallback retrieval";
+  return "Lexical retrieval";
 }
 
 export type MemoryExplanation = {
@@ -124,6 +142,8 @@ function sourceEventLabel(event: EngramEvent): string {
   switch (event.type) {
     case "retrieve":
       return "Retrieved into candidate set";
+    case "plan":
+      return "Planner decision";
     case "fire":
       return "Fired into active context";
     case "load":

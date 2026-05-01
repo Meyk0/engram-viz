@@ -18,6 +18,12 @@ export function getCurrentEventNarrative(events: EngramEvent[]): EventNarrative 
   }
 
   switch (event.type) {
+    case "plan":
+      return {
+        title: event.decision.operation === "ignore" ? "Memory skipped" : "Memory decision",
+        body: `${providerLabel(event.decision.provider)} skipped storage: ${event.decision.reason}`,
+        type: event.type
+      };
     case "init":
       return {
         title: event.memories.length > 0 ? "Session memory loaded" : "Fresh memory session",
@@ -30,7 +36,9 @@ export function getCurrentEventNarrative(events: EngramEvent[]): EventNarrative 
     case "store":
       return {
         title: "New fact stored",
-        body: "A raw memory landed in the hippocampus.",
+        body: event.decision
+          ? `${providerLabel(event.decision.provider)} stored this because ${lowercaseFirst(event.decision.reason)}`
+          : "A raw memory landed in the hippocampus.",
         type: event.type,
         region: event.memory.region
       };
@@ -40,7 +48,7 @@ export function getCurrentEventNarrative(events: EngramEvent[]): EventNarrative 
         body:
           event.ids.length > 0
             ? `${pluralize(event.ids.length, "memory")} matched this question.`
-            : "No stored memory matched this question yet.",
+            : `${retrievalLabel(event.retrieval?.provider)} did not find a stored memory for this question yet.`,
         type: event.type
       };
     case "load":
@@ -78,7 +86,9 @@ export function getCurrentEventNarrative(events: EngramEvent[]): EventNarrative 
     case "consolidate":
       return {
         title: "Memories consolidated",
-        body: `${event.removed.length} related episodes merged into one temporal memory.`,
+        body: event.decision
+          ? `${providerLabel(event.decision.provider)} merged ${pluralize(event.removed.length, "episode")}: ${event.decision.reason}`
+          : `${event.removed.length} related episodes merged into one temporal memory.`,
         type: event.type,
         region: event.added.region
       };
@@ -89,6 +99,22 @@ export function getCurrentEventNarrative(events: EngramEvent[]): EventNarrative 
         type: event.type
       };
   }
+}
+
+function providerLabel(provider: "deterministic" | "llm" | "fallback") {
+  if (provider === "llm") return "OpenAI planner";
+  if (provider === "fallback") return "Fallback planner";
+  return "Deterministic planner";
+}
+
+function retrievalLabel(provider?: "lexical" | "semantic" | "fallback") {
+  if (provider === "semantic") return "Semantic retrieval";
+  if (provider === "fallback") return "Fallback retrieval";
+  return "Retrieval";
+}
+
+function lowercaseFirst(text: string) {
+  return text ? `${text[0]?.toLowerCase()}${text.slice(1)}` : text;
 }
 
 function pluralize(count: number, word: string) {

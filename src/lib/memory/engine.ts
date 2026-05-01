@@ -1,10 +1,12 @@
 import {
   consolidateMemoriesTool,
-  retrieveMemoryTool,
   storeMemoryTool
 } from "@/lib/memory/tools";
+import { configuredMemoryRetriever } from "@/lib/memory/retriever-config";
+import type { MemoryRetriever } from "@/lib/memory/retrieve";
+import { listMemories, markAccessed } from "@/lib/memory/store";
 import type { MemoryStore } from "@/lib/memory/store-interface";
-import type { BrainRegion, EngramEvent } from "@/types";
+import type { BrainRegion, EngramEvent, MemoryDecisionTrace } from "@/types";
 
 export type StoreMemoryInput = {
   sessionId: string;
@@ -18,6 +20,7 @@ export type RetrieveMemoryInput = {
   sessionId: string;
   query: string;
   limit?: number;
+  retriever?: MemoryRetriever;
   now?: string;
 };
 
@@ -25,11 +28,15 @@ export type ConsolidateMemoryInput = {
   sessionId: string;
   ids: string[];
   consolidatedText: string;
+  decision?: MemoryDecisionTrace;
   now?: string;
 };
 
 export class MemoryEngine {
-  constructor(private readonly store: MemoryStore) {}
+  constructor(
+    private readonly store: MemoryStore,
+    private readonly retriever: MemoryRetriever = configuredMemoryRetriever()
+  ) {}
 
   async initialize(sessionId: string): Promise<EngramEvent> {
     return {
@@ -45,7 +52,23 @@ export class MemoryEngine {
 
   async retrieve(input: RetrieveMemoryInput): Promise<EngramEvent> {
     const session = await this.store.getSession(input.sessionId);
-    return retrieveMemoryTool(session, input);
+    const retrieval = await (input.retriever ?? this.retriever).retrieve({
+      memories: listMemories(session),
+      query: input.query,
+      limit: input.limit
+    });
+    const ids = retrieval.results.map((result) => result.memory.id);
+    markAccessed(session, ids, input.now);
+
+    return {
+      type: "retrieve",
+      query: input.query,
+      ids,
+      retrieval: {
+        provider: retrieval.provider,
+        reason: retrieval.reason
+      }
+    };
   }
 
   fire(region: BrainRegion, ids: string[]): EngramEvent {
@@ -56,7 +79,8 @@ export class MemoryEngine {
     if (input.ids.length < 2) return null;
 
     const session = await this.store.getSession(input.sessionId);
-    return consolidateMemoriesTool(session, input);
+    const event = consolidateMemoriesTool(session, input);
+    return event.type === "consolidate" && input.decision ? { ...event, decision: input.decision } : event;
   }
 
   async decay(sessionId: string): Promise<EngramEvent | null> {

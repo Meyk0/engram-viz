@@ -4,6 +4,7 @@ import {
   configuredConsolidationPlannerProvider,
   configuredMemoryPlannerProvider
 } from "@/lib/memory/planner-config";
+import { configuredMemoryRetrieverProvider } from "@/lib/memory/retriever-config";
 
 const PROVIDER_ENV_KEYS = ["ENGRAM_CHAT_PROVIDER", "CHAT_PROVIDER", "OPENAI_API_KEY", "OPENAI_LIVE_ENABLED"] as const;
 const MEMORY_PLANNER_ENV_KEYS = ["ENGRAM_MEMORY_PLANNER", "MEMORY_PLANNER", "OPENAI_MEMORY_PLANNER_ENABLED"] as const;
@@ -12,6 +13,7 @@ const CONSOLIDATION_PLANNER_ENV_KEYS = [
   "CONSOLIDATION_PLANNER",
   "OPENAI_CONSOLIDATION_PLANNER_ENABLED"
 ] as const;
+const RETRIEVER_ENV_KEYS = ["ENGRAM_RETRIEVAL_PROVIDER", "RETRIEVAL_PROVIDER", "OPENAI_RETRIEVAL_ENABLED"] as const;
 
 afterEach(() => {
   resetProviderEnv();
@@ -82,8 +84,29 @@ describe("configuredConsolidationPlannerProvider", () => {
   });
 });
 
+describe("configuredMemoryRetrieverProvider", () => {
+  it("defaults to lexical retrieval", () => {
+    resetProviderEnv();
+
+    expect(configuredMemoryRetrieverProvider()).toBe("lexical");
+  });
+
+  it("enables OpenAI semantic retrieval only behind its explicit flag", () => {
+    process.env.ENGRAM_RETRIEVAL_PROVIDER = "openai";
+    process.env.OPENAI_RETRIEVAL_ENABLED = "true";
+
+    expect(configuredMemoryRetrieverProvider()).toBe("openai");
+  });
+
+  it("keeps lexical retrieval when OpenAI semantic retrieval is not enabled", () => {
+    process.env.ENGRAM_RETRIEVAL_PROVIDER = "openai";
+
+    expect(configuredMemoryRetrieverProvider()).toBe("lexical");
+  });
+});
+
 function resetProviderEnv() {
-  [...PROVIDER_ENV_KEYS, ...MEMORY_PLANNER_ENV_KEYS, ...CONSOLIDATION_PLANNER_ENV_KEYS].forEach((key) => {
+  [...PROVIDER_ENV_KEYS, ...MEMORY_PLANNER_ENV_KEYS, ...CONSOLIDATION_PLANNER_ENV_KEYS, ...RETRIEVER_ENV_KEYS].forEach((key) => {
     delete process.env[key];
   });
 }

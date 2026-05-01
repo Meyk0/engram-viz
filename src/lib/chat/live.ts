@@ -1,13 +1,17 @@
 import { createChatProvider, configuredChatProvider } from "@/lib/chat/providers";
 import { MemoryEngine } from "@/lib/memory/engine";
 import type { MemoryConsolidationPlanner } from "@/lib/memory/consolidationPolicy";
+import type { ConsolidationDecision } from "@/lib/memory/consolidationPolicy";
 import type { MemoryDecisionPlanner } from "@/lib/memory/decision";
+import type { MemoryDecision } from "@/lib/memory/decision";
 import {
   configuredMemoryConsolidationPlanner,
   configuredMemoryDecisionPlanner
 } from "@/lib/memory/planner-config";
+import { configuredMemoryRetriever } from "@/lib/memory/retriever-config";
+import type { MemoryRetriever } from "@/lib/memory/retrieve";
 import { InMemoryMemoryStore } from "@/lib/memory/store-interface";
-import type { ChatMessage, StreamChunk } from "@/types";
+import type { ChatMessage, MemoryDecisionTrace, StreamChunk } from "@/types";
 
 const memoryStore = new InMemoryMemoryStore();
 const memoryEngine = new MemoryEngine(memoryStore);
@@ -18,6 +22,7 @@ export type LiveChatInput = {
   history?: ChatMessage[];
   memoryConsolidationPlanner?: MemoryConsolidationPlanner;
   memoryDecisionPlanner?: MemoryDecisionPlanner;
+  memoryRetriever?: MemoryRetriever;
   now?: string;
 };
 
@@ -26,6 +31,7 @@ export async function createLiveMemoryStream(input: LiveChatInput): Promise<Stre
   const memoryConsolidationPlanner =
     input.memoryConsolidationPlanner ?? configuredMemoryConsolidationPlanner();
   const memoryDecisionPlanner = input.memoryDecisionPlanner ?? configuredMemoryDecisionPlanner();
+  const memoryRetriever = input.memoryRetriever ?? configuredMemoryRetriever();
   const chunks: StreamChunk[] = [];
 
   chunks.push({ kind: "event", event: await memoryEngine.initialize(input.sessionId) });
@@ -34,6 +40,7 @@ export async function createLiveMemoryStream(input: LiveChatInput): Promise<Stre
     sessionId: input.sessionId,
     query: input.message,
     limit: 3,
+    retriever: memoryRetriever,
     now: input.now
   });
   chunks.push({ kind: "event", event: retrieve });
@@ -74,12 +81,16 @@ export async function createLiveMemoryStream(input: LiveChatInput): Promise<Stre
       topic: resolvedMemoryDecision.topic,
       now: input.now
     });
-    chunks.push({ kind: "event", event: stored });
+    const storeEvent =
+      stored.type === "store"
+        ? { ...stored, decision: memoryDecisionTrace(resolvedMemoryDecision) }
+        : stored;
+    chunks.push({ kind: "event", event: storeEvent });
 
-    const storedRegion = stored.type === "store" ? stored.memory.region : "hippocampus";
+    const storedRegion = storeEvent.type === "store" ? storeEvent.memory.region : "hippocampus";
     chunks.push({
       kind: "event",
-      event: memoryEngine.fire(storedRegion, stored.type === "store" ? [stored.memory.id] : [])
+      event: memoryEngine.fire(storedRegion, storeEvent.type === "store" ? [storeEvent.memory.id] : [])
     });
 
     const consolidationDecision = await memoryConsolidationPlanner.decide({
@@ -91,6 +102,7 @@ export async function createLiveMemoryStream(input: LiveChatInput): Promise<Stre
         sessionId: input.sessionId,
         ids: consolidationDecision.ids,
         consolidatedText: consolidationDecision.consolidatedText,
+        decision: consolidationDecisionTrace(consolidationDecision),
         now: input.now
       });
 
@@ -102,6 +114,11 @@ export async function createLiveMemoryStream(input: LiveChatInput): Promise<Stre
         });
       }
     }
+  } else {
+    chunks.push({
+      kind: "event",
+      event: { type: "plan", decision: memoryDecisionTrace(resolvedMemoryDecision) }
+    });
   }
 
   const decay = await memoryEngine.decay(input.sessionId);
@@ -114,6 +131,28 @@ export async function createLiveMemoryStream(input: LiveChatInput): Promise<Stre
   }
 
   return chunks;
+}
+
+function memoryDecisionTrace(decision: MemoryDecision): MemoryDecisionTrace {
+  return {
+    stage: "memory",
+    operation: decision.operation,
+    provider: decision.provider,
+    confidence: decision.confidence,
+    reason: decision.reason,
+    relatedMemoryIds: decision.relatedMemoryIds
+  };
+}
+
+function consolidationDecisionTrace(decision: ConsolidationDecision): MemoryDecisionTrace {
+  return {
+    stage: "consolidation",
+    operation: decision.operation,
+    provider: decision.provider,
+    confidence: decision.confidence,
+    reason: decision.reason,
+    ids: decision.operation === "consolidate" ? decision.ids : undefined
+  };
 }
 
 export function resetLiveMemoryStore() {

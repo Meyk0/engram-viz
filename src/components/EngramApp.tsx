@@ -137,7 +137,11 @@ export function EngramApp() {
       {showOnboarding ? (
         <OnboardingPanel onStart={startOnboarding} />
       ) : (
-        <CurrentEventBanner events={events} />
+        <CurrentEventBanner
+          draftAssistant={draftTurn?.assistant}
+          events={events}
+          streaming={isStreaming}
+        />
       )}
 
       <EventFeed
@@ -189,7 +193,9 @@ export function EngramApp() {
           placeholder="Tell me something about yourself..."
           aria-label="Chat message"
         />
-        <span className="chat-status">{isStreaming ? "STREAMING" : "READY"}</span>
+        <span className="chat-status">
+          {isStreaming ? (draftTurn?.assistant ? "RESPONDING" : "THINKING") : "READY"}
+        </span>
         {isStreaming ? (
           <button className="send-btn" type="button" onClick={cancel} aria-label="Cancel response">
             <Square size={13} />

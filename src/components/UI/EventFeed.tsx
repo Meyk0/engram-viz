@@ -48,20 +48,27 @@ function eventRegion(event: EngramEvent) {
 }
 
 function eventLabel(event: EngramEvent) {
+  if (event.type === "plan") return `${event.decision.stage} - ${event.decision.operation}`;
   const region = eventRegion(event);
   return region ? `${region} - ${event.type}` : event.type;
 }
 
 function eventSummary(event: EngramEvent) {
   switch (event.type) {
+    case "plan":
+      return `${plannerLabel(event.decision.provider)} ${event.decision.operation}: ${event.decision.reason}`;
     case "store":
-      return `Stored: "${event.memory.text}"`;
+      return event.decision
+        ? `Stored: "${event.memory.text}" (${percent(event.decision.confidence)} confidence)`
+        : `Stored: "${event.memory.text}"`;
     case "retrieve":
-      return `Retrieved ${event.ids.length} memories for: "${event.query}"`;
+      return `Retrieved ${event.ids.length} memories via ${retrievalLabel(event.retrieval?.provider)} for: "${event.query}"`;
     case "fire":
       return `Fired ${event.ids.length} memories in ${event.region}`;
     case "consolidate":
-      return `Consolidated ${event.removed.length} memories -> "${event.added.text}"`;
+      return event.decision
+        ? `Consolidated ${event.removed.length} memories -> "${event.added.text}" (${percent(event.decision.confidence)} confidence)`
+        : `Consolidated ${event.removed.length} memories -> "${event.added.text}"`;
     case "load":
       return `Loaded ${event.ids.length} memories`;
     case "decay":
@@ -73,6 +80,8 @@ function eventSummary(event: EngramEvent) {
 
 function eventKey(event: EngramEvent) {
   switch (event.type) {
+    case "plan":
+      return `${event.decision.stage}-${event.decision.operation}-${event.decision.reason}`;
     case "store":
       return event.memory.id;
     case "consolidate":
@@ -84,4 +93,20 @@ function eventKey(event: EngramEvent) {
     default:
       return event.ids.join(".");
   }
+}
+
+function plannerLabel(provider: "deterministic" | "llm" | "fallback") {
+  if (provider === "llm") return "OpenAI";
+  if (provider === "fallback") return "Fallback";
+  return "Deterministic";
+}
+
+function retrievalLabel(provider?: "lexical" | "semantic" | "fallback") {
+  if (provider === "semantic") return "semantic search";
+  if (provider === "fallback") return "fallback search";
+  return "lexical search";
+}
+
+function percent(value: number) {
+  return `${Math.round(value * 100)}%`;
 }

@@ -33,6 +33,14 @@ ENGRAM_CONSOLIDATION_PLANNER=openai
 OPENAI_CONSOLIDATION_PLANNER_ENABLED=true
 ```
 
+Retrieval is lexical by default. To use OpenAI embeddings for semantic memory retrieval, set:
+
+```bash
+ENGRAM_RETRIEVAL_PROVIDER=openai
+OPENAI_RETRIEVAL_ENABLED=true
+OPENAI_EMBEDDING_MODEL=text-embedding-3-small
+```
+
 OpenAI calls are server-side only. Normal tests use mocked providers and do not require an API key.
 
 ## Verification

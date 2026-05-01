@@ -4,6 +4,7 @@ import { decodeSseChunks } from "@/lib/events/sse";
 import { createLiveMemoryStream, resetLiveMemoryStore } from "@/lib/chat/live";
 import type { MemoryConsolidationPlanner } from "@/lib/memory/consolidationPolicy";
 import type { MemoryDecisionPlanner } from "@/lib/memory/decision";
+import type { MemoryRetriever } from "@/lib/memory/retrieve";
 
 describe("/api/chat", () => {
   it("returns live memory SSE chunks in demo mode", async () => {
@@ -185,6 +186,11 @@ describe("/api/chat", () => {
     }
     expect(storeChunk.event.memory.text).toBe("User wants concise summaries");
     expect(storeChunk.event.memory.importance).toBe(0.82);
+    expect(storeChunk.event.decision).toMatchObject({
+      provider: "llm",
+      operation: "store",
+      reason: "Mock planner extracted a durable preference."
+    });
   });
 
   it("passes retrieved memory ids into the decision planner", async () => {
@@ -217,6 +223,76 @@ describe("/api/chat", () => {
     });
 
     expect(relatedMemoryIds).toHaveLength(1);
+  });
+
+  it("emits planner provenance when a memory decision skips storage", async () => {
+    resetLiveMemoryStore();
+
+    const planner: MemoryDecisionPlanner = {
+      provider: "llm",
+      decide: () => ({
+        provider: "llm",
+        operation: "ignore",
+        confidence: 0.94,
+        reason: "This is a question, not a durable memory.",
+        relatedMemoryIds: []
+      })
+    };
+
+    const chunks = await createLiveMemoryStream({
+      sessionId: "api-chat-planner-ignore",
+      message: "What color do I like?",
+      memoryDecisionPlanner: planner
+    });
+    const planChunk = chunks.find((chunk) => chunk.kind === "event" && chunk.event.type === "plan");
+
+    expect(planChunk?.kind).toBe("event");
+    if (planChunk?.kind !== "event" || planChunk.event.type !== "plan") {
+      throw new Error("expected plan event");
+    }
+    expect(planChunk.event.decision).toMatchObject({
+      stage: "memory",
+      operation: "ignore",
+      provider: "llm",
+      reason: "This is a question, not a durable memory."
+    });
+  });
+
+  it("can retrieve through an injected semantic retriever", async () => {
+    resetLiveMemoryStore();
+
+    await createLiveMemoryStream({
+      sessionId: "api-chat-semantic-retriever",
+      message: "remember that I prefer calm clinical cyberpunk interfaces"
+    });
+
+    const retriever: MemoryRetriever = {
+      provider: "semantic",
+      retrieve: ({ memories }) => ({
+        provider: "semantic",
+        reason: "Mock semantic retriever matched visual style intent.",
+        results: memories.map((memory) => ({ memory, score: 0.92 }))
+      })
+    };
+
+    const chunks = await createLiveMemoryStream({
+      sessionId: "api-chat-semantic-retriever",
+      message: "What visual style should this app use?",
+      memoryRetriever: retriever
+    });
+    const retrieveChunk = chunks.find(
+      (chunk) => chunk.kind === "event" && chunk.event.type === "retrieve"
+    );
+
+    expect(retrieveChunk?.kind).toBe("event");
+    if (retrieveChunk?.kind !== "event" || retrieveChunk.event.type !== "retrieve") {
+      throw new Error("expected retrieve event");
+    }
+    expect(retrieveChunk.event.ids).toHaveLength(1);
+    expect(retrieveChunk.event.retrieval).toEqual({
+      provider: "semantic",
+      reason: "Mock semantic retriever matched visual style intent."
+    });
   });
 
   it("consolidates repeated same-topic hippocampus memories into temporal memory", async () => {
@@ -308,5 +384,10 @@ describe("/api/chat", () => {
     expect(consolidateChunk.event.added.text).toBe(
       "User prefers restrained red medical interface design."
     );
+    expect(consolidateChunk.event.decision).toMatchObject({
+      provider: "llm",
+      operation: "consolidate",
+      reason: "Mock planner found a stable design preference."
+    });
   });
 });

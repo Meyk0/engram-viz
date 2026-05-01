@@ -5,6 +5,23 @@ export type RetrievalResult = {
   score: number;
 };
 
+export type MemoryRetrievalInput = {
+  memories: EngramMemory[];
+  query: string;
+  limit?: number;
+};
+
+export type MemoryRetrievalOutput = {
+  provider: "lexical" | "semantic" | "fallback";
+  reason?: string;
+  results: RetrievalResult[];
+};
+
+export interface MemoryRetriever {
+  readonly provider: MemoryRetrievalOutput["provider"];
+  retrieve(input: MemoryRetrievalInput): MemoryRetrievalOutput | Promise<MemoryRetrievalOutput>;
+}
+
 const TOKEN_STOPWORDS = new Set([
   "about",
   "and",
@@ -87,6 +104,19 @@ export function retrieveMemories(
     .sort((a, b) => b.score - a.score)
     .slice(0, limit);
 }
+
+export class LexicalMemoryRetriever implements MemoryRetriever {
+  readonly provider = "lexical" as const;
+
+  retrieve(input: MemoryRetrievalInput): MemoryRetrievalOutput {
+    return {
+      provider: this.provider,
+      results: retrieveMemories(input.memories, input.query, input.limit)
+    };
+  }
+}
+
+export const lexicalMemoryRetriever = new LexicalMemoryRetriever();
 
 export function scoreMemory(memory: EngramMemory, queryTokens: Set<string>): number {
   const memoryTokens = tokenize([memory.text, memory.topic].filter(Boolean).join(" "));

@@ -87,6 +87,8 @@ export function getAnimatedRegions(event: EngramEvent): BrainRegion[] {
   switch (event.type) {
     case "store":
       return ["hippocampus"];
+    case "plan":
+      return [];
     case "retrieve":
       return event.ids.length > 0 ? ["prefrontal"] : [];
     case "fire":
@@ -108,6 +110,8 @@ function getEventWeight(event: EngramEvent): number {
       return 1;
     case "store":
       return 0.92;
+    case "plan":
+      return 0;
     case "retrieve":
     case "fire":
       return 0.82;
