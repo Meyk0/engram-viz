@@ -12,8 +12,8 @@ export function getCurrentEventNarrative(events: EngramEvent[]): EventNarrative 
 
   if (!event) {
     return {
-      title: "Ready to map memory",
-      body: "Tell Engram a durable fact, then ask about it to see what gets stored, recalled, and used."
+      title: "Try a memory",
+      body: "Tell Engram one durable fact, then ask a related question."
     };
   }
 
@@ -21,19 +21,19 @@ export function getCurrentEventNarrative(events: EngramEvent[]): EventNarrative 
     case "plan":
       if (event.decision.operation === "ignore" && (event.decision.relatedMemoryIds?.length ?? 0) > 0) {
         return {
-          title: "Answered from memory",
-          body: `${pluralize(event.decision.relatedMemoryIds?.length ?? 0, "memory")} loaded into working memory. No new memory was saved for the question.`,
+          title: "Used memory",
+          body: `${pluralize(event.decision.relatedMemoryIds?.length ?? 0, "memory")} helped answer. Nothing new was stored for this question.`,
           type: event.type,
           region: "prefrontal"
         };
       }
 
       return {
-        title: event.decision.operation === "ignore" ? "No new memory saved" : "Memory decision",
+        title: event.decision.operation === "ignore" ? "Nothing stored" : "Memory checked",
         body:
           event.decision.operation === "ignore"
-            ? "This message did not add a durable fact or preference."
-            : "Engram checked whether this message should change memory.",
+            ? "This turn did not contain a durable fact or stable preference."
+            : "Engram checked whether this turn should change memory.",
         type: event.type
       };
     case "init":
@@ -42,39 +42,39 @@ export function getCurrentEventNarrative(events: EngramEvent[]): EventNarrative 
         body:
           event.memories.length > 0
             ? `${event.memories.length} existing memories are back in the brain.`
-            : "No memories are stored yet. New facts will land in the hippocampus.",
+            : "No memories are stored yet. Durable facts will appear as new memory dots.",
         type: event.type
       };
     case "store":
       return {
-        title: "New fact stored",
+        title: "Stored",
         body: event.decision
-          ? `Stored because this looked like ${memoryReasonLabel(event.decision.reason)}.`
-          : "A raw memory landed in the hippocampus.",
+          ? `Saved as a new memory because it looked like ${memoryReasonLabel(event.decision.reason)}.`
+          : "Saved as a new memory in the hippocampus.",
         type: event.type,
         region: event.memory.region
       };
     case "retrieve":
       return {
-        title: event.ids.length > 0 ? "Memory found" : "Memory searched",
+        title: event.ids.length > 0 ? "Retrieved" : "No match",
         body:
           event.ids.length > 0
             ? `${pluralize(event.ids.length, "memory")} matched this question.`
-            : "No matching stored memory was found for this question yet.",
+            : "No stored memory matched this question yet.",
         type: event.type
       };
     case "load":
       return {
-        title: "Loaded into context",
-        body: `${pluralize(event.ids.length, "memory")} copied into the finite active context window.`,
+        title: "Loaded working memory",
+        body: `${pluralize(event.ids.length, "memory")} is now available for the answer.`,
         type: event.type,
         region: "prefrontal"
       };
     case "fire":
       if (isStoreFollowupFire(events, event)) {
         return {
-          title: "New fact stored",
-          body: "A raw memory landed in the hippocampus.",
+          title: "Stored",
+          body: "Saved as a new memory in the hippocampus.",
           type: "store",
           region: "hippocampus"
         };
@@ -82,32 +82,32 @@ export function getCurrentEventNarrative(events: EngramEvent[]): EventNarrative 
 
       if (isConsolidationFollowupFire(events, event)) {
         return {
-          title: "Memories consolidated",
-          body: "Related episodes merged into one temporal memory.",
+          title: "Stabilized",
+          body: "Related new memories merged into stable knowledge.",
           type: "consolidate",
           region: "temporal"
         };
       }
 
       return {
-        title: "Active context firing",
-        body: `${pluralize(event.ids.length, "memory")} ${event.ids.length === 1 ? "is" : "are"} being used in ${regionLabel(event.region)}.`,
+        title: event.region === "prefrontal" ? "Used memory" : `${regionLabel(event.region)} active`,
+        body: `${pluralize(event.ids.length, "memory")} ${event.ids.length === 1 ? "is" : "are"} active in ${regionLabel(event.region)}.`,
         type: event.type,
         region: event.region
       };
     case "consolidate":
       return {
-        title: "Memories consolidated",
+        title: "Stabilized",
         body: event.decision
-          ? `${pluralize(event.removed.length, "episode")} merged into one longer-term memory.`
-          : `${event.removed.length} related episodes merged into one temporal memory.`,
+          ? `${pluralize(event.removed.length, "new memory")} merged into stable knowledge.`
+          : `${event.removed.length} related memories merged into stable knowledge.`,
         type: event.type,
         region: event.added.region
       };
     case "decay":
       return {
-        title: "Memory relevance dimmed",
-        body: `${pluralize(event.ids.length, "memory")} dropped in retrieval rank but was not deleted.`,
+        title: "Memory dimmed",
+        body: `${pluralize(event.ids.length, "memory")} was less relevant to this turn, but stayed stored.`,
         type: event.type
       };
   }
@@ -136,11 +136,11 @@ function memoryReasonLabel(reason: string) {
 function regionLabel(region: BrainRegion) {
   switch (region) {
     case "prefrontal":
-      return "active context";
+      return "working memory";
     case "hippocampus":
-      return "episodic memory";
+      return "new memories";
     case "temporal":
-      return "semantic memory";
+      return "stable knowledge";
   }
 }
 

@@ -23,7 +23,7 @@ export function RegionInspector({ onClose, open, region }: RegionInspectorProps)
     >
       <div className="secondary-panel-header region-inspector-header">
         <div>
-          <div className="region-inspector-eyebrow">Brain metaphor</div>
+          <div className="region-inspector-eyebrow">AI memory role</div>
           <div className="region-inspector-title">{explanation.label}</div>
         </div>
         <button className="panel-icon-btn" type="button" onClick={onClose} aria-label="Close region explanation">
@@ -44,7 +44,7 @@ export function RegionInspector({ onClose, open, region }: RegionInspectorProps)
           <dd>{explanation.llmRole}</dd>
         </div>
         <div>
-          <dt>WHAT TO WATCH</dt>
+          <dt>VISUAL CUE</dt>
           <dd>{explanation.visualBehavior}</dd>
         </div>
       </dl>

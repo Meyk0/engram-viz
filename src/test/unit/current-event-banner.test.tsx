@@ -7,7 +7,9 @@ describe("CurrentEventBanner", () => {
     render(<CurrentEventBanner events={[]} streaming />);
 
     expect(screen.getByText("Checking memory")).toBeInTheDocument();
-    expect(screen.getByText(/Searching for relevant traces/)).toBeInTheDocument();
+    expect(screen.getByText(/Looking for relevant memories/)).toBeInTheDocument();
+    expect(screen.getByLabelText("Memory lifecycle")).toBeVisible();
+    expect(screen.getByText("Retrieve")).toBeVisible();
   });
 
   it("shows a live response preview while the assistant is streaming", () => {
@@ -19,7 +21,7 @@ describe("CurrentEventBanner", () => {
       />
     );
 
-    expect(screen.getByText("Engram responding")).toBeInTheDocument();
+    expect(screen.getByText("Answering")).toBeInTheDocument();
     expect(screen.getByText(/You like blue/)).toBeInTheDocument();
   });
 });

@@ -3,7 +3,7 @@ import { expect, test } from "@playwright/test";
 test("loads the Engram shell", async ({ page }) => {
   await page.goto("/");
   await expect(page.getByRole("heading", { name: "ENGRAM", exact: true })).toBeVisible();
-  await expect(page.getByLabel("Engram memory model introduction")).toContainText("See what the AI remembers, recalls, and uses");
+  await expect(page.getByLabel("Engram memory model introduction")).toContainText("stores, retrieves, and uses");
   await expect(page.getByLabel("Secondary views")).toBeVisible();
   await expect(page.getByLabel("Chat transcript")).toBeHidden();
   await expect(page.getByLabel("Chat message")).toBeVisible();
@@ -46,10 +46,26 @@ test("opens region explanations from mobile shortcuts", async ({ page }) => {
   await page.getByRole("button", { name: "Start", exact: true }).click();
 
   await expect(page.getByLabel("Brain region shortcuts")).toBeVisible();
-  await page.getByRole("button", { name: "Open Hippocampus explanation" }).click();
-  const regionPanel = page.getByRole("complementary", { name: "Hippocampus explanation" });
+  await page.getByRole("button", { name: "Open New explanation" }).click();
+  const regionPanel = page.getByRole("complementary", { name: "New Memories explanation" });
   await expect(regionPanel).toBeVisible();
-  await expect(regionPanel).toContainText("new memories land");
+  await expect(regionPanel).toContainText("durable facts land");
+});
+
+test("keeps mobile memory controls visually separated", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/");
+  await page.getByRole("button", { name: "Start", exact: true }).click();
+
+  const topbar = await page.locator(".topbar").boundingBox();
+  const shortcuts = await page.getByLabel("Brain region shortcuts").boundingBox();
+  const receipt = await page.getByLabel("Current memory receipt").boundingBox();
+
+  expect(topbar).not.toBeNull();
+  expect(shortcuts).not.toBeNull();
+  expect(receipt).not.toBeNull();
+  expect(shortcuts!.y - (topbar!.y + topbar!.height)).toBeGreaterThan(10);
+  expect(receipt!.y - (shortcuts!.y + shortcuts!.height)).toBeGreaterThan(20);
 });
 
 test("opens working memory details after retrieval", async ({ page }) => {

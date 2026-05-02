@@ -14,27 +14,27 @@ export const regionExplanations: Record<
   }
 > = {
   prefrontal: {
-    label: "Prefrontal Cortex",
-    concept: "Active Context Window",
-    description: "Everything the model has loaded right now. Finite - when full, older memories drop out.",
+    label: "Working Memory",
+    concept: "Prefrontal Cortex",
+    description: "The memories retrieved for the current answer. Temporary, finite, and cleared as the conversation moves on.",
     capacity: 10,
     humanAnalogy: "Working memory: the small set of facts held in mind while solving the current task.",
     llmRole: "Retrieved memories are copied here when they are being used to shape the next answer.",
-    visualBehavior: "Cyan flashes, ghost copies, and the capacity ring show what is active right now."
+    visualBehavior: "Cyan flashes show memories that are influencing the answer right now."
   },
   hippocampus: {
-    label: "Hippocampus",
-    concept: "Episodic Store",
-    description: "Where new memories land. Recent, raw, awaiting distillation.",
+    label: "New Memories",
+    concept: "Hippocampus",
+    description: "Where durable facts land first. Recent, raw, and still close to the original thing you said.",
     capacity: 20,
     humanAnalogy: "New experiences enter here first before they become stable long-term knowledge.",
     llmRole: "Durable facts and preferences are saved here as raw memory traces.",
-    visualBehavior: "New memory dots appear here first and pulse when a fact is stored."
+    visualBehavior: "Purple memory dots appear here first and pulse when a fact is stored."
   },
   temporal: {
-    label: "Temporal Cortex",
-    concept: "Semantic Memory",
-    description: "Long-term semantic memory. Facts that have been consolidated from many episodes.",
+    label: "Stable Knowledge",
+    concept: "Temporal Cortex",
+    description: "Repeated related memories can merge here into a cleaner long-term summary.",
     capacity: 50,
     humanAnalogy: "Semantic memory: stable knowledge distilled from repeated related experiences.",
     llmRole: "Related hippocampus memories can merge here into a more durable summary.",
@@ -150,13 +150,13 @@ function findNearestRetrieveQuery(events: EngramEvent[], ids: string[]): string 
 function sourceEventLabel(event: EngramEvent): string {
   switch (event.type) {
     case "retrieve":
-      return "Retrieved into candidate set";
+      return "Retrieved for this question";
     case "plan":
       return "Planner decision";
     case "fire":
-      return "Fired into active context";
+      return "Used in working memory";
     case "load":
-      return "Loaded for response context";
+      return "Loaded for this answer";
     case "store":
       return "Stored as source episode";
     case "consolidate":

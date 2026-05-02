@@ -1,14 +1,12 @@
-import { Activity, BrainCircuit, ListTree, MapPin, MessageSquareText } from "lucide-react";
+import { Activity, BrainCircuit, MapPin, MessageSquareText } from "lucide-react";
 import type { ReactNode } from "react";
 
-export type SecondaryPanel = "transcript" | "memory" | "context" | "region" | "events";
+export type SecondaryPanel = "transcript" | "memory" | "context" | "region";
 
 type SecondaryDockProps = {
   activeContextCount: number;
   activePanel: SecondaryPanel | null;
-  eventCount: number;
   hasActiveContext: boolean;
-  hasEvents: boolean;
   hasMemoryDetails: boolean;
   hasRegionDetails: boolean;
   memoryCount: number;
@@ -20,9 +18,7 @@ type SecondaryDockProps = {
 export function SecondaryDock({
   activeContextCount,
   activePanel,
-  eventCount,
   hasActiveContext,
-  hasEvents,
   hasMemoryDetails,
   hasRegionDetails,
   memoryCount,
@@ -69,16 +65,6 @@ export function SecondaryDock({
             icon: <MapPin size={14} />,
             id: "region" as const,
             label: "Region"
-          }
-        ]
-      : []),
-    ...(hasEvents
-      ? [
-          {
-            count: eventCount,
-            icon: <ListTree size={14} />,
-            id: "events" as const,
-            label: "Events"
           }
         ]
       : [])

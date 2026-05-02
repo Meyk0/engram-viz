@@ -14,7 +14,7 @@ export const regionBounds: Record<BrainRegion, RegionBounds> = {
     center: [-0.66, 0.22, 0.34],
     size: [0.34, 0.23, 0.1],
     color: "#00d4ff",
-    label: "Prefrontal Cortex",
+    label: "Working Memory",
     labelAnchor: [-0.66, 0.22, 0.4],
     labelOffset: [0.34, 0.07, 0.24]
   },
@@ -22,7 +22,7 @@ export const regionBounds: Record<BrainRegion, RegionBounds> = {
     center: [-0.18, -0.14, -0.05],
     size: [0.14, 0.09, 0.08],
     color: "#a855f7",
-    label: "Hippocampus",
+    label: "New Memories",
     labelAnchor: [-0.18, -0.14, 0.02],
     labelOffset: [0.24, 0.1, 0.2]
   },
@@ -30,7 +30,7 @@ export const regionBounds: Record<BrainRegion, RegionBounds> = {
     center: [-0.1, -0.34, -0.02],
     size: [0.34, 0.16, 0.1],
     color: "#14f195",
-    label: "Temporal Cortex",
+    label: "Stable Knowledge",
     labelAnchor: [-0.08, -0.34, 0.04],
     labelOffset: [0.28, -0.04, 0.2]
   }

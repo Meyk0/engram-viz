@@ -1,4 +1,5 @@
 import { getCurrentEventNarrative } from "@/lib/eventNarrative";
+import { MemoryLifecycleStrip } from "@/components/UI/MemoryLifecycleStrip";
 import type { EngramEvent } from "@/types";
 
 type CurrentEventBannerProps = {
@@ -11,7 +12,7 @@ export function CurrentEventBanner({ draftAssistant = "", events, streaming = fa
   const narrative = getLiveNarrative({ draftAssistant, events, streaming });
 
   return (
-    <aside className="current-event-banner" data-type={narrative.type} data-region={narrative.region} aria-label="Current memory event">
+    <aside className="current-event-banner" data-type={narrative.type} data-region={narrative.region} aria-label="Current memory receipt">
       <div className="current-event-title">
         {narrative.title}
         {streaming && !draftAssistant ? (
@@ -23,6 +24,7 @@ export function CurrentEventBanner({ draftAssistant = "", events, streaming = fa
         ) : null}
       </div>
       <div className="current-event-body">{narrative.body}</div>
+      <MemoryLifecycleStrip events={events} streaming={streaming} />
     </aside>
   );
 }
@@ -40,7 +42,7 @@ function getLiveNarrative({
 
   if (streaming && responsePreview) {
     return {
-      title: "Engram responding",
+      title: "Answering",
       body: responsePreview,
       type: "fire" as const,
       region: "prefrontal" as const
@@ -50,7 +52,7 @@ function getLiveNarrative({
   if (streaming) {
     return {
       title: "Checking memory",
-      body: "Searching for relevant traces and preparing the answer.",
+      body: "Looking for relevant memories before answering.",
       type: "retrieve" as const,
       region: "prefrontal" as const
     };

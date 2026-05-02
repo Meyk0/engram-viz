@@ -57,7 +57,7 @@ describe("explanations", () => {
         id: "mem-user-product-context",
         matchedWords: ["clarity", "visual"],
         region: "temporal",
-        regionLabel: "Temporal Cortex",
+        regionLabel: "Stable Knowledge",
         accessCount: 1,
         importance: 0.88,
         sourceEvent: "retrieve",

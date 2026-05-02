@@ -10,17 +10,17 @@ describe("memory UX panels", () => {
   it("introduces Engram as a memory map instead of a generic chatbot", () => {
     render(<OnboardingPanel onStart={vi.fn()} />);
 
-    expect(screen.getByText("AI Memory Map")).toBeVisible();
-    expect(screen.getByText("See what the AI remembers, recalls, and uses.")).toBeVisible();
-    expect(screen.getByText(/new facts are stored/i)).toBeVisible();
-    expect(screen.getByText(/Click a region label or memory dot/i)).toBeVisible();
+    expect(screen.getByText("AI memory, visible")).toBeVisible();
+    expect(screen.getByText("Engram shows what the AI stores, retrieves, and uses.")).toBeVisible();
+    expect(screen.getByText(/Durable facts become memory dots/i)).toBeVisible();
+    expect(screen.getByText(/Start with one durable preference/i)).toBeVisible();
   });
 
   it("explains a selected brain region in human and AI terms", () => {
     render(<RegionInspector region="prefrontal" onClose={vi.fn()} open />);
 
-    expect(screen.getByLabelText("Prefrontal Cortex explanation")).toBeVisible();
-    expect(screen.getByText("Active Context Window")).toBeVisible();
+    expect(screen.getByLabelText("Working Memory explanation")).toBeVisible();
+    expect(screen.getByText("Prefrontal Cortex")).toBeVisible();
     expect(screen.getByText("HUMAN BRAIN")).toBeVisible();
     expect(screen.getByText("AI MEMORY")).toBeVisible();
     expect(screen.getByText(/Retrieved memories are copied here/)).toBeVisible();
@@ -40,7 +40,7 @@ describe("memory UX panels", () => {
     expect(screen.getByText("Used in the latest answer")).toBeVisible();
     expect(screen.getByText("User loves indigo.")).toBeVisible();
     expect(screen.getByText("LATEST QUESTION: What color do I love?")).toBeVisible();
-    expect(screen.getByText("RETRIEVED")).toBeVisible();
+    expect(screen.getByText("Details")).toBeVisible();
     expect(screen.getByText(/Why here:/)).toBeVisible();
   });
 
@@ -53,9 +53,9 @@ describe("memory UX panels", () => {
       />
     );
 
-    expect(screen.getAllByText("Semantic Memory").length).toBeGreaterThan(0);
-    expect(screen.getByText("RETRIEVED")).toBeVisible();
-    expect(screen.getByText(/Moved to semantic memory after being retrieved 3 times/)).toBeVisible();
+    expect(screen.getAllByText("Stable Knowledge").length).toBeGreaterThan(0);
+    expect(screen.getByText("Details")).toBeVisible();
+    expect(screen.getByText(/Moved to stable knowledge after being retrieved 3 times/)).toBeVisible();
   });
 
   it("rewrites low-level events as a user-facing memory story", () => {

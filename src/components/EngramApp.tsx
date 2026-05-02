@@ -2,7 +2,6 @@
 
 import { useCallback, useMemo, useRef, useState } from "react";
 import { Send, Square } from "lucide-react";
-import { explainEvent } from "@/lib/explanations";
 import { getActiveContextFill, getLatestRetrieveEvent, getLoadedMemoryIds } from "@/lib/memoryVisuals";
 import { useChat } from "@/hooks/useChat";
 import { useEventQueue } from "@/hooks/useEventQueue";
@@ -12,7 +11,6 @@ import { Brain3D } from "@/components/Brain/Brain3D";
 import { ActiveContextPanel } from "@/components/UI/ActiveContextPanel";
 import { ChatTranscript } from "@/components/UI/ChatTranscript";
 import { CurrentEventBanner } from "@/components/UI/CurrentEventBanner";
-import { EventFeed } from "@/components/UI/EventFeed";
 import { ExplainabilityPanel } from "@/components/UI/ExplainabilityPanel";
 import { MemoryInspector } from "@/components/UI/MemoryInspector";
 import { OnboardingPanel } from "@/components/UI/OnboardingPanel";
@@ -21,9 +19,9 @@ import { SecondaryDock, type SecondaryPanel } from "@/components/UI/SecondaryDoc
 import type { BrainRegion, StreamChunk } from "@/types";
 
 const regionShortcuts: Array<{ label: string; region: BrainRegion }> = [
-  { label: "Hippocampus", region: "hippocampus" },
-  { label: "Prefrontal", region: "prefrontal" },
-  { label: "Temporal", region: "temporal" }
+  { label: "New", region: "hippocampus" },
+  { label: "Working", region: "prefrontal" },
+  { label: "Stable", region: "temporal" }
 ];
 
 export function EngramApp() {
@@ -193,12 +191,6 @@ export function EngramApp() {
         />
       )}
 
-      <EventFeed
-        events={events}
-        explainEvent={explainEvent}
-        onClose={closeSecondaryPanel}
-        open={activePanel === "events"}
-      />
       <ExplainabilityPanel
         explanations={explanations}
         onClose={closeSecondaryPanel}
@@ -235,8 +227,6 @@ export function EngramApp() {
       />
       <SecondaryDock
         activePanel={activePanel}
-        eventCount={events.length}
-        hasEvents={events.length > 0}
         hasActiveContext={activeContextFill.used > 0}
         hasMemoryDetails={memoryDetailCount > 0}
         activeContextCount={activeContextFill.used}

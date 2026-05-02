@@ -38,28 +38,6 @@ export function MemoryInspector({
         {active ? "Used in the latest answer" : "Stored, not currently in working memory"}
       </div>
       <div className="memory-inspector-text">{memory.text}</div>
-      <dl className="memory-inspector-metrics">
-        <div>
-          <dt>REGION</dt>
-          <dd>{region.concept}</dd>
-        </div>
-        <div>
-          <dt>IMPORTANCE</dt>
-          <dd>{Math.round(memory.importance * 100)}%</dd>
-        </div>
-        <div>
-          <dt>RETRIEVED</dt>
-          <dd>{memory.access_count}</dd>
-        </div>
-        <div>
-          <dt>TOPIC</dt>
-          <dd>{memory.topic ?? "none"}</dd>
-        </div>
-        <div>
-          <dt>CREATED</dt>
-          <dd>{createdAt}</dd>
-        </div>
-      </dl>
       {latestQuery ? <div className="memory-inspector-query">LATEST QUESTION: {latestQuery}</div> : null}
       <div className="memory-inspector-note">
         <strong>Why here:</strong> {locationExplanation.whyHere}
@@ -67,6 +45,31 @@ export function MemoryInspector({
       <div className="memory-inspector-note">
         <strong>What to watch:</strong> {locationExplanation.whatToWatch}
       </div>
+      <details className="memory-inspector-details">
+        <summary>Details</summary>
+        <dl className="memory-inspector-metrics">
+          <div>
+            <dt>BRAIN REGION</dt>
+            <dd>{region.concept}</dd>
+          </div>
+          <div>
+            <dt>IMPORTANCE</dt>
+            <dd>{Math.round(memory.importance * 100)}%</dd>
+          </div>
+          <div>
+            <dt>RETRIEVED</dt>
+            <dd>{memory.access_count}</dd>
+          </div>
+          <div>
+            <dt>TOPIC</dt>
+            <dd>{memory.topic ?? "none"}</dd>
+          </div>
+          <div>
+            <dt>CREATED</dt>
+            <dd>{createdAt}</dd>
+          </div>
+        </dl>
+      </details>
     </aside>
   );
 }
@@ -82,14 +85,14 @@ function getLocationExplanation(memory: EngramMemory) {
 
   if (memory.region === "temporal" && !memory.id.includes("-consolidated-")) {
     return {
-      whyHere: `Moved to semantic memory after being retrieved ${memory.access_count} times. It keeps being useful, so Engram treats it as more stable knowledge.`,
+      whyHere: `Moved to stable knowledge after being retrieved ${memory.access_count} times. It keeps being useful, so Engram treats it as more durable.`,
       whatToWatch: "Green memory dots mark stable memories. This one should move less and act more like background knowledge."
     };
   }
 
   if (memory.region === "temporal") {
     return {
-      whyHere: "Created by merging related hippocampus memories into one more durable summary.",
+      whyHere: "Created by merging related new memories into one more durable summary.",
       whatToWatch: region.visualBehavior
     };
   }

@@ -5,8 +5,8 @@ import type { EngramEvent } from "@/types";
 describe("event narrative", () => {
   it("explains empty state in plain English", () => {
     expect(getCurrentEventNarrative([])).toEqual({
-      title: "Ready to map memory",
-      body: "Tell Engram a durable fact, then ask about it to see what gets stored, recalled, and used."
+      title: "Try a memory",
+      body: "Tell Engram one durable fact, then ask a related question."
     });
   });
 
@@ -25,8 +25,8 @@ describe("event narrative", () => {
     };
 
     expect(getCurrentEventNarrative([event])).toMatchObject({
-      title: "New fact stored",
-      body: "A raw memory landed in the hippocampus.",
+      title: "Stored",
+      body: "Saved as a new memory in the hippocampus.",
       region: "hippocampus"
     });
   });
@@ -47,8 +47,8 @@ describe("event narrative", () => {
         }
       ])
     ).toMatchObject({
-      title: "No new memory saved",
-      body: "This message did not add a durable fact or preference."
+      title: "Nothing stored",
+      body: "This turn did not contain a durable fact or stable preference."
     });
   });
 
@@ -68,8 +68,8 @@ describe("event narrative", () => {
         }
       ])
     ).toMatchObject({
-      title: "Answered from memory",
-      body: "1 memory loaded into working memory. No new memory was saved for the question."
+      title: "Used memory",
+      body: "1 memory helped answer. Nothing new was stored for this question."
     });
   });
 
@@ -77,13 +77,13 @@ describe("event narrative", () => {
     expect(
       getCurrentEventNarrative([{ type: "fire", region: "prefrontal", ids: ["mem-a"] }])
     ).toMatchObject({
-      body: "1 memory is being used in active context."
+      body: "1 memory is active in working memory."
     });
 
     expect(
       getCurrentEventNarrative([{ type: "fire", region: "prefrontal", ids: ["mem-a", "mem-b", "mem-c"] }])
     ).toMatchObject({
-      body: "3 memories are being used in active context."
+      body: "3 memories are active in working memory."
     });
   });
 });
