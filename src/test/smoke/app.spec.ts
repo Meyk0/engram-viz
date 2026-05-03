@@ -18,6 +18,17 @@ test("starts onboarding without prefilled text", async ({ page }) => {
   await expect(page.getByLabel("Chat message")).toHaveValue("");
 });
 
+test("keeps desktop memory receipt above the brain focus", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "Start", exact: true }).click();
+
+  const receipt = await page.getByLabel("Current memory receipt").boundingBox();
+
+  expect(receipt).not.toBeNull();
+  expect(receipt!.y).toBeLessThan(70);
+  expect(receipt!.y + receipt!.height).toBeLessThan(175);
+});
+
 test("exposes brain thumbnail metadata", async ({ page }) => {
   await page.goto("/");
 
@@ -66,6 +77,7 @@ test("keeps mobile memory controls visually separated", async ({ page }) => {
   expect(receipt).not.toBeNull();
   expect(shortcuts!.y - (topbar!.y + topbar!.height)).toBeGreaterThan(10);
   expect(receipt!.y - (shortcuts!.y + shortcuts!.height)).toBeGreaterThan(20);
+  expect(receipt!.height).toBeLessThan(120);
 });
 
 test("opens working memory details after retrieval", async ({ page }) => {

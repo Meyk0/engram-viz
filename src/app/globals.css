@@ -201,7 +201,7 @@ input {
 }
 
 .current-event-banner {
-  top: 96px;
+  top: 56px;
   left: 50%;
   width: min(560px, 72vw);
   transform: translateX(-50%);
@@ -1201,12 +1201,42 @@ input {
   }
 
   .current-event-banner {
-    top: 140px;
+    top: 136px;
     width: calc(100vw - 28px);
+    padding: 9px 12px;
+  }
+
+  .current-event-title {
+    font-size: 8px;
+  }
+
+  .current-event-body {
+    margin-top: 4px;
+    overflow: hidden;
+    font-size: 12px;
+    line-height: 1.25;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .memory-lifecycle-strip {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 4px;
+    margin-top: 8px;
+  }
+
+  .memory-lifecycle-step {
+    padding: 5px 4px;
+    text-align: center;
+  }
+
+  .memory-lifecycle-step span {
+    font-size: 6px;
+    letter-spacing: 0.08em;
+  }
+
+  .memory-lifecycle-step small {
+    display: none;
   }
 
   .secondary-panel {
