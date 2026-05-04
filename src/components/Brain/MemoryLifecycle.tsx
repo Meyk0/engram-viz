@@ -28,6 +28,11 @@ const activeContextCenter: [number, number, number] = [
   regionBounds.prefrontal.center[1] + 0.07,
   regionBounds.prefrontal.center[2] + 0.05
 ];
+const activeContextRingRadius = 0.09;
+const activeContextActiveTickScale = 0.01;
+const activeContextIdleTickScale = 0.006;
+const activeContextSlotRadiusX = 0.058;
+const activeContextSlotRadiusY = 0.03;
 
 type MemoryLifecycleProps = {
   events: EngramEvent[];
@@ -316,7 +321,7 @@ function PrefrontalBolt({ triggerKey }: { triggerKey?: string }) {
     }
     if (ring.current) {
       ring.current.visible = intensity > 0.02;
-      ring.current.scale.setScalar(0.11 + intensity * 0.16);
+      ring.current.scale.setScalar(0.08 + intensity * 0.1);
       const material = ring.current.material;
       if (material instanceof THREE.MeshBasicMaterial) {
         material.opacity = intensity * 0.38;
@@ -362,7 +367,7 @@ function ProcessingHalo({ active }: { active: boolean }) {
 
     if (ring.current) {
       ring.current.visible = wave > 0.02;
-      ring.current.scale.setScalar(0.12 + wave * 0.055);
+      ring.current.scale.setScalar(0.085 + wave * 0.04);
       ring.current.rotation.z = clock.elapsedTime * 0.9;
     }
 
@@ -402,7 +407,7 @@ function ProcessingHalo({ active }: { active: boolean }) {
         {[0, 1, 2].map((index) => {
           const angle = (index / 3) * Math.PI * 2;
           return (
-            <mesh key={index} position={[Math.cos(angle) * 0.16, Math.sin(angle) * 0.16, 0.01]}>
+            <mesh key={index} position={[Math.cos(angle) * 0.105, Math.sin(angle) * 0.105, 0.01]}>
               <sphereGeometry args={[1, 10, 8]} />
               <meshBasicMaterial
                 color={memoryColors.prefrontal}
@@ -494,7 +499,7 @@ function CapacityRing({
 
   return (
     <group ref={group} position={activeContextCenter} rotation={[Math.PI / 2, 0.1, 0]} visible={false}>
-      <mesh scale={0.145} userData={{ baseOpacity: 0.14 }}>
+      <mesh scale={activeContextRingRadius} userData={{ baseOpacity: 0.14 }}>
         <torusGeometry args={[1, 0.018, 8, 72]} />
         <meshBasicMaterial
           color={memoryColors.prefrontal}
@@ -511,8 +516,8 @@ function CapacityRing({
         return (
           <mesh
             key={index}
-            position={[Math.cos(angle) * 0.145, Math.sin(angle) * 0.145, 0]}
-            scale={active ? 0.014 : 0.008}
+            position={[Math.cos(angle) * activeContextRingRadius, Math.sin(angle) * activeContextRingRadius, 0]}
+            scale={active ? activeContextActiveTickScale : activeContextIdleTickScale}
             userData={{ baseOpacity: active ? 0.72 : 0.18 }}
           >
             <sphereGeometry args={[1, 10, 8]} />
@@ -531,7 +536,7 @@ function CapacityRing({
         <Html
           center
           distanceFactor={4.4}
-          position={[0.02, -0.18, 0.01]}
+          position={[0.018, -0.125, 0.01]}
           transform={false}
           className="active-context-label"
           style={{ opacity: responseActive ? 0.95 : 0.72 }}
@@ -835,8 +840,8 @@ function getCentroid(positions: [number, number, number][]): [number, number, nu
 function getContextSlotPosition(index: number): [number, number, number] {
   const angle = (index / activeContextCapacity) * Math.PI * 2;
   return [
-    activeContextCenter[0] + Math.cos(angle) * 0.09,
-    activeContextCenter[1] + Math.sin(angle) * 0.045,
+    activeContextCenter[0] + Math.cos(angle) * activeContextSlotRadiusX,
+    activeContextCenter[1] + Math.sin(angle) * activeContextSlotRadiusY,
     activeContextCenter[2] + 0.045
   ];
 }

@@ -9,17 +9,31 @@ type RegionHighlightsProps = {
   animation: BrainAnimationState;
 };
 
+const highlightScaleByRegion: Record<BrainRegion, number> = {
+  prefrontal: 0.52,
+  hippocampus: 1,
+  temporal: 1
+};
+
 export function RegionHighlights({ animation }: RegionHighlightsProps) {
   return (
     <group>
       {(Object.keys(regionBounds) as BrainRegion[]).map((region) => {
         const bounds = regionBounds[region];
+        const highlightScale = highlightScaleByRegion[region];
         const pulse = animation.regions[region];
         const fade = animation.decayDimming * 0.18;
         const visiblePulse = Math.max(0, pulse - 0.05);
         return (
           <group key={region} position={bounds.center}>
-            <mesh renderOrder={4} scale={[bounds.size[0] * (1 + pulse * 0.12), bounds.size[1] * (1 + pulse * 0.12), bounds.size[2] * (1 + pulse * 0.12)]}>
+            <mesh
+              renderOrder={4}
+              scale={[
+                bounds.size[0] * highlightScale * (1 + pulse * 0.12),
+                bounds.size[1] * highlightScale * (1 + pulse * 0.12),
+                bounds.size[2] * highlightScale * (1 + pulse * 0.12)
+              ]}
+            >
               <sphereGeometry args={[1, 36, 20]} />
               <meshBasicMaterial
                 color={bounds.color}
@@ -30,7 +44,14 @@ export function RegionHighlights({ animation }: RegionHighlightsProps) {
                 blending={AdditiveBlending}
               />
             </mesh>
-            <mesh renderOrder={5} scale={[bounds.size[0] * 1.05, bounds.size[1] * 1.05, bounds.size[2] * 1.05]}>
+            <mesh
+              renderOrder={5}
+              scale={[
+                bounds.size[0] * highlightScale * 1.05,
+                bounds.size[1] * highlightScale * 1.05,
+                bounds.size[2] * highlightScale * 1.05
+              ]}
+            >
               <sphereGeometry args={[1, 24, 14]} />
               <meshBasicMaterial
                 color={bounds.color}
