@@ -58,6 +58,16 @@ export async function* streamLiveMemoryChunks(input: LiveChatInput): AsyncIterab
     history,
     memories: await memoryStore.list(input.sessionId)
   });
+  let planEmitted = false;
+  const storedIds: string[] = [];
+
+  if (!turnPlan.shouldRetrieve && turnPlan.memories.length === 0) {
+    yield {
+      kind: "event",
+      event: { type: "plan", decision: turnPlanDecisionTrace(turnPlan, []) }
+    };
+    planEmitted = true;
+  }
 
   const retrieve = turnPlan.shouldRetrieve
     ? await memoryEngine.retrieve({
@@ -82,6 +92,19 @@ export async function* streamLiveMemoryChunks(input: LiveChatInput): AsyncIterab
   const retrievedMemories = (await memoryStore.list(input.sessionId)).filter((memory) =>
     retrievedIds.includes(memory.id)
   );
+  const storeBeforeResponse = !turnPlan.shouldRetrieve && turnPlan.memories.length > 0;
+
+  if (storeBeforeResponse) {
+    for (const chunk of await storePlannedMemories({
+      sessionId: input.sessionId,
+      now: input.now,
+      plan: turnPlan,
+      relatedMemoryIds: retrievedIds
+    })) {
+      if (chunk.kind === "event" && chunk.event.type === "store") storedIds.push(chunk.event.memory.id);
+      yield chunk;
+    }
+  }
 
   const provider = createChatProvider(configuredChatProvider());
   for await (const chunk of provider.streamTurn({
@@ -93,42 +116,16 @@ export async function* streamLiveMemoryChunks(input: LiveChatInput): AsyncIterab
     yield chunk;
   }
 
-  const storedIds: string[] = [];
-  for (const plannedMemory of turnPlan.memories) {
-    const supersedes = unique([
-      ...(plannedMemory.supersedes ?? []),
-      ...(turnPlan.supersedeMemoryIds ?? [])
-    ]);
-    await memoryEngine.supersede(input.sessionId, supersedes);
-
-    const stored = await memoryEngine.storeMemory({
+  if (!storeBeforeResponse) {
+    for (const chunk of await storePlannedMemories({
       sessionId: input.sessionId,
-      text: plannedMemory.text,
-      importance: plannedMemory.importance,
-      topic: plannedMemory.topic,
-      kind: plannedMemory.kind,
-      entities: plannedMemory.entities,
-      confidence: plannedMemory.confidence,
-      sourceText: plannedMemory.sourceText,
-      cluster: plannedMemory.cluster,
-      supersedes,
-      status: "active",
-      now: input.now
-    });
-    const memoryDecision = plannedMemoryDecisionTrace(turnPlan, plannedMemory, retrievedIds);
-    const storeEvent =
-      stored.type === "store"
-        ? { ...stored, decision: memoryDecision }
-        : stored;
-    yield { kind: "event", event: storeEvent };
-
-    if (storeEvent.type === "store") storedIds.push(storeEvent.memory.id);
-
-    const storedRegion = storeEvent.type === "store" ? storeEvent.memory.region : "hippocampus";
-    yield {
-      kind: "event",
-      event: memoryEngine.fire(storedRegion, storeEvent.type === "store" ? [storeEvent.memory.id] : [])
-    };
+      now: input.now,
+      plan: turnPlan,
+      relatedMemoryIds: retrievedIds
+    })) {
+      if (chunk.kind === "event" && chunk.event.type === "store") storedIds.push(chunk.event.memory.id);
+      yield chunk;
+    }
   }
 
   if (storedIds.length > 0) {
@@ -157,7 +154,7 @@ export async function* streamLiveMemoryChunks(input: LiveChatInput): AsyncIterab
         };
       }
     }
-  } else {
+  } else if (!planEmitted) {
     yield {
       kind: "event",
       event: { type: "plan", decision: turnPlanDecisionTrace(turnPlan, retrievedIds) }
@@ -214,7 +211,7 @@ function plannedMemoryDecisionTrace(
 function turnPlanDecisionTrace(plan: TurnMemoryPlan, relatedMemoryIds: string[]): MemoryDecisionTrace {
   return {
     stage: "memory",
-    operation: "ignore",
+    operation: plan.memories.length > 0 ? "store" : "ignore",
     provider: plan.provider,
     confidence: plan.confidence,
     reason: friendlyPlanReason(plan),
@@ -232,6 +229,57 @@ function friendlyPlanReason(plan: TurnMemoryPlan) {
 
 function unique(values: string[]) {
   return [...new Set(values)];
+}
+
+async function storePlannedMemories({
+  sessionId,
+  now,
+  plan,
+  relatedMemoryIds
+}: {
+  sessionId: string;
+  now?: string;
+  plan: TurnMemoryPlan;
+  relatedMemoryIds: string[];
+}): Promise<StreamChunk[]> {
+  const chunks: StreamChunk[] = [];
+
+  for (const plannedMemory of plan.memories) {
+    const supersedes = unique([
+      ...(plannedMemory.supersedes ?? []),
+      ...(plan.supersedeMemoryIds ?? [])
+    ]);
+    await memoryEngine.supersede(sessionId, supersedes);
+
+    const stored = await memoryEngine.storeMemory({
+      sessionId,
+      text: plannedMemory.text,
+      importance: plannedMemory.importance,
+      topic: plannedMemory.topic,
+      kind: plannedMemory.kind,
+      entities: plannedMemory.entities,
+      confidence: plannedMemory.confidence,
+      sourceText: plannedMemory.sourceText,
+      cluster: plannedMemory.cluster,
+      supersedes,
+      status: "active",
+      now
+    });
+    const memoryDecision = plannedMemoryDecisionTrace(plan, plannedMemory, relatedMemoryIds);
+    const storeEvent =
+      stored.type === "store"
+        ? { ...stored, decision: memoryDecision }
+        : stored;
+    chunks.push({ kind: "event", event: storeEvent });
+
+    const storedRegion = storeEvent.type === "store" ? storeEvent.memory.region : "hippocampus";
+    chunks.push({
+      kind: "event",
+      event: memoryEngine.fire(storedRegion, storeEvent.type === "store" ? [storeEvent.memory.id] : [])
+    });
+  }
+
+  return chunks;
 }
 
 class LegacyDecisionTurnMemoryPlanner implements TurnMemoryPlanner {

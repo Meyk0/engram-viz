@@ -53,6 +53,7 @@ function eventLabel(event: EngramEvent) {
       if (event.decision.operation === "ignore" && (event.decision.relatedMemoryIds?.length ?? 0) > 0) {
         return "Answered from memory";
       }
+      if (event.decision.operation === "store") return "Preparing memory";
       return event.decision.operation === "ignore" ? "No new memory" : "Memory decision";
     case "store":
       return event.memory.supersedes?.length ? "Updated memory" : "Stored new memory";
@@ -76,6 +77,9 @@ function eventSummary(event: EngramEvent) {
     case "plan":
       if (event.decision.operation === "ignore" && (event.decision.relatedMemoryIds?.length ?? 0) > 0) {
         return "The question used retrieved memory, so nothing new was stored.";
+      }
+      if (event.decision.operation === "store") {
+        return "This turn looks durable, so a new memory is being prepared.";
       }
       return event.decision.operation === "ignore"
         ? friendlyIgnoreSummary(event.decision.reason)

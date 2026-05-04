@@ -228,6 +228,27 @@ describe("/api/chat", () => {
     expect(events.some((event) => event.type === "fire" && event.region === "prefrontal")).toBe(false);
   });
 
+  it("emits store-only memory visuals before response text without prefrontal activity", async () => {
+    resetLiveMemoryStore();
+
+    const chunks = await createLiveMemoryStream({
+      sessionId: "api-chat-store-first",
+      message: "I love the color indigo"
+    });
+    const firstTextIndex = chunks.findIndex((chunk) => chunk.kind === "text");
+    const storeIndex = chunks.findIndex((chunk) => chunk.kind === "event" && chunk.event.type === "store");
+    const fireIndex = chunks.findIndex(
+      (chunk) => chunk.kind === "event" && chunk.event.type === "fire" && chunk.event.region === "hippocampus"
+    );
+
+    expect(storeIndex).toBeGreaterThan(-1);
+    expect(fireIndex).toBeGreaterThan(storeIndex);
+    expect(firstTextIndex).toBeGreaterThan(storeIndex);
+    expect(chunks.some((chunk) => chunk.kind === "event" && chunk.event.type === "retrieve")).toBe(false);
+    expect(chunks.some((chunk) => chunk.kind === "event" && chunk.event.type === "load")).toBe(false);
+    expect(chunks.some((chunk) => chunk.kind === "event" && chunk.event.type === "fire" && chunk.event.region === "prefrontal")).toBe(false);
+  });
+
   it("does not retrieve before declarative memory stores even when a retriever would match", async () => {
     resetLiveMemoryStore();
 

@@ -79,7 +79,7 @@ export function MemoryLifecycle({
       />
       <ConsolidationArc consolidate={latestConsolidate} events={events} />
       <FiredAxons memories={memories} activeIds={activeIds} triggerKey={latestFire ? `${latestFire.region}-${latestFire.ids.join(".")}` : undefined} />
-      <ProcessingHalo active={responseActive} />
+      <ProcessingHalo active={responseActive && loadedIds.length > 0} />
     </group>
   );
 }

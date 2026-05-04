@@ -1,4 +1,5 @@
 import { getCurrentEventNarrative } from "@/lib/eventNarrative";
+import { getLoadedMemoryIds } from "@/lib/memoryVisuals";
 import { MemoryLifecycleStrip } from "@/components/UI/MemoryLifecycleStrip";
 import type { EngramEvent } from "@/types";
 
@@ -39,24 +40,29 @@ function getLiveNarrative({
   streaming: boolean;
 }) {
   const responsePreview = previewText(draftAssistant);
+  const hasWorkingMemory = getLoadedMemoryIds(events).length > 0;
 
   if (streaming && responsePreview) {
     return {
       title: "Answering",
       body: responsePreview,
       type: "fire" as const,
-      region: "prefrontal" as const
+      region: hasWorkingMemory ? ("prefrontal" as const) : undefined
     };
   }
 
   if (streaming) {
+    if (events[0]?.type === "store" || events[0]?.type === "plan") {
+      return getCurrentEventNarrative(events);
+    }
+
     return {
       title: events.length === 0 ? "Reading this turn" : "Checking memory",
       body: events.length === 0
         ? "Deciding whether this should be stored, recalled, or answered directly."
         : "Looking for relevant memories before answering.",
-      type: "retrieve" as const,
-      region: "prefrontal" as const
+      type: hasWorkingMemory ? ("retrieve" as const) : undefined,
+      region: hasWorkingMemory ? ("prefrontal" as const) : undefined
     };
   }
 

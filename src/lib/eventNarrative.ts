@@ -28,8 +28,17 @@ export function getCurrentEventNarrative(events: EngramEvent[]): EventNarrative 
         };
       }
 
+      if (event.decision.operation === "store") {
+        return {
+          title: "Preparing memory",
+          body: "This looks durable, so Engram is getting ready to save it.",
+          type: event.type,
+          region: "hippocampus"
+        };
+      }
+
       return {
-        title: event.decision.operation === "ignore" ? "No new memory" : "Memory checked",
+        title: "No new memory",
         body:
           event.decision.operation === "ignore"
             ? friendlyIgnoreBody(event.decision.reason)

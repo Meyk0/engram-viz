@@ -98,6 +98,34 @@ describe("memory visual lifecycle", () => {
 
     expect(getActiveMemoryIds(staleContextEvents)).toEqual([]);
     expect(getLoadedMemoryIds(staleContextEvents)).toEqual([]);
+
+    const storeOnlyEvents: EngramEvent[] = [
+      { type: "fire", region: "hippocampus", ids: ["mem-new"] },
+      { type: "store", memory: makeMemory("mem-new", "hippocampus") },
+      ...loadedEvents
+    ];
+
+    expect(getActiveMemoryIds(storeOnlyEvents)).toEqual([]);
+    expect(getLoadedMemoryIds(storeOnlyEvents)).toEqual([]);
+
+    const mixedTurnEvents: EngramEvent[] = [
+      {
+        type: "store",
+        memory: makeMemory("mem-related-new", "hippocampus"),
+        decision: {
+          stage: "memory",
+          operation: "store",
+          provider: "llm",
+          confidence: 0.91,
+          reason: "preference",
+          relatedMemoryIds: ["mem-a"]
+        }
+      },
+      ...loadedEvents
+    ];
+
+    expect(getActiveMemoryIds(mixedTurnEvents)).toEqual(["mem-a"]);
+    expect(getLoadedMemoryIds(mixedTurnEvents)).toEqual(["mem-a"]);
   });
 
   it("keeps retrieved memories active after the final skip-plan event", () => {

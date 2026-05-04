@@ -97,6 +97,7 @@ export function getActiveMemoryIds(events: EngramEvent[]): string[] {
 
   if (fireIndex === -1) return [];
   if (retrieveIndex !== -1 && retrieveIndex < fireIndex) return [];
+  if (hasContextClearingEventBefore(events, fireIndex)) return [];
 
   const fire = events[fireIndex];
   return fire.type === "fire" ? fire.ids : [];
@@ -108,6 +109,7 @@ export function getLoadedMemoryIds(events: EngramEvent[]): string[] {
 
   if (loadIndex === -1) return [];
   if (retrieveIndex !== -1 && retrieveIndex < loadIndex) return [];
+  if (hasContextClearingEventBefore(events, loadIndex)) return [];
 
   const load = events[loadIndex];
   return load.type === "load" ? load.ids : [];
@@ -152,4 +154,17 @@ function hash(value: string): number {
 function normalizedHash(value: number): number {
   const next = Math.sin(value) * 10000;
   return next - Math.floor(next);
+}
+
+function hasContextClearingEventBefore(events: EngramEvent[], index: number) {
+  return events.slice(0, index).some(clearsActiveContext);
+}
+
+function clearsActiveContext(event: EngramEvent) {
+  if (event.type === "retrieve") return true;
+  if (event.type === "store") return (event.decision?.relatedMemoryIds?.length ?? 0) === 0;
+  if (event.type !== "plan") return false;
+
+  const relatedCount = event.decision.relatedMemoryIds?.length ?? 0;
+  return !(event.decision.operation === "ignore" && relatedCount > 0);
 }
