@@ -11,6 +11,7 @@ export function useChat(options: { clientMemories?: EngramMemory[]; onChunk: (ch
   const abortController = useRef<AbortController | null>(null);
   const streamReader = useRef<ReadableStreamDefaultReader<Uint8Array> | null>(null);
   const canceled = useRef(false);
+  const resetRequested = useRef(false);
 
   const cancel = useCallback(() => {
     if (!abortController.current) return;
@@ -18,6 +19,25 @@ export function useChat(options: { clientMemories?: EngramMemory[]; onChunk: (ch
     setError("Response canceled.");
     abortController.current?.abort();
     void streamReader.current?.cancel();
+  }, []);
+
+  const resetSession = useCallback(() => {
+    const wasStreaming = Boolean(abortController.current);
+    resetRequested.current = wasStreaming;
+    canceled.current = wasStreaming;
+    abortController.current?.abort();
+    void streamReader.current?.cancel();
+
+    sessionId.current = createSessionId();
+    storeSessionId(sessionId.current);
+    setHistory([]);
+    setError(null);
+    setIsStreaming(false);
+
+    if (!wasStreaming) {
+      resetRequested.current = false;
+      canceled.current = false;
+    }
   }, []);
 
   const sendMessage = useCallback(
@@ -85,6 +105,7 @@ export function useChat(options: { clientMemories?: EngramMemory[]; onChunk: (ch
         ]);
       } catch (error) {
         if (error instanceof DOMException && error.name === "AbortError") {
+          if (resetRequested.current) return;
           setError("Response canceled.");
           return;
         }
@@ -94,6 +115,7 @@ export function useChat(options: { clientMemories?: EngramMemory[]; onChunk: (ch
       } finally {
         abortController.current = null;
         streamReader.current = null;
+        resetRequested.current = false;
         canceled.current = false;
         setIsStreaming(false);
       }
@@ -101,18 +123,25 @@ export function useChat(options: { clientMemories?: EngramMemory[]; onChunk: (ch
     [history, isStreaming, options]
   );
 
-  return { history, isStreaming, error, sendMessage, cancel };
+  return { history, isStreaming, error, sendMessage, cancel, resetSession };
 }
 
 function getStoredSessionId() {
-  const nextId = () => `engram-${crypto.randomUUID()}`;
-
-  if (typeof window === "undefined") return nextId();
+  if (typeof window === "undefined") return createSessionId();
 
   const existing = window.localStorage.getItem("engram-session-id");
   if (existing) return existing;
 
-  const next = nextId();
-  window.localStorage.setItem("engram-session-id", next);
+  const next = createSessionId();
+  storeSessionId(next);
   return next;
+}
+
+function createSessionId() {
+  return `engram-${crypto.randomUUID()}`;
+}
+
+function storeSessionId(sessionId: string) {
+  if (typeof window === "undefined") return;
+  window.localStorage.setItem("engram-session-id", sessionId);
 }

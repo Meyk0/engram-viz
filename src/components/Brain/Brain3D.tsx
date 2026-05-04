@@ -3,7 +3,7 @@
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { OrbitControls, Stars } from "@react-three/drei";
 import { Bloom, EffectComposer } from "@react-three/postprocessing";
-import { MapPin, RotateCcw } from "lucide-react";
+import { MapPin, RotateCcw, Trash2 } from "lucide-react";
 import { Suspense, useCallback, useEffect, useRef, useState, type RefObject } from "react";
 import * as THREE from "three";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
@@ -22,6 +22,7 @@ type Brain3DProps = {
   onActiveContextSelect?: () => void;
   onMemorySelect?: (id: string) => void;
   onRegionSelect?: (region: keyof typeof regionBounds) => void;
+  onResetSession?: () => void;
   responseActive?: boolean;
   selectedMemoryId?: string;
 };
@@ -31,6 +32,7 @@ export function Brain3D({
   onActiveContextSelect,
   onMemorySelect,
   onRegionSelect,
+  onResetSession,
   responseActive = false,
   selectedMemoryId
 }: Brain3DProps) {
@@ -87,6 +89,16 @@ export function Brain3D({
           type="button"
         >
           <MapPin size={14} />
+        </button>
+        <button
+          aria-label="Reset demo session"
+          className="brain-tool-btn"
+          disabled={!onResetSession}
+          onClick={onResetSession}
+          title="Reset demo session"
+          type="button"
+        >
+          <Trash2 size={14} />
         </button>
       </div>
     </section>

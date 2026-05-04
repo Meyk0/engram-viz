@@ -111,6 +111,11 @@ input {
   color: rgba(230, 242, 255, 0.92);
 }
 
+.brain-tool-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
 .region-label-3d {
   pointer-events: auto;
   font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;

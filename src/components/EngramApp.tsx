@@ -32,7 +32,7 @@ export function EngramApp() {
   const [selectedMemoryId, setSelectedMemoryId] = useState<string | undefined>(undefined);
   const [selectedRegion, setSelectedRegion] = useState<BrainRegion | undefined>(undefined);
   const inputRef = useRef<HTMLInputElement>(null);
-  const { events, pushEvent } = useEventQueue();
+  const { events, pushEvent, clearEvents } = useEventQueue();
   const memories = useMemoryStore(events);
   const explanations = useMemoryExplanations(events);
   const loadedMemoryIds = useMemo(() => getLoadedMemoryIds(events), [events]);
@@ -68,7 +68,7 @@ export function EngramApp() {
     [pushEvent]
   );
 
-  const { history, isStreaming, error, sendMessage, cancel } = useChat(
+  const { history, isStreaming, error, sendMessage, cancel, resetSession } = useChat(
     useMemo(() => ({ clientMemories: memories, onChunk }), [memories, onChunk])
   );
   const transcriptCount = useMemo(
@@ -118,6 +118,20 @@ export function EngramApp() {
     inputRef.current?.focus();
   }, []);
 
+  const resetDemoSession = useCallback(() => {
+    const confirmed = window.confirm("Reset this demo session and clear all memories?");
+    if (!confirmed) return;
+
+    resetSession();
+    clearEvents();
+    setDraftTurn(null);
+    setMessage("");
+    setSelectedMemoryId(undefined);
+    setSelectedRegion(undefined);
+    setActivePanel(null);
+    setOnboardingDismissed(false);
+  }, [clearEvents, resetSession]);
+
   const onDockSelect = useCallback(
     (panel: SecondaryPanel) => {
       const nextPanel = activePanel === panel ? null : panel;
@@ -155,6 +169,7 @@ export function EngramApp() {
         onActiveContextSelect={openActiveContext}
         onMemorySelect={onMemorySelect}
         onRegionSelect={onRegionSelect}
+        onResetSession={resetDemoSession}
         responseActive={isStreaming}
         selectedMemoryId={selectedMemoryId}
       />

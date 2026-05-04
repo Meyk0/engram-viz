@@ -55,6 +55,22 @@ test("exposes brain label and reset controls", async ({ page }) => {
   await page.getByLabel("Hide brain labels").click();
   await expect(page.getByLabel("Show brain labels")).toBeVisible();
   await page.getByLabel("Reset brain view").click();
+  await expect(page.getByLabel("Reset demo session")).toBeVisible();
+});
+
+test("resets the demo session from the brain controls", async ({ page }) => {
+  await page.goto("/");
+
+  await page.getByLabel("Chat message").fill("I love the color indigo.");
+  await page.getByLabel("Send").click();
+  await expect(page.getByRole("button", { name: /^Memory [1-9]/ })).toBeVisible({ timeout: 10_000 });
+
+  page.once("dialog", (dialog) => dialog.accept());
+  await page.getByLabel("Reset demo session").click();
+
+  await expect(page.getByLabel("Engram memory model introduction")).toBeVisible();
+  await expect(page.getByRole("button", { name: /^Memory [1-9]/ })).toHaveCount(0);
+  await expect(page.getByLabel("Chat message")).toHaveValue("");
 });
 
 test("opens region explanations from mobile shortcuts", async ({ page }) => {

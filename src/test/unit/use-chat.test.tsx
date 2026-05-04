@@ -116,6 +116,31 @@ describe("useChat", () => {
       expect(screen.getByTestId("error")).toHaveTextContent("Response canceled.");
     });
   });
+
+  it("resets transcript state and rotates to a new session id", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      streamResponse([
+        { kind: "text", delta: "Saved." },
+        { kind: "done" }
+      ])
+    );
+
+    render(<ChatHarness onChunk={() => undefined} />);
+    const initialSessionId = window.localStorage.getItem("engram-session-id");
+
+    await userEvent.click(screen.getByRole("button", { name: "Send message" }));
+    await waitFor(() => {
+      expect(screen.getByTestId("history")).toHaveTextContent("remember my style");
+    });
+
+    await userEvent.click(screen.getByRole("button", { name: "Reset session" }));
+
+    const nextSessionId = window.localStorage.getItem("engram-session-id");
+    expect(nextSessionId).toMatch(/^engram-/);
+    expect(nextSessionId).not.toBe(initialSessionId);
+    expect(screen.getByTestId("history")).toHaveTextContent("[]");
+    expect(screen.getByTestId("error")).toHaveTextContent("");
+  });
 });
 
 function ChatHarness({
@@ -134,6 +159,9 @@ function ChatHarness({
       </button>
       <button type="button" onClick={chat.cancel}>
         Cancel message
+      </button>
+      <button type="button" onClick={chat.resetSession}>
+        Reset session
       </button>
       <output data-testid="streaming">{chat.isStreaming ? "streaming" : "idle"}</output>
       <output data-testid="error">{chat.error ?? ""}</output>
