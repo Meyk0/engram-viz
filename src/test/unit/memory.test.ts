@@ -117,6 +117,32 @@ describe("memory quality rules", () => {
     expect(candidate.topic).toBe("work");
   });
 
+  it("stores moved-to-place facts as location memories", () => {
+    const candidate = evaluateMemoryCandidate("I moved to San Francisco a couple years ago.");
+
+    expect(candidate.shouldStore).toBe(true);
+    expect(candidate.reason).toBe("personal-fact");
+    expect(candidate.topic).toBe("location");
+  });
+
+  it("stores place appreciation statements as location memories", () => {
+    const candidate = evaluateMemoryCandidate("San Francisco has amazing coffee roasters.");
+
+    expect(candidate.shouldStore).toBe(true);
+    expect(candidate.reason).toBe("place-fact");
+    expect(candidate.topic).toBe("location");
+  });
+
+  it("recognizes common San Francisco misspellings in location memories", () => {
+    const candidate = evaluateMemoryCandidate(
+      "I love the access to nature and beaches in San Fransciso."
+    );
+
+    expect(candidate.shouldStore).toBe(true);
+    expect(candidate.reason).toBe("preference");
+    expect(candidate.topic).toBe("location");
+  });
+
   it("rejects empty content and trivial questions", () => {
     expect(evaluateMemoryCandidate("   ").shouldStore).toBe(false);
 
@@ -188,6 +214,48 @@ describe("memory consolidation", () => {
     ]);
 
     expect(candidate).toBeNull();
+  });
+
+  it("waits for three related location memories before consolidation", () => {
+    const twoLocationMemories = [
+      {
+        id: "sf-move",
+        text: "User moved to San Francisco a couple of years ago.",
+        importance: 0.82,
+        topic: "location",
+        region: "hippocampus" as const,
+        created_at: "2026-04-29T17:00:00.000Z",
+        access_count: 0
+      },
+      {
+        id: "sf-nature",
+        text: "User loves access to nature and beaches in San Francisco.",
+        importance: 0.74,
+        topic: "location",
+        region: "hippocampus" as const,
+        created_at: "2026-04-29T17:01:00.000Z",
+        access_count: 0
+      }
+    ];
+
+    expect(findConsolidationCandidate(twoLocationMemories)).toBeNull();
+
+    const candidate = findConsolidationCandidate([
+      ...twoLocationMemories,
+      {
+        id: "sf-coffee",
+        text: "User appreciates San Francisco coffee roasters.",
+        importance: 0.7,
+        topic: "location",
+        region: "hippocampus",
+        created_at: "2026-04-29T17:02:00.000Z",
+        access_count: 0
+      }
+    ]);
+
+    expect(candidate?.ids).toEqual(["sf-move", "sf-nature", "sf-coffee"]);
+    expect(candidate?.consolidatedText).toContain("recurring place and life-context memories");
+    expect(candidate?.consolidatedText).toContain("San Francisco coffee roasters");
   });
 
   it("creates a temporal summary with source importance", () => {

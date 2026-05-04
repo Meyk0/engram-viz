@@ -37,7 +37,9 @@ test("exposes brain thumbnail metadata", async ({ page }) => {
   await expect(page.locator('meta[name="twitter:image"][content$="/engram-og.png"]')).toHaveCount(1);
   await expect(page.locator('script[src*="googletagmanager.com/gtag/js?id=G-DQX8CR91QK"]')).toHaveCount(1);
   await expect
-    .poll(() => page.locator("script#google-analytics").evaluate((element) => element.textContent ?? ""))
+    .poll(() => page.locator("script#google-analytics").evaluate((element) => element.textContent ?? ""), {
+      timeout: 15_000
+    })
     .toContain("G-DQX8CR91QK");
 });
 

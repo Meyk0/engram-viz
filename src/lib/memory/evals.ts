@@ -212,6 +212,26 @@ export const memoryConversationEvalFixtures: MemoryConversationEvalFixture[] = [
     }
   },
   {
+    name: "stores moved-to-place fact as location memory",
+    message: "I moved to San Francisco a couple years ago",
+    storedMemoryId: "sf-move",
+    expected: {
+      shouldStore: true,
+      reason: "personal-fact",
+      retrievedMemoryIds: ["sf-move"]
+    }
+  },
+  {
+    name: "stores place appreciation as durable memory",
+    message: "San Francisco has amazing coffee roasters",
+    storedMemoryId: "sf-coffee",
+    expected: {
+      shouldStore: true,
+      reason: "place-fact",
+      retrievedMemoryIds: ["sf-coffee"]
+    }
+  },
+  {
     name: "stores project stack fact",
     message: "The app uses React Three Fiber and TypeScript",
     storedMemoryId: "project-stack",
@@ -395,6 +415,30 @@ export const memoryConsolidationEvalFixtures: MemoryConsolidationEvalFixture[] =
     }
   },
   {
+    name: "consolidates repeated San Francisco life context after three facts",
+    memories: [
+      {
+        id: "sf-move",
+        text: "User moved to San Francisco a couple years ago.",
+        topic: "location"
+      },
+      {
+        id: "sf-nature",
+        text: "User loves access to nature and beaches in San Francisco.",
+        topic: "location"
+      },
+      {
+        id: "sf-coffee",
+        text: "User appreciates San Francisco coffee roasters.",
+        topic: "location"
+      }
+    ],
+    expected: {
+      ids: ["sf-move", "sf-nature", "sf-coffee"],
+      textIncludes: ["place and life-context", "San Francisco", "coffee roasters"]
+    }
+  },
+  {
     name: "selects oldest three memories in an eligible topic",
     memories: [
       {
@@ -533,6 +577,54 @@ export const memoryScenarioEvalFixtures: MemoryScenarioEvalFixture[] = [
     }
   },
   {
+    name: "San Francisco life facts store first and consolidate before retrieval",
+    turns: [
+      {
+        message: "I moved to san francisco a couple years ago",
+        expected: {
+          shouldStore: true,
+          shouldLoadContext: false,
+          shouldConsolidate: false,
+          storedTextIncludes: ["san francisco"]
+        }
+      },
+      {
+        message: "I love the access to nature and beaches in San Fransciso",
+        expected: {
+          shouldStore: true,
+          shouldLoadContext: false,
+          shouldConsolidate: false,
+          storedTextIncludes: ["nature", "beaches"]
+        }
+      },
+      {
+        message: "San Francisco has amazing coffee roasters",
+        expected: {
+          shouldStore: true,
+          shouldLoadContext: false,
+          shouldConsolidate: true,
+          storedTextIncludes: ["coffee roasters"],
+          consolidatedTextIncludes: ["place and life-context", "San Francisco", "coffee roasters"]
+        }
+      },
+      {
+        message: "What do you know about my life in San Francisco?",
+        expected: {
+          shouldStore: false,
+          shouldLoadContext: true,
+          retrievedTextIncludes: ["place and life-context"]
+        }
+      }
+    ],
+    expectedFinal: {
+      temporalTextIncludes: ["place and life-context", "coffee roasters"],
+      missingHippocampusTextIncludes: [
+        "I moved to san francisco",
+        "San Francisco has amazing coffee roasters"
+      ]
+    }
+  },
+  {
     name: "explicit memory phrased as a question stores without immediate context load",
     turns: [
       {
@@ -612,13 +704,13 @@ export function runMemoryScenarioEvalFixture(fixture: MemoryScenarioEvalFixture)
 
   fixture.turns.forEach((turn, index) => {
     const now = evalTime(index);
-    const retrieved = retrieveMemories(listMemories(session), turn.message, 3).map(
-      (result) => result.memory
-    );
+    const candidate = evaluateMemoryCandidate(turn.message);
+    const retrieved = candidate.shouldStore
+      ? []
+      : retrieveMemories(listMemories(session), turn.message, 3).map((result) => result.memory);
     const retrievedIds = retrieved.map((memory) => memory.id);
     markAccessed(session, retrievedIds, now);
 
-    const candidate = evaluateMemoryCandidate(turn.message);
     const stored = candidate.shouldStore
       ? createMemory(session, {
           text: candidate.text,

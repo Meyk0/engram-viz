@@ -51,7 +51,10 @@ export function findConsolidationCandidate(memories: EngramMemory[]): Consolidat
   });
 
   const group = [...byTopic.values()]
-    .filter((memoriesForTopic) => memoriesForTopic.length >= MIN_TOPIC_MEMORIES)
+    .filter((memoriesForTopic) => {
+      const topic = memoriesForTopic[0]?.topic ?? "memory";
+      return memoriesForTopic.length >= minimumMemoriesForTopic(topic);
+    })
     .sort((a, b) => b.length - a.length || newestTime(b) - newestTime(a))[0];
 
   if (!group) return null;
@@ -99,7 +102,8 @@ export const deterministicMemoryConsolidationPlanner = new DeterministicMemoryCo
 function summarizeTopic(topic: string, memories: EngramMemory[]) {
   const facts = memories.map((memory) => stripExplicitMemoryCue(memory.text));
   const uniqueFacts = [...new Set(facts)];
-  return `User has recurring ${topic} memories: ${uniqueFacts.join("; ")}`;
+  const topicLabel = topic === "location" ? "place and life-context" : topic;
+  return `User has recurring ${topicLabel} memories: ${uniqueFacts.join("; ")}`;
 }
 
 function stripExplicitMemoryCue(text: string) {
@@ -110,4 +114,8 @@ function stripExplicitMemoryCue(text: string) {
 
 function newestTime(memories: EngramMemory[]) {
   return Math.max(...memories.map((memory) => Date.parse(memory.created_at) || 0));
+}
+
+function minimumMemoriesForTopic(topic: string) {
+  return topic === "location" ? 3 : MIN_TOPIC_MEMORIES;
 }

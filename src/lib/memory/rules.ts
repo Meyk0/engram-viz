@@ -11,6 +11,7 @@ export type MemoryCandidate = {
     | "explicit-memory"
     | "preference"
     | "personal-fact"
+    | "place-fact"
     | "project-fact";
 };
 
@@ -28,9 +29,13 @@ const EXPLICIT_MEMORY_PATTERN = /\b(remember|note that|keep in mind|don't forget
 const PREFERENCE_PATTERN =
   /\b(i|we)\s+(prefer|like|love|hate|dislike|want|need|care about|value|favor)\b|\b(my|our)\s+favorite\b|\bpreference\b/i;
 const PERSONAL_FACT_PATTERN =
-  /\b(i am|i'm|i work|i live|i use|i have|my name is|my role is|my company is|my project is|we use|we are|our project is)\b/i;
+  /\b(i am|i'm|i work|i live|i moved|i relocated|i grew up|i am based|i'm based|i use|i have|my name is|my role is|my company is|my project is|my neighborhood is|we use|we are|our project is)\b/i;
 const PROJECT_FACT_PATTERN =
   /\b(project|app|repo|stack|framework|api|database|deployment|design system|architecture|deadline|requirement)\b/i;
+const PLACE_REFERENCE_PATTERN =
+  /\b(san\s+fran(?:cisco|sisco|sciso)|sf|haight|california|bay area|new york|nyc|los angeles|la)\b/i;
+const PLACE_VALUE_PATTERN =
+  /\b(amazing|great|excellent|favorite|love|loved|like|liked|enjoy|appreciate|access|nature|beach|beaches|coffee|roaster|roasters)\b/i;
 
 export function evaluateMemoryCandidate(message: string): MemoryCandidate {
   const text = normalizeMemoryText(message);
@@ -52,9 +57,10 @@ export function evaluateMemoryCandidate(message: string): MemoryCandidate {
 
   const preference = PREFERENCE_PATTERN.test(text);
   const personalFact = PERSONAL_FACT_PATTERN.test(text);
+  const placeFact = hasPlaceAppreciationCue(text);
   const projectFact = PROJECT_FACT_PATTERN.test(text) && hasDeclarativeCue(text);
 
-  if (!explicitMemory && !preference && !personalFact && !projectFact) {
+  if (!explicitMemory && !preference && !personalFact && !placeFact && !projectFact) {
     if (TRANSIENT_PATTERNS.some((pattern) => pattern.test(text))) return reject(text, "transient");
     return reject(text, "transient");
   }
@@ -65,7 +71,9 @@ export function evaluateMemoryCandidate(message: string): MemoryCandidate {
       ? "preference"
       : personalFact
         ? "personal-fact"
-        : "project-fact";
+        : placeFact
+          ? "place-fact"
+          : "project-fact";
 
   return {
     shouldStore: true,
@@ -85,6 +93,7 @@ export function inferMemoryImportance(
   if (reason === "explicit-memory") importance = 0.84;
   if (reason === "preference") importance = 0.78;
   if (reason === "personal-fact") importance = 0.72;
+  if (reason === "place-fact") importance = 0.7;
   if (reason === "project-fact") importance = 0.68;
 
   if (/\b(always|never|must|critical|important|requirement)\b/.test(normalizedMessage)) {
@@ -95,6 +104,9 @@ export function inferMemoryImportance(
 }
 
 export function inferMemoryTopic(normalizedMessage: string): string | undefined {
+  if (isLocationTopic(normalizedMessage)) {
+    return "location";
+  }
   if (/\b(design|visual|ui|interface|color|brain|cyberpunk|medical)\b/.test(normalizedMessage)) {
     return "design";
   }
@@ -133,4 +145,15 @@ function isQuestion(text: string): boolean {
 
 function hasDeclarativeCue(text: string): boolean {
   return /\b(is|are|uses|use|runs|requires|needs|must|should|will|has|have)\b/i.test(text);
+}
+
+function hasPlaceAppreciationCue(text: string): boolean {
+  return PLACE_REFERENCE_PATTERN.test(text) && PLACE_VALUE_PATTERN.test(text);
+}
+
+function isLocationTopic(text: string): boolean {
+  return (
+    PLACE_REFERENCE_PATTERN.test(text) ||
+    /\b(i live in|i moved to|i relocated to|i grew up in|i am based in|i'm based in|my neighborhood is)\b/i.test(text)
+  );
 }

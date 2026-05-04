@@ -2,8 +2,11 @@ import { describe, expect, it } from "vitest";
 import { POST } from "@/app/api/chat/route";
 import { decodeSseChunks } from "@/lib/events/sse";
 import { createLiveMemoryStream, resetLiveMemoryStore } from "@/lib/chat/live";
-import type { MemoryConsolidationPlanner } from "@/lib/memory/consolidationPolicy";
-import type { MemoryDecisionPlanner } from "@/lib/memory/decision";
+import {
+  deterministicMemoryConsolidationPlanner,
+  type MemoryConsolidationPlanner
+} from "@/lib/memory/consolidationPolicy";
+import { deterministicMemoryDecisionPlanner, type MemoryDecisionPlanner } from "@/lib/memory/decision";
 import type { MemoryRetriever } from "@/lib/memory/retrieve";
 
 describe("/api/chat", () => {
@@ -260,6 +263,57 @@ describe("/api/chat", () => {
     expect(eventTypes).not.toContain("load");
     expect(eventTypes).not.toContain("consolidate");
     expect(chunks.some((chunk) => chunk.kind === "event" && chunk.event.type === "fire" && chunk.event.region === "prefrontal")).toBe(false);
+  });
+
+  it("stores San Francisco life statements without loading active context and then consolidates them", async () => {
+    resetLiveMemoryStore();
+
+    const deterministicPlanners = {
+      memoryConsolidationPlanner: deterministicMemoryConsolidationPlanner,
+      memoryDecisionPlanner: deterministicMemoryDecisionPlanner
+    };
+
+    await createLiveMemoryStream({
+      ...deterministicPlanners,
+      sessionId: "api-chat-sf-life",
+      message: "I moved to san francisco a couple years ago"
+    });
+
+    const secondTurn = await createLiveMemoryStream({
+      ...deterministicPlanners,
+      sessionId: "api-chat-sf-life",
+      message: "I love the access to nature and beaches in San Fransciso"
+    });
+
+    expect(eventTypes(secondTurn)).not.toContain("consolidate");
+
+    const chunks = await createLiveMemoryStream({
+      ...deterministicPlanners,
+      sessionId: "api-chat-sf-life",
+      message: "San Francisco has amazing coffee roasters"
+    });
+    const events = chunks
+      .filter((chunk) => chunk.kind === "event")
+      .map((chunk) => (chunk.kind === "event" ? chunk.event : null))
+      .filter((event): event is NonNullable<typeof event> => Boolean(event));
+    const types = events.map((event) => event.type);
+    const store = events.find((event) => event.type === "store");
+    const consolidate = events.find((event) => event.type === "consolidate");
+
+    expect(types).toContain("store");
+    expect(types).toContain("consolidate");
+    expect(types).not.toContain("retrieve");
+    expect(types).not.toContain("load");
+    expect(events.some((event) => event.type === "fire" && event.region === "prefrontal")).toBe(false);
+    expect(store?.type).toBe("store");
+    if (store?.type !== "store") throw new Error("expected store event");
+    expect(store.memory.topic).toBe("location");
+    expect(consolidate?.type).toBe("consolidate");
+    if (consolidate?.type !== "consolidate") throw new Error("expected consolidate event");
+    expect(consolidate.removed).toHaveLength(3);
+    expect(consolidate.added.region).toBe("temporal");
+    expect(consolidate.added.topic).toBe("location");
+    expect(consolidate.added.text).toContain("place and life-context");
   });
 
   it("does not store trivial questions but still streams a response and done", async () => {
@@ -524,4 +578,10 @@ describe("/api/chat", () => {
 
 async function drainResponse(response: Response) {
   await response.text();
+}
+
+function eventTypes(chunks: Awaited<ReturnType<typeof createLiveMemoryStream>>) {
+  return chunks
+    .filter((chunk) => chunk.kind === "event")
+    .map((chunk) => (chunk.kind === "event" ? chunk.event.type : "none"));
 }
