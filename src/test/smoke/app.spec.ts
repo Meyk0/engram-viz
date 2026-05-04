@@ -35,6 +35,10 @@ test("exposes brain thumbnail metadata", async ({ page }) => {
   await expect(page.locator('link[rel="icon"][href$="/engram-icon.png"]')).toHaveCount(1);
   await expect(page.locator('meta[property="og:image"][content$="/engram-og.png"]')).toHaveCount(1);
   await expect(page.locator('meta[name="twitter:image"][content$="/engram-og.png"]')).toHaveCount(1);
+  await expect(page.locator('script[src*="googletagmanager.com/gtag/js?id=G-DQX8CR91QK"]')).toHaveCount(1);
+  await expect
+    .poll(() => page.locator("script#google-analytics").evaluate((element) => element.textContent ?? ""))
+    .toContain("G-DQX8CR91QK");
 });
 
 test("opens transcript only from the dock", async ({ page }) => {
