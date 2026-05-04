@@ -2,12 +2,14 @@ import { afterEach, describe, expect, it } from "vitest";
 import { configuredChatProvider } from "@/lib/chat/providers";
 import {
   configuredConsolidationPlannerProvider,
-  configuredMemoryPlannerProvider
+  configuredMemoryPlannerProvider,
+  configuredTurnMemoryPlannerProvider
 } from "@/lib/memory/planner-config";
 import { configuredMemoryRetrieverProvider } from "@/lib/memory/retriever-config";
 
 const PROVIDER_ENV_KEYS = ["ENGRAM_CHAT_PROVIDER", "CHAT_PROVIDER", "OPENAI_API_KEY", "OPENAI_LIVE_ENABLED"] as const;
 const MEMORY_PLANNER_ENV_KEYS = ["ENGRAM_MEMORY_PLANNER", "MEMORY_PLANNER", "OPENAI_MEMORY_PLANNER_ENABLED"] as const;
+const TURN_MEMORY_PLANNER_ENV_KEYS = ["ENGRAM_TURN_MEMORY_PLANNER"] as const;
 const CONSOLIDATION_PLANNER_ENV_KEYS = [
   "ENGRAM_CONSOLIDATION_PLANNER",
   "CONSOLIDATION_PLANNER",
@@ -63,6 +65,28 @@ describe("configuredMemoryPlannerProvider", () => {
   });
 });
 
+describe("configuredTurnMemoryPlannerProvider", () => {
+  it("defaults to deterministic turn planning", () => {
+    resetProviderEnv();
+
+    expect(configuredTurnMemoryPlannerProvider()).toBe("deterministic");
+  });
+
+  it("enables OpenAI turn planning from the dedicated provider flag", () => {
+    process.env.ENGRAM_TURN_MEMORY_PLANNER = "openai";
+    process.env.OPENAI_MEMORY_PLANNER_ENABLED = "true";
+
+    expect(configuredTurnMemoryPlannerProvider()).toBe("openai");
+  });
+
+  it("inherits the existing memory planner provider flag", () => {
+    process.env.ENGRAM_MEMORY_PLANNER = "openai";
+    process.env.OPENAI_MEMORY_PLANNER_ENABLED = "true";
+
+    expect(configuredTurnMemoryPlannerProvider()).toBe("openai");
+  });
+});
+
 describe("configuredConsolidationPlannerProvider", () => {
   it("defaults to deterministic consolidation planning", () => {
     resetProviderEnv();
@@ -106,7 +130,7 @@ describe("configuredMemoryRetrieverProvider", () => {
 });
 
 function resetProviderEnv() {
-  [...PROVIDER_ENV_KEYS, ...MEMORY_PLANNER_ENV_KEYS, ...CONSOLIDATION_PLANNER_ENV_KEYS, ...RETRIEVER_ENV_KEYS].forEach((key) => {
+  [...PROVIDER_ENV_KEYS, ...MEMORY_PLANNER_ENV_KEYS, ...TURN_MEMORY_PLANNER_ENV_KEYS, ...CONSOLIDATION_PLANNER_ENV_KEYS, ...RETRIEVER_ENV_KEYS].forEach((key) => {
     delete process.env[key];
   });
 }

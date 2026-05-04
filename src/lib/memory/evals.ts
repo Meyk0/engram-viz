@@ -1,21 +1,30 @@
 import type { EngramMemory } from "@/types";
 import { createConsolidatedMemory } from "@/lib/memory/consolidate";
 import { findConsolidationCandidate } from "@/lib/memory/consolidationPolicy";
-import { evaluateMemoryCandidate, type MemoryCandidate } from "@/lib/memory/rules";
 import { retrieveMemories } from "@/lib/memory/retrieve";
 import {
   createMemory,
   createMemorySession,
   listMemories,
   markAccessed,
+  markSuperseded,
   replaceMemories
 } from "@/lib/memory/store";
+import { deterministicTurnMemoryPlanner, type PlannedMemory, type TurnMemoryPlan } from "@/lib/memory/turn-planner";
 
 type EvalMemoryInput = {
   id: string;
   text: string;
   importance?: number;
   topic?: string;
+  kind?: string;
+  entities?: string[];
+  confidence?: number;
+  sourceText?: string;
+  cluster?: string;
+  status?: EngramMemory["status"];
+  supersedes?: string[];
+  sourceMemoryIds?: string[];
   region?: EngramMemory["region"];
   created_at?: string;
   access_count?: number;
@@ -48,7 +57,7 @@ export type MemoryConversationEvalFixture = {
   storedMemoryId?: string;
   expected: {
     shouldStore: boolean;
-    reason?: MemoryCandidate["reason"];
+    reason?: string;
   } & RetrievalExpectation;
 };
 
@@ -197,7 +206,7 @@ export const memoryConversationEvalFixtures: MemoryConversationEvalFixture[] = [
     ],
     expected: {
       shouldStore: false,
-      reason: "trivial-question",
+      reason: "memory-question",
       retrievedMemoryIds: ["color-blue"]
     }
   },
@@ -222,8 +231,24 @@ export const memoryConversationEvalFixtures: MemoryConversationEvalFixture[] = [
     }
   },
   {
-    name: "stores place appreciation as durable memory",
+    name: "ignores standalone place world fact",
     message: "San Francisco has amazing coffee roasters",
+    expected: {
+      shouldStore: false,
+      reason: "standalone place statement is not user-specific enough to store"
+    }
+  },
+  {
+    name: "stores contextual place appreciation as durable memory",
+    message: "San Francisco has amazing coffee roasters",
+    existingMemories: [
+      {
+        id: "sf-move",
+        text: "User moved to San Francisco a couple years ago.",
+        topic: "location",
+        entities: ["san francisco"]
+      }
+    ],
     storedMemoryId: "sf-coffee",
     expected: {
       shouldStore: true,
@@ -625,6 +650,154 @@ export const memoryScenarioEvalFixtures: MemoryScenarioEvalFixture[] = [
     }
   },
   {
+    name: "food preferences store without context until asked",
+    turns: [
+      {
+        message: "I love sushi",
+        expected: {
+          shouldStore: true,
+          shouldLoadContext: false,
+          storedTextIncludes: ["sushi"]
+        }
+      },
+      {
+        message: "I like omakase",
+        expected: {
+          shouldStore: true,
+          shouldLoadContext: false,
+          shouldConsolidate: true,
+          storedTextIncludes: ["omakase"],
+          consolidatedTextIncludes: ["sushi", "omakase"]
+        }
+      },
+      {
+        message: "What food do I like?",
+        expected: {
+          shouldStore: false,
+          shouldLoadContext: true,
+          retrievedTextIncludes: ["sushi"]
+        }
+      }
+    ],
+    expectedFinal: {
+      temporalTextIncludes: ["sushi", "omakase"]
+    }
+  },
+  {
+    name: "work project facts consolidate and retrieve",
+    turns: [
+      {
+        message: "My project uses React Three Fiber",
+        expected: {
+          shouldStore: true,
+          shouldLoadContext: false,
+          storedTextIncludes: ["React Three Fiber"]
+        }
+      },
+      {
+        message: "My project deadline is June",
+        expected: {
+          shouldStore: true,
+          shouldLoadContext: false,
+          shouldConsolidate: true,
+          storedTextIncludes: ["June"]
+        }
+      },
+      {
+        message: "What do you know about my project?",
+        expected: {
+          shouldStore: false,
+          shouldLoadContext: true,
+          retrievedTextIncludes: ["project"]
+        }
+      }
+    ]
+  },
+  {
+    name: "hobby facts are durable but transient comments are ignored",
+    turns: [
+      {
+        message: "I spend weekends climbing",
+        expected: {
+          shouldStore: true,
+          shouldLoadContext: false,
+          storedTextIncludes: ["climbing"]
+        }
+      },
+      {
+        message: "Thanks, that makes sense",
+        expected: {
+          shouldStore: false,
+          shouldLoadContext: false
+        }
+      }
+    ],
+    expectedFinal: {
+      hippocampusTextIncludes: ["climbing"]
+    }
+  },
+  {
+    name: "relationship facts store without storing random names from commands",
+    turns: [
+      {
+        message: "My partner's name is Alex",
+        expected: {
+          shouldStore: true,
+          shouldLoadContext: false,
+          storedTextIncludes: ["Alex"]
+        }
+      },
+      {
+        message: "Write a sentence using the name Taylor",
+        expected: {
+          shouldStore: false,
+          shouldLoadContext: false
+        }
+      },
+      {
+        message: "What is my partner's name?",
+        expected: {
+          shouldStore: false,
+          shouldLoadContext: true,
+          retrievedTextIncludes: ["Alex"]
+        }
+      }
+    ]
+  },
+  {
+    name: "corrections supersede old active facts",
+    turns: [
+      {
+        message: "I live in San Francisco",
+        expected: {
+          shouldStore: true,
+          shouldLoadContext: false,
+          storedTextIncludes: ["San Francisco"]
+        }
+      },
+      {
+        message: "Actually, I live in Oakland now",
+        expected: {
+          shouldStore: true,
+          shouldLoadContext: false,
+          storedTextIncludes: ["Oakland"]
+        }
+      },
+      {
+        message: "Where do I live?",
+        expected: {
+          shouldStore: false,
+          shouldLoadContext: true,
+          retrievedTextIncludes: ["Oakland"],
+          excludedRetrievedTextIncludes: ["San Francisco"]
+        }
+      }
+    ],
+    expectedFinal: {
+      memoryTextIncludes: ["Oakland"]
+    }
+  },
+  {
     name: "explicit memory phrased as a question stores without immediate context load",
     turns: [
       {
@@ -645,11 +818,15 @@ export const memoryScenarioEvalFixtures: MemoryScenarioEvalFixture[] = [
 export function runConversationEvalFixture(
   fixture: MemoryConversationEvalFixture
 ): MemoryEvalResult {
-  const candidate = evaluateMemoryCandidate(fixture.message);
-  const failures = assertStorageExpectation(fixture, candidate);
+  const existingMemories = (fixture.existingMemories ?? []).map(toEngramMemory);
+  const plan = deterministicTurnMemoryPlanner.decide({
+    message: fixture.message,
+    memories: existingMemories
+  });
+  const failures = assertStorageExpectation(fixture, plan);
   const memories = [
-    ...(fixture.existingMemories ?? []).map(toEngramMemory),
-    ...candidateToMemories(fixture, candidate)
+    ...existingMemories,
+    ...plannedMemoriesToEngram(fixture, plan.memories)
   ];
   const retrievedIds = retrieveMemories(memories, fixture.message).map((result) => result.memory.id);
 
@@ -704,25 +881,38 @@ export function runMemoryScenarioEvalFixture(fixture: MemoryScenarioEvalFixture)
 
   fixture.turns.forEach((turn, index) => {
     const now = evalTime(index);
-    const candidate = evaluateMemoryCandidate(turn.message);
-    const retrieved = candidate.shouldStore
-      ? []
-      : retrieveMemories(listMemories(session), turn.message, 3).map((result) => result.memory);
+    const plan = deterministicTurnMemoryPlanner.decide({
+      message: turn.message,
+      memories: listMemories(session)
+    });
+    const retrieved = plan.shouldRetrieve
+      ? retrieveMemories(listMemories(session), plan.retrieveQuery ?? turn.message, 3).map((result) => result.memory)
+      : [];
     const retrievedIds = retrieved.map((memory) => memory.id);
     markAccessed(session, retrievedIds, now);
 
-    const stored = candidate.shouldStore
-      ? createMemory(session, {
-          text: candidate.text,
-          importance: candidate.importance,
-          topic: candidate.topic,
-          now
-        })
-      : undefined;
+    markSuperseded(session, plan.supersedeMemoryIds);
+
+    const storedMemories = plan.memories.map((memory) =>
+      createMemory(session, {
+        text: memory.text,
+        importance: memory.importance,
+        topic: memory.topic,
+        kind: memory.kind,
+        entities: memory.entities,
+        confidence: memory.confidence,
+        sourceText: memory.sourceText,
+        cluster: memory.cluster,
+        supersedes: memory.supersedes,
+        status: "active",
+        now
+      })
+    );
+    const stored = storedMemories[0];
 
     const consolidationCandidate = findConsolidationCandidate(listMemories(session));
     const consolidated =
-      consolidationCandidate && stored
+      consolidationCandidate && storedMemories.length > 0
         ? replaceMemories(
             session,
             consolidationCandidate.ids,
@@ -732,6 +922,8 @@ export function runMemoryScenarioEvalFixture(fixture: MemoryScenarioEvalFixture)
               sourceMemories: listMemories(session).filter((memory) =>
                 consolidationCandidate.ids.includes(memory.id)
               ),
+              topic: consolidationCandidate.topic,
+              entities: consolidationCandidate.entities,
               now
             })
           )
@@ -806,16 +998,17 @@ export function formatMemoryEvalReport(report: MemoryEvalReport): string {
 
 function assertStorageExpectation(
   fixture: MemoryConversationEvalFixture,
-  candidate: MemoryCandidate
+  plan: TurnMemoryPlan
 ): string[] {
   const failures: string[] = [];
+  const shouldStore = plan.memories.length > 0;
 
-  if (candidate.shouldStore !== fixture.expected.shouldStore) {
-    failures.push(`expected shouldStore ${fixture.expected.shouldStore}, got ${candidate.shouldStore}`);
+  if (shouldStore !== fixture.expected.shouldStore) {
+    failures.push(`expected shouldStore ${fixture.expected.shouldStore}, got ${shouldStore}`);
   }
 
-  if (fixture.expected.reason && candidate.reason !== fixture.expected.reason) {
-    failures.push(`expected reason "${fixture.expected.reason}", got "${candidate.reason}"`);
+  if (fixture.expected.reason && plan.reason !== fixture.expected.reason) {
+    failures.push(`expected reason "${fixture.expected.reason}", got "${plan.reason}"`);
   }
 
   return failures;
@@ -956,20 +1149,24 @@ function assertScenarioFinalExpectation(
   return failures;
 }
 
-function candidateToMemories(
+function plannedMemoriesToEngram(
   fixture: MemoryConversationEvalFixture,
-  candidate: MemoryCandidate
+  memories: PlannedMemory[]
 ): EngramMemory[] {
-  if (!candidate.shouldStore) return [];
-
-  return [
+  return memories.map((memory, index) =>
     toEngramMemory({
-      id: fixture.storedMemoryId ?? "stored-turn",
-      text: candidate.text,
-      importance: candidate.importance,
-      topic: candidate.topic
+      id: fixture.storedMemoryId ?? `stored-turn-${index + 1}`,
+      text: memory.text,
+      importance: memory.importance,
+      topic: memory.topic,
+      kind: memory.kind,
+      entities: memory.entities,
+      confidence: memory.confidence,
+      sourceText: memory.sourceText,
+      cluster: memory.cluster,
+      supersedes: memory.supersedes
     })
-  ];
+  );
 }
 
 function toEngramMemory(input: EvalMemoryInput, index = 0): EngramMemory {
@@ -978,6 +1175,14 @@ function toEngramMemory(input: EvalMemoryInput, index = 0): EngramMemory {
     text: input.text,
     importance: input.importance ?? 0.78,
     topic: input.topic,
+    kind: input.kind,
+    entities: input.entities,
+    confidence: input.confidence,
+    sourceText: input.sourceText,
+    cluster: input.cluster,
+    status: input.status,
+    supersedes: input.supersedes,
+    sourceMemoryIds: input.sourceMemoryIds,
     region: input.region ?? "hippocampus",
     created_at: input.created_at ?? new Date(BASE_TIME + index * 60_000).toISOString(),
     access_count: input.access_count ?? 0

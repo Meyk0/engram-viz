@@ -3,6 +3,7 @@ import {
   consolidationDecisionSchema,
   deterministicMemoryConsolidationPlanner,
   findConsolidationCandidate,
+  selectConsolidationPool,
   type ConsolidationDecision,
   type ConsolidationPlanningInput,
   type MemoryConsolidationPlanner
@@ -18,7 +19,9 @@ const openAIRawConsolidationDecisionSchema = z
     confidence: z.number().min(0).max(1),
     reason: z.string().min(1),
     ids: z.array(z.string().min(1)),
-    consolidatedText: z.string().min(1).nullable()
+    consolidatedText: z.string().min(1).nullable(),
+    topic: z.string().min(1).nullable(),
+    entities: z.array(z.string().min(1))
   })
   .strict();
 
@@ -52,8 +55,8 @@ export class OpenAIConsolidationPlanner implements MemoryConsolidationPlanner {
   }
 
   async decide(input: ConsolidationPlanningInput): Promise<ConsolidationDecision> {
-    const candidate = findConsolidationCandidate(input.memories);
-    if (!candidate) {
+    const eligibleMemories = selectConsolidationPool(input);
+    if (eligibleMemories.length < 2) {
       return this.fallbackPlanner.decide(input);
     }
 
@@ -72,7 +75,7 @@ export class OpenAIConsolidationPlanner implements MemoryConsolidationPlanner {
         body: JSON.stringify({
           model: this.model,
           instructions: buildConsolidationInstructions(),
-          input: buildConsolidationPrompt(input, candidate.ids),
+          input: buildConsolidationPrompt(eligibleMemories),
           max_output_tokens: 360,
           text: {
             format: {
@@ -155,7 +158,9 @@ export function parseOpenAIConsolidationDecision(
     confidence: raw.confidence,
     reason: raw.reason,
     ids: raw.ids,
-    consolidatedText: raw.consolidatedText
+    consolidatedText: raw.consolidatedText,
+    topic: raw.topic ?? undefined,
+    entities: raw.entities.length > 0 ? raw.entities : undefined
   });
 }
 
@@ -164,12 +169,7 @@ function validateConsolidationIds(ids: string[], input: ConsolidationPlanningInp
     throw new Error("Consolidation ids must be unique.");
   }
 
-  const candidate = findConsolidationCandidate(input.memories);
-  if (!candidate) {
-    throw new Error("No eligible deterministic consolidation candidate exists.");
-  }
-
-  const eligibleIds = new Set(candidate.ids);
+  const eligibleIds = new Set(selectConsolidationPool(input).map((memory) => memory.id));
   const ineligibleId = ids.find((id) => !eligibleIds.has(id));
   if (ineligibleId) {
     throw new Error(`Selected consolidation id "${ineligibleId}" was not eligible.`);
@@ -184,18 +184,16 @@ function buildConsolidationInstructions() {
     "Skip if the memories are merely adjacent, contradictory, or too broad to summarize honestly.",
     "The consolidatedText must be a concise semantic memory, not a transcript.",
     "Use only eligible memory ids from the prompt.",
+    "Return topic and entities for the consolidated memory when known.",
     "Return only JSON that matches the provided schema."
   ].join(" ");
 }
 
-function buildConsolidationPrompt(input: ConsolidationPlanningInput, eligibleIds: string[]) {
-  const eligibleIdSet = new Set(eligibleIds);
-  const eligibleMemories = input.memories.filter((memory) => eligibleIdSet.has(memory.id));
-
+function buildConsolidationPrompt(eligibleMemories: Array<ConsolidationPlanningInput["memories"][number]>) {
   const memoryLines = eligibleMemories
     .map(
       (memory) =>
-        `- id: ${memory.id}\n  text: ${memory.text}\n  topic: ${memory.topic ?? "unknown"}\n  importance: ${memory.importance.toFixed(2)}\n  access_count: ${memory.access_count}`
+        `- id: ${memory.id}\n  text: ${memory.text}\n  topic: ${memory.topic ?? "unknown"}\n  kind: ${memory.kind ?? "unknown"}\n  cluster: ${memory.cluster ?? "unknown"}\n  entities: ${(memory.entities ?? []).join(", ") || "none"}\n  importance: ${memory.importance.toFixed(2)}\n  access_count: ${memory.access_count}`
     )
     .join("\n");
 
@@ -236,7 +234,7 @@ function formatError(error: unknown) {
 const openAIConsolidationDecisionJsonSchema = {
   type: "object",
   additionalProperties: false,
-  required: ["operation", "confidence", "reason", "ids", "consolidatedText"],
+  required: ["operation", "confidence", "reason", "ids", "consolidatedText", "topic", "entities"],
   properties: {
     operation: {
       type: "string",
@@ -260,6 +258,15 @@ const openAIConsolidationDecisionJsonSchema = {
     consolidatedText: {
       type: ["string", "null"],
       description: "Concise semantic memory for consolidate decisions; null for skip decisions."
+    },
+    topic: {
+      type: ["string", "null"],
+      description: "Topic for the semantic memory; null for skip decisions or when unknown."
+    },
+    entities: {
+      type: "array",
+      items: { type: "string" },
+      description: "Entities represented in the semantic memory."
     }
   }
 } as const;

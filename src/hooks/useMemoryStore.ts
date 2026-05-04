@@ -15,6 +15,10 @@ export function useMemoryStore(events: EngramEvent[]) {
           event.memories.forEach((memory) => memories.set(memory.id, memory));
         }
         if (event.type === "store") {
+          event.memory.supersedes?.forEach((id) => {
+            const memory = memories.get(id);
+            if (memory) memories.set(id, { ...memory, status: "superseded" });
+          });
           memories.set(event.memory.id, event.memory);
         }
         if (event.type === "consolidate") {

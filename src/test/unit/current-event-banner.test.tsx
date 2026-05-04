@@ -6,8 +6,8 @@ describe("CurrentEventBanner", () => {
   it("shows immediate memory thinking state while waiting for first response text", () => {
     render(<CurrentEventBanner events={[]} streaming />);
 
-    expect(screen.getByText("Checking memory")).toBeInTheDocument();
-    expect(screen.getByText(/Looking for relevant memories/)).toBeInTheDocument();
+    expect(screen.getByText("Reading this turn")).toBeInTheDocument();
+    expect(screen.getByText(/stored, recalled, or answered directly/)).toBeInTheDocument();
     expect(screen.getByLabelText("Memory lifecycle")).toBeVisible();
     expect(screen.getByText("Retrieve")).toBeVisible();
   });

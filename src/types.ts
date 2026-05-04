@@ -1,6 +1,7 @@
 export type BrainRegion = "prefrontal" | "hippocampus" | "temporal";
 export type MemoryDecisionTraceProvider = "deterministic" | "llm" | "fallback";
 export type MemoryRetrievalProvider = "lexical" | "semantic" | "fallback";
+export type MemoryStatus = "active" | "superseded";
 
 export type MemoryDecisionTrace = {
   stage: "memory" | "consolidation";
@@ -22,6 +23,14 @@ export type EngramMemory = {
   text: string;
   importance: number;
   topic?: string;
+  kind?: string;
+  entities?: string[];
+  confidence?: number;
+  sourceText?: string;
+  cluster?: string;
+  status?: MemoryStatus;
+  supersedes?: string[];
+  sourceMemoryIds?: string[];
   region: BrainRegion;
   created_at: string;
   last_accessed?: string;

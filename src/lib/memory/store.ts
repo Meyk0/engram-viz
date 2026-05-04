@@ -4,6 +4,14 @@ export type MemoryInput = {
   text: string;
   importance?: number;
   topic?: string;
+  kind?: string;
+  entities?: string[];
+  confidence?: number;
+  sourceText?: string;
+  cluster?: string;
+  status?: EngramMemory["status"];
+  supersedes?: string[];
+  sourceMemoryIds?: string[];
   embedding?: number[];
   now?: string;
 };
@@ -30,6 +38,14 @@ export function createMemory(session: MemorySession, input: MemoryInput): Engram
     text: input.text.trim(),
     importance: clampImportance(input.importance ?? 0.5),
     topic: input.topic,
+    kind: input.kind,
+    entities: input.entities,
+    confidence: input.confidence === undefined ? undefined : clampImportance(input.confidence),
+    sourceText: input.sourceText,
+    cluster: input.cluster,
+    status: input.status,
+    supersedes: input.supersedes,
+    sourceMemoryIds: input.sourceMemoryIds,
     region: "hippocampus",
     created_at: input.now ?? new Date().toISOString(),
     access_count: 0,
@@ -38,6 +54,23 @@ export function createMemory(session: MemorySession, input: MemoryInput): Engram
 
   session.memories.set(memory.id, memory);
   return memory;
+}
+
+export function markSuperseded(
+  session: MemorySession,
+  ids: string[]
+): EngramMemory[] {
+  return ids.flatMap((id) => {
+    const memory = session.memories.get(id);
+    if (!memory || memory.status === "superseded") return [];
+
+    const updated: EngramMemory = {
+      ...memory,
+      status: "superseded"
+    };
+    session.memories.set(id, updated);
+    return [updated];
+  });
 }
 
 export function listMemories(session: MemorySession): EngramMemory[] {

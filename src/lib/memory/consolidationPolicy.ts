@@ -4,6 +4,8 @@ import { z } from "zod";
 export type ConsolidationCandidate = {
   ids: string[];
   consolidatedText: string;
+  topic?: string;
+  entities?: string[];
 };
 
 const consolidationDecisionBaseSchema = {
@@ -18,7 +20,9 @@ export const consolidationDecisionSchema = z.discriminatedUnion("operation", [
       ...consolidationDecisionBaseSchema,
       operation: z.literal("consolidate"),
       ids: z.array(z.string().min(1)).min(2),
-      consolidatedText: z.string().min(1)
+      consolidatedText: z.string().min(1),
+      topic: z.string().min(1).optional(),
+      entities: z.array(z.string().min(1)).optional()
     })
     .strict(),
   z
@@ -33,6 +37,7 @@ export type ConsolidationDecision = z.infer<typeof consolidationDecisionSchema>;
 
 export type ConsolidationPlanningInput = {
   memories: EngramMemory[];
+  recentMemoryIds?: string[];
 };
 
 export interface MemoryConsolidationPlanner {
@@ -46,7 +51,7 @@ export function findConsolidationCandidate(memories: EngramMemory[]): Consolidat
   const byTopic = new Map<string, EngramMemory[]>();
 
   memories.forEach((memory) => {
-    if (memory.region !== "hippocampus" || !memory.topic) return;
+    if (memory.region !== "hippocampus" || memory.status === "superseded" || !memory.topic) return;
     byTopic.set(memory.topic, [...(byTopic.get(memory.topic) ?? []), memory]);
   });
 
@@ -67,7 +72,9 @@ export function findConsolidationCandidate(memories: EngramMemory[]): Consolidat
 
   return {
     ids: selected.map((memory) => memory.id),
-    consolidatedText: summarizeTopic(topic, selected)
+    consolidatedText: summarizeTopic(topic, selected),
+    topic,
+    entities: uniqueEntities(selected)
   };
 }
 
@@ -92,7 +99,9 @@ export class DeterministicMemoryConsolidationPlanner implements MemoryConsolidat
       confidence: 0.78,
       reason: "Found repeated same-topic hippocampus memories.",
       ids: candidate.ids,
-      consolidatedText: candidate.consolidatedText
+      consolidatedText: candidate.consolidatedText,
+      topic: candidate.topic,
+      entities: candidate.entities
     });
   }
 }
@@ -118,4 +127,33 @@ function newestTime(memories: EngramMemory[]) {
 
 function minimumMemoriesForTopic(topic: string) {
   return topic === "location" ? 3 : MIN_TOPIC_MEMORIES;
+}
+
+function uniqueEntities(memories: EngramMemory[]) {
+  const entities = [...new Set(memories.flatMap((memory) => memory.entities ?? []))];
+  return entities.length > 0 ? entities : undefined;
+}
+
+export function selectConsolidationPool(input: ConsolidationPlanningInput): EngramMemory[] {
+  const activeHippocampus = input.memories.filter(
+    (memory) => memory.region === "hippocampus" && memory.status !== "superseded"
+  );
+  const recentIds = new Set(input.recentMemoryIds ?? []);
+  if (recentIds.size === 0) return activeHippocampus;
+
+  const recentMemories = activeHippocampus.filter((memory) => recentIds.has(memory.id));
+  if (recentMemories.length === 0) return activeHippocampus;
+
+  return activeHippocampus.filter((memory) =>
+    recentMemories.some((recent) => memoriesShareConsolidationSignal(memory, recent))
+  );
+}
+
+function memoriesShareConsolidationSignal(left: EngramMemory, right: EngramMemory) {
+  if (left.id === right.id) return true;
+  if (left.cluster && right.cluster && left.cluster === right.cluster) return true;
+  if (left.topic && right.topic && left.topic === right.topic) return true;
+
+  const rightEntities = new Set((right.entities ?? []).map((entity) => entity.toLowerCase()));
+  return (left.entities ?? []).some((entity) => rightEntities.has(entity.toLowerCase()));
 }

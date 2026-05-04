@@ -96,6 +96,7 @@ export function retrieveMemories(
   const queryTokens = tokenize(query);
 
   return memories
+    .filter((memory) => memory.status !== "superseded")
     .map((memory) => ({
       memory,
       score: scoreMemory(memory, queryTokens)

@@ -25,7 +25,7 @@ describe("event narrative", () => {
     };
 
     expect(getCurrentEventNarrative([event])).toMatchObject({
-      title: "Stored",
+      title: "Stored new memory",
       body: "Saved as a new memory in the hippocampus.",
       region: "hippocampus"
     });
@@ -47,8 +47,8 @@ describe("event narrative", () => {
         }
       ])
     ).toMatchObject({
-      title: "Nothing stored",
-      body: "This turn did not contain a durable fact or stable preference."
+      title: "No new memory",
+      body: "Nothing new needed to be stored for this turn."
     });
   });
 

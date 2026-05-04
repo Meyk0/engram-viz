@@ -3,15 +3,14 @@ import { MemoryEngine } from "@/lib/memory/engine";
 import type { MemoryConsolidationPlanner } from "@/lib/memory/consolidationPolicy";
 import type { ConsolidationDecision } from "@/lib/memory/consolidationPolicy";
 import type { MemoryDecisionPlanner } from "@/lib/memory/decision";
-import type { MemoryDecision } from "@/lib/memory/decision";
 import {
   configuredMemoryConsolidationPlanner,
-  configuredMemoryDecisionPlanner
+  configuredTurnMemoryPlanner
 } from "@/lib/memory/planner-config";
 import { configuredMemoryRetriever } from "@/lib/memory/retriever-config";
-import { evaluateMemoryCandidate } from "@/lib/memory/rules";
 import type { MemoryRetriever } from "@/lib/memory/retrieve";
 import { InMemoryMemoryStore } from "@/lib/memory/store-interface";
+import type { PlannedMemory, TurnMemoryPlan, TurnMemoryPlanner } from "@/lib/memory/turn-planner";
 import type { ChatMessage, EngramMemory, MemoryDecisionTrace, StreamChunk } from "@/types";
 
 const memoryStore = new InMemoryMemoryStore();
@@ -25,6 +24,7 @@ export type LiveChatInput = {
   memoryConsolidationPlanner?: MemoryConsolidationPlanner;
   memoryDecisionPlanner?: MemoryDecisionPlanner;
   memoryRetriever?: MemoryRetriever;
+  turnMemoryPlanner?: TurnMemoryPlanner;
   now?: string;
 };
 
@@ -42,18 +42,27 @@ export async function* streamLiveMemoryChunks(input: LiveChatInput): AsyncIterab
   const history = input.history ?? [];
   const memoryConsolidationPlanner =
     input.memoryConsolidationPlanner ?? configuredMemoryConsolidationPlanner();
-  const memoryDecisionPlanner = input.memoryDecisionPlanner ?? configuredMemoryDecisionPlanner();
+  const turnMemoryPlanner =
+    input.turnMemoryPlanner ??
+    (input.memoryDecisionPlanner
+      ? new LegacyDecisionTurnMemoryPlanner(input.memoryDecisionPlanner)
+      : configuredTurnMemoryPlanner());
   const memoryRetriever = input.memoryRetriever ?? configuredMemoryRetriever();
 
   await hydrateSessionFromClient(input.sessionId, input.clientMemories);
 
   yield { kind: "event", event: await memoryEngine.initialize(input.sessionId) };
 
-  const shouldRetrieve = shouldRetrieveBeforeResponse(input.message);
-  const retrieve = shouldRetrieve
+  const turnPlan = await turnMemoryPlanner.decide({
+    message: input.message,
+    history,
+    memories: await memoryStore.list(input.sessionId)
+  });
+
+  const retrieve = turnPlan.shouldRetrieve
     ? await memoryEngine.retrieve({
         sessionId: input.sessionId,
-        query: input.message,
+        query: turnPlan.retrieveQuery ?? input.message,
         limit: 3,
         retriever: memoryRetriever,
         now: input.now
@@ -84,36 +93,48 @@ export async function* streamLiveMemoryChunks(input: LiveChatInput): AsyncIterab
     yield chunk;
   }
 
-  const memoryDecision = memoryDecisionPlanner.decide({
-    message: input.message,
-    relatedMemoryIds: retrievedIds,
-    relatedMemories: retrievedMemories
-  });
+  const storedIds: string[] = [];
+  for (const plannedMemory of turnPlan.memories) {
+    const supersedes = unique([
+      ...(plannedMemory.supersedes ?? []),
+      ...(turnPlan.supersedeMemoryIds ?? [])
+    ]);
+    await memoryEngine.supersede(input.sessionId, supersedes);
 
-  const resolvedMemoryDecision = await memoryDecision;
-
-  if (resolvedMemoryDecision.operation === "store") {
     const stored = await memoryEngine.storeMemory({
       sessionId: input.sessionId,
-      text: resolvedMemoryDecision.memoryText,
-      importance: resolvedMemoryDecision.importance,
-      topic: resolvedMemoryDecision.topic,
+      text: plannedMemory.text,
+      importance: plannedMemory.importance,
+      topic: plannedMemory.topic,
+      kind: plannedMemory.kind,
+      entities: plannedMemory.entities,
+      confidence: plannedMemory.confidence,
+      sourceText: plannedMemory.sourceText,
+      cluster: plannedMemory.cluster,
+      supersedes,
+      status: "active",
       now: input.now
     });
+    const memoryDecision = plannedMemoryDecisionTrace(turnPlan, plannedMemory, retrievedIds);
     const storeEvent =
       stored.type === "store"
-        ? { ...stored, decision: memoryDecisionTrace(resolvedMemoryDecision) }
+        ? { ...stored, decision: memoryDecision }
         : stored;
     yield { kind: "event", event: storeEvent };
+
+    if (storeEvent.type === "store") storedIds.push(storeEvent.memory.id);
 
     const storedRegion = storeEvent.type === "store" ? storeEvent.memory.region : "hippocampus";
     yield {
       kind: "event",
       event: memoryEngine.fire(storedRegion, storeEvent.type === "store" ? [storeEvent.memory.id] : [])
     };
+  }
 
+  if (storedIds.length > 0) {
     const consolidationDecision = await memoryConsolidationPlanner.decide({
-      memories: await memoryStore.list(input.sessionId)
+      memories: await memoryStore.list(input.sessionId),
+      recentMemoryIds: storedIds
     });
 
     if (consolidationDecision.operation === "consolidate") {
@@ -121,6 +142,9 @@ export async function* streamLiveMemoryChunks(input: LiveChatInput): AsyncIterab
         sessionId: input.sessionId,
         ids: consolidationDecision.ids,
         consolidatedText: consolidationDecision.consolidatedText,
+        topic: consolidationDecision.topic,
+        entities: consolidationDecision.entities,
+        confidence: consolidationDecision.confidence,
         decision: consolidationDecisionTrace(consolidationDecision),
         now: input.now
       });
@@ -136,7 +160,7 @@ export async function* streamLiveMemoryChunks(input: LiveChatInput): AsyncIterab
   } else {
     yield {
       kind: "event",
-      event: { type: "plan", decision: memoryDecisionTrace(resolvedMemoryDecision) }
+      event: { type: "plan", decision: turnPlanDecisionTrace(turnPlan, retrievedIds) }
     };
   }
 
@@ -146,17 +170,6 @@ export async function* streamLiveMemoryChunks(input: LiveChatInput): AsyncIterab
   }
 
   yield { kind: "done" };
-}
-
-function memoryDecisionTrace(decision: MemoryDecision): MemoryDecisionTrace {
-  return {
-    stage: "memory",
-    operation: decision.operation,
-    provider: decision.provider,
-    confidence: decision.confidence,
-    reason: decision.reason,
-    relatedMemoryIds: decision.relatedMemoryIds
-  };
 }
 
 function consolidationDecisionTrace(decision: ConsolidationDecision): MemoryDecisionTrace {
@@ -174,10 +187,6 @@ export function resetLiveMemoryStore() {
   memoryStore.clear();
 }
 
-function shouldRetrieveBeforeResponse(message: string) {
-  return !evaluateMemoryCandidate(message).shouldStore;
-}
-
 async function hydrateSessionFromClient(sessionId: string, clientMemories: EngramMemory[] = []) {
   if (clientMemories.length === 0) return;
 
@@ -185,4 +194,87 @@ async function hydrateSessionFromClient(sessionId: string, clientMemories: Engra
   if (existing.length > 0) return;
 
   await Promise.all(clientMemories.map((memory) => memoryStore.upsert(sessionId, memory)));
+}
+
+function plannedMemoryDecisionTrace(
+  plan: TurnMemoryPlan,
+  memory: PlannedMemory,
+  relatedMemoryIds: string[]
+): MemoryDecisionTrace {
+  return {
+    stage: "memory",
+    operation: "store",
+    provider: plan.provider,
+    confidence: Math.min(plan.confidence, memory.confidence),
+    reason: memory.kind === "other" ? plan.reason : memory.kind === "correction" ? "correction" : memory.kind.replace("_", "-"),
+    relatedMemoryIds
+  };
+}
+
+function turnPlanDecisionTrace(plan: TurnMemoryPlan, relatedMemoryIds: string[]): MemoryDecisionTrace {
+  return {
+    stage: "memory",
+    operation: "ignore",
+    provider: plan.provider,
+    confidence: plan.confidence,
+    reason: friendlyPlanReason(plan),
+    relatedMemoryIds
+  };
+}
+
+function friendlyPlanReason(plan: TurnMemoryPlan) {
+  if (plan.provider !== "deterministic") return plan.reason;
+  if (plan.shouldRetrieve && plan.intent === "memory_question") return "memory-question";
+  if (plan.intent === "command") return "command";
+  if (plan.intent === "general_chat") return "not-durable";
+  return plan.reason;
+}
+
+function unique(values: string[]) {
+  return [...new Set(values)];
+}
+
+class LegacyDecisionTurnMemoryPlanner implements TurnMemoryPlanner {
+  readonly provider = "deterministic" as const;
+
+  constructor(private readonly planner: MemoryDecisionPlanner) {}
+
+  async decide(input: { message: string; history?: ChatMessage[]; memories?: EngramMemory[] }): Promise<TurnMemoryPlan> {
+    const decision = await this.planner.decide({ message: input.message });
+
+    if (decision.operation === "store") {
+      return {
+        provider: decision.provider,
+        confidence: decision.confidence,
+        reason: decision.reason,
+        intent: "durable_statement",
+        shouldRetrieve: false,
+        retrieveQuery: null,
+        memories: [
+          {
+            text: decision.memoryText,
+            kind: decision.reason === "project-fact" ? "project_fact" : "other",
+            topic: decision.topic,
+            importance: decision.importance,
+            confidence: decision.confidence,
+            entities: [],
+            sourceText: input.message,
+            supersedes: []
+          }
+        ],
+        supersedeMemoryIds: []
+      };
+    }
+
+    return {
+      provider: decision.provider,
+      confidence: decision.confidence,
+      reason: decision.reason,
+      intent: "general_chat",
+      shouldRetrieve: false,
+      retrieveQuery: null,
+      memories: [],
+      supersedeMemoryIds: []
+    };
+  }
 }

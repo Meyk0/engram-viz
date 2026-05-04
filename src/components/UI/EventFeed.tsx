@@ -53,15 +53,15 @@ function eventLabel(event: EngramEvent) {
       if (event.decision.operation === "ignore" && (event.decision.relatedMemoryIds?.length ?? 0) > 0) {
         return "Answered from memory";
       }
-      return event.decision.operation === "ignore" ? "No new memory saved" : "Memory decision";
+      return event.decision.operation === "ignore" ? "No new memory" : "Memory decision";
     case "store":
-      return "Stored a new memory";
+      return event.memory.supersedes?.length ? "Updated memory" : "Stored new memory";
     case "retrieve":
       return event.ids.length > 0 ? "Found relevant memory" : "Searched memory";
     case "fire":
       return event.region === "prefrontal" ? "Used working memory" : `${regionName(event.region)} lit up`;
     case "consolidate":
-      return "Consolidated memory";
+      return "Stabilized related memories";
     case "load":
       return "Loaded active context";
     case "decay":
@@ -78,7 +78,7 @@ function eventSummary(event: EngramEvent) {
         return "The question used retrieved memory, so nothing new was stored.";
       }
       return event.decision.operation === "ignore"
-        ? "This turn did not contain a durable fact or stable preference to remember."
+        ? friendlyIgnoreSummary(event.decision.reason)
         : "Engram checked whether this turn should change memory.";
     case "store":
       return `New raw memory: "${event.memory.text}"`;
@@ -133,4 +133,18 @@ function regionName(region: "prefrontal" | "hippocampus" | "temporal") {
 function pluralize(count: number, word: string) {
   const nextWord = count === 1 ? word : word.endsWith("y") ? `${word.slice(0, -1)}ies` : `${word}s`;
   return `${count} ${nextWord}`;
+}
+
+function friendlyIgnoreSummary(reason: string) {
+  switch (reason) {
+    case "memory-question":
+      return "The answer used memory, but nothing new needed to be stored.";
+    case "command":
+      return "This was a request, not a durable memory.";
+    case "not-durable":
+    case "transient":
+      return "This turn did not include a durable fact to remember.";
+    default:
+      return "Nothing new was stored for this turn.";
+  }
 }

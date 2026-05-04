@@ -12,7 +12,7 @@ import type { EngramEvent } from "@/types";
 
 export function storeMemoryTool(
   session: MemorySession,
-  input: { text: string; importance?: number; topic?: string; now?: string }
+  input: Parameters<typeof createMemory>[1]
 ): EngramEvent {
   return {
     type: "store",
@@ -37,7 +37,7 @@ export function retrieveMemoryTool(
 
 export function consolidateMemoriesTool(
   session: MemorySession,
-  input: { ids: string[]; consolidatedText: string; now?: string }
+  input: { ids: string[]; consolidatedText: string; topic?: string; entities?: string[]; confidence?: number; now?: string }
 ): EngramEvent {
   const sourceMemories = input.ids.flatMap((id) => {
     const memory = getMemory(session, id);
@@ -47,6 +47,9 @@ export function consolidateMemoriesTool(
     id: `${session.sessionId}-consolidated-${Date.now()}`,
     text: input.consolidatedText,
     sourceMemories,
+    topic: input.topic,
+    entities: input.entities,
+    confidence: input.confidence,
     now: input.now
   });
 

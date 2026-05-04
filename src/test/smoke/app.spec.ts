@@ -91,7 +91,7 @@ test("opens working memory details after retrieval", async ({ page }) => {
 
   await page.getByLabel("Chat message").fill("I prefer deep red interfaces and dark dashboards.");
   await page.getByLabel("Send").click();
-  await expect(page.getByRole("button", { name: /Memory/i })).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByRole("button", { name: /^Memory [1-9]/ })).toBeVisible({ timeout: 10_000 });
 
   await page.getByLabel("Chat message").fill("What interface colors do I prefer?");
   await page.getByLabel("Send").click();

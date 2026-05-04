@@ -46,7 +46,7 @@ export function explainEvent(event: EngramEvent): string {
   switch (event.type) {
     case "plan":
       return event.decision.operation === "ignore"
-        ? "This turn did not add a new durable memory."
+        ? "This turn did not add a new memory."
         : "Engram checked whether this turn should change memory.";
     case "store":
       return event.decision
@@ -60,7 +60,7 @@ export function explainEvent(event: EngramEvent): string {
       return "Retrieved memories are loaded into the active context window.";
     case "consolidate":
       return event.decision
-        ? "Related raw memories were merged into one longer-term memory."
+        ? "Related new memories were merged into stable knowledge."
         : "Repeated facts about a topic are distilled into one summary.";
     case "load":
       return "Selected memories are being prepared for the next response.";

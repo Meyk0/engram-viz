@@ -4,6 +4,9 @@ export function createConsolidatedMemory(args: {
   id: string;
   text: string;
   sourceMemories: EngramMemory[];
+  topic?: string;
+  entities?: string[];
+  confidence?: number;
   now?: string;
 }): EngramMemory {
   const importance =
@@ -20,7 +23,12 @@ export function createConsolidatedMemory(args: {
     id: args.id,
     text: args.text.trim(),
     importance,
-    topic: mostCommonTopic(args.sourceMemories),
+    topic: args.topic ?? mostCommonTopic(args.sourceMemories),
+    kind: "semantic",
+    entities: args.entities ?? uniqueFlatMap(args.sourceMemories, (memory) => memory.entities ?? []),
+    confidence: args.confidence,
+    sourceMemoryIds: args.sourceMemories.map((memory) => memory.id),
+    status: "active",
     region: "temporal",
     created_at: args.now ?? new Date().toISOString(),
     access_count
@@ -36,4 +44,9 @@ function mostCommonTopic(memories: EngramMemory[]): string | undefined {
   });
 
   return [...counts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0];
+}
+
+function uniqueFlatMap<T>(items: T[], mapper: (item: T) => string[]): string[] | undefined {
+  const values = [...new Set(items.flatMap(mapper))];
+  return values.length > 0 ? values : undefined;
 }

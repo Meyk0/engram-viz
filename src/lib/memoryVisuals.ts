@@ -38,6 +38,10 @@ export function getVisibleMemories(events: EngramEvent[]): EngramMemory[] {
         event.memories.forEach((memory) => memories.set(memory.id, memory));
       }
       if (event.type === "store") {
+        event.memory.supersedes?.forEach((id) => {
+          const memory = memories.get(id);
+          if (memory) memories.set(id, { ...memory, status: "superseded" });
+        });
         memories.set(event.memory.id, event.memory);
       }
       if (event.type === "consolidate") {
@@ -46,7 +50,7 @@ export function getVisibleMemories(events: EngramEvent[]): EngramMemory[] {
       }
     });
 
-  return [...memories.values()];
+  return [...memories.values()].filter((memory) => memory.status !== "superseded");
 }
 
 export function getMemoryPosition(memory: Pick<EngramMemory, "id" | "region">): [number, number, number] {

@@ -51,8 +51,10 @@ function getLiveNarrative({
 
   if (streaming) {
     return {
-      title: "Checking memory",
-      body: "Looking for relevant memories before answering.",
+      title: events.length === 0 ? "Reading this turn" : "Checking memory",
+      body: events.length === 0
+        ? "Deciding whether this should be stored, recalled, or answered directly."
+        : "Looking for relevant memories before answering.",
       type: "retrieve" as const,
       region: "prefrontal" as const
     };

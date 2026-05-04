@@ -80,7 +80,7 @@ describe("memory UX panels", () => {
     expect(screen.getByLabelText("Memory story")).toBeVisible();
     expect(screen.getByText("Answered from memory")).toBeVisible();
     expect(screen.getByText("Found relevant memory")).toBeVisible();
-    expect(screen.getByText("Stored a new memory")).toBeVisible();
+    expect(screen.getByText("Stored new memory")).toBeVisible();
     expect(screen.queryByText(/OpenAI planner/)).not.toBeInTheDocument();
     expect(screen.queryByText(/semantic search/)).not.toBeInTheDocument();
     expect(screen.queryByText(/confidence/)).not.toBeInTheDocument();

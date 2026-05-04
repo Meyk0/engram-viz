@@ -4,16 +4,12 @@ import {
 } from "@/lib/memory/tools";
 import { configuredMemoryRetriever } from "@/lib/memory/retriever-config";
 import type { MemoryRetriever } from "@/lib/memory/retrieve";
-import { listMemories, markAccessed } from "@/lib/memory/store";
+import { listMemories, markAccessed, markSuperseded, type MemoryInput } from "@/lib/memory/store";
 import type { MemoryStore } from "@/lib/memory/store-interface";
 import type { BrainRegion, EngramEvent, MemoryDecisionTrace } from "@/types";
 
-export type StoreMemoryInput = {
+export type StoreMemoryInput = MemoryInput & {
   sessionId: string;
-  text: string;
-  importance?: number;
-  topic?: string;
-  now?: string;
 };
 
 export type RetrieveMemoryInput = {
@@ -28,6 +24,9 @@ export type ConsolidateMemoryInput = {
   sessionId: string;
   ids: string[];
   consolidatedText: string;
+  topic?: string;
+  entities?: string[];
+  confidence?: number;
   decision?: MemoryDecisionTrace;
   now?: string;
 };
@@ -53,7 +52,7 @@ export class MemoryEngine {
   async retrieve(input: RetrieveMemoryInput): Promise<EngramEvent> {
     const session = await this.store.getSession(input.sessionId);
     const retrieval = await (input.retriever ?? this.retriever).retrieve({
-      memories: listMemories(session),
+      memories: listMemories(session).filter((memory) => memory.status !== "superseded"),
       query: input.query,
       limit: input.limit
     });
@@ -83,10 +82,16 @@ export class MemoryEngine {
     return event.type === "consolidate" && input.decision ? { ...event, decision: input.decision } : event;
   }
 
+  async supersede(sessionId: string, ids: string[]): Promise<void> {
+    if (ids.length === 0) return;
+    const session = await this.store.getSession(sessionId);
+    markSuperseded(session, ids);
+  }
+
   async decay(sessionId: string): Promise<EngramEvent | null> {
     const memories = await this.store.list(sessionId);
     const ids = memories
-      .filter((memory) => memory.access_count === 0 && memory.importance < 0.4)
+      .filter((memory) => memory.status !== "superseded" && memory.access_count === 0 && memory.importance < 0.4)
       .map((memory) => memory.id);
 
     return ids.length > 0 ? { type: "decay", ids } : null;

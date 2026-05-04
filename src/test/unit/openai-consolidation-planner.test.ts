@@ -29,7 +29,9 @@ describe("OpenAIConsolidationPlanner", () => {
           confidence: 0.92,
           reason: "Both memories describe stable visual design preferences.",
           ids: ["mem-a", "mem-b"],
-          consolidatedText: "User prefers restrained red medical interface design."
+          consolidatedText: "User prefers restrained red medical interface design.",
+          topic: "design",
+          entities: ["red", "interface"]
         })
       })
     );
@@ -45,7 +47,8 @@ describe("OpenAIConsolidationPlanner", () => {
         makeMemory({ id: "mem-a", text: "User prefers red interface accents", topic: "design" }),
         makeMemory({ id: "mem-b", text: "User likes restrained medical UI", topic: "design" }),
         makeMemory({ id: "mem-c", text: "User likes the ocean", topic: "preference" })
-      ]
+      ],
+      recentMemoryIds: ["mem-a"]
     });
 
     expect(decision).toEqual({
@@ -54,7 +57,9 @@ describe("OpenAIConsolidationPlanner", () => {
       confidence: 0.92,
       reason: "Both memories describe stable visual design preferences.",
       ids: ["mem-a", "mem-b"],
-      consolidatedText: "User prefers restrained red medical interface design."
+      consolidatedText: "User prefers restrained red medical interface design.",
+      topic: "design",
+      entities: ["red", "interface"]
     });
     expect(fetcher).toHaveBeenCalledWith(
       "https://api.openai.com/v1/responses",
@@ -85,7 +90,9 @@ describe("OpenAIConsolidationPlanner", () => {
           confidence: 0.87,
           reason: "The memories are adjacent but not the same semantic fact.",
           ids: [],
-          consolidatedText: null
+          consolidatedText: null,
+          topic: null,
+          entities: []
         })
       })
     );
@@ -114,7 +121,9 @@ describe("OpenAIConsolidationPlanner", () => {
           confidence: 0.91,
           reason: "Invalid id included.",
           ids: ["mem-a", "mem-c"],
-          consolidatedText: "User has a mixed preference."
+          consolidatedText: "User has a mixed preference.",
+          topic: "preference",
+          entities: []
         })
       })
     );
@@ -125,7 +134,8 @@ describe("OpenAIConsolidationPlanner", () => {
         makeMemory({ id: "mem-a", text: "User likes red accents", topic: "design" }),
         makeMemory({ id: "mem-b", text: "User likes restrained medical UI", topic: "design" }),
         makeMemory({ id: "mem-c", text: "User likes the ocean", topic: "preference" })
-      ]
+      ],
+      recentMemoryIds: ["mem-a"]
     });
 
     expect(decision.provider).toBe("fallback");
@@ -143,7 +153,9 @@ describe("OpenAIConsolidationPlanner", () => {
           confidence: 0.31,
           reason: "Unsure.",
           ids: [],
-          consolidatedText: null
+          consolidatedText: null,
+          topic: null,
+          entities: []
         })
       })
     );
@@ -197,7 +209,9 @@ describe("parseOpenAIConsolidationDecision", () => {
           confidence: 0.82,
           reason: "Missing summary text.",
           ids: ["mem-a", "mem-b"],
-          consolidatedText: null
+          consolidatedText: null,
+          topic: "design",
+          entities: []
         }),
         {
           memories: [

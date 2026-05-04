@@ -8,6 +8,7 @@ import {
 } from "@/lib/memory/consolidationPolicy";
 import { deterministicMemoryDecisionPlanner, type MemoryDecisionPlanner } from "@/lib/memory/decision";
 import type { MemoryRetriever } from "@/lib/memory/retrieve";
+import type { TurnMemoryPlanner } from "@/lib/memory/turn-planner";
 
 describe("/api/chat", () => {
   it("returns live memory SSE chunks in demo mode", async () => {
@@ -316,6 +317,60 @@ describe("/api/chat", () => {
     expect(consolidate.added.text).toContain("place and life-context");
   });
 
+  it("does not store standalone world facts as user memories", async () => {
+    resetLiveMemoryStore();
+
+    const chunks = await createLiveMemoryStream({
+      sessionId: "api-chat-world-fact",
+      message: "San Francisco has amazing coffee roasters"
+    });
+    const eventTypes = chunks
+      .filter((chunk) => chunk.kind === "event")
+      .map((chunk) => (chunk.kind === "event" ? chunk.event.type : "none"));
+
+    expect(eventTypes).not.toContain("store");
+    expect(eventTypes).not.toContain("retrieve");
+    expect(eventTypes).not.toContain("load");
+  });
+
+  it("stores corrections and avoids retrieving superseded memories", async () => {
+    resetLiveMemoryStore();
+
+    const firstTurn = await createLiveMemoryStream({
+      sessionId: "api-chat-correction",
+      message: "I live in San Francisco"
+    });
+    const original = firstTurn.find((chunk) => chunk.kind === "event" && chunk.event.type === "store");
+    expect(original?.kind).toBe("event");
+    if (original?.kind !== "event" || original.event.type !== "store") {
+      throw new Error("expected original store event");
+    }
+
+    const correctionTurn = await createLiveMemoryStream({
+      sessionId: "api-chat-correction",
+      message: "Actually, I live in Oakland now"
+    });
+    const correction = correctionTurn.find((chunk) => chunk.kind === "event" && chunk.event.type === "store");
+    expect(correction?.kind).toBe("event");
+    if (correction?.kind !== "event" || correction.event.type !== "store") {
+      throw new Error("expected correction store event");
+    }
+    expect(correction.event.memory.supersedes).toEqual([original.event.memory.id]);
+
+    const questionTurn = await createLiveMemoryStream({
+      sessionId: "api-chat-correction",
+      message: "Where do I live?"
+    });
+    const retrieve = questionTurn.find((chunk) => chunk.kind === "event" && chunk.event.type === "retrieve");
+
+    expect(retrieve?.kind).toBe("event");
+    if (retrieve?.kind !== "event" || retrieve.event.type !== "retrieve") {
+      throw new Error("expected retrieve event");
+    }
+    expect(retrieve.event.ids).toContain(correction.event.memory.id);
+    expect(retrieve.event.ids).not.toContain(original.event.memory.id);
+  });
+
   it("does not store trivial questions but still streams a response and done", async () => {
     resetLiveMemoryStore();
 
@@ -375,7 +430,7 @@ describe("/api/chat", () => {
     });
   });
 
-  it("passes retrieved memory ids into the decision planner", async () => {
+  it("passes current memories into the injected turn planner before retrieval", async () => {
     resetLiveMemoryStore();
 
     await createLiveMemoryStream({
@@ -383,17 +438,20 @@ describe("/api/chat", () => {
       message: "I like the color blue"
     });
 
-    let relatedMemoryIds: string[] = [];
-    const planner: MemoryDecisionPlanner = {
+    let visibleMemoryTexts: string[] = [];
+    const planner: TurnMemoryPlanner = {
       provider: "llm",
       decide: (input) => {
-        relatedMemoryIds = input.relatedMemoryIds ?? [];
+        visibleMemoryTexts = input.memories?.map((memory) => memory.text) ?? [];
         return {
           provider: "llm",
-          operation: "ignore",
           confidence: 0.96,
-          reason: "Question should not become a stored memory.",
-          relatedMemoryIds
+          reason: "Question should retrieve memory.",
+          intent: "memory_question",
+          shouldRetrieve: true,
+          retrieveQuery: input.message,
+          memories: [],
+          supersedeMemoryIds: []
         };
       }
     };
@@ -401,10 +459,10 @@ describe("/api/chat", () => {
     await createLiveMemoryStream({
       sessionId: "api-chat-planner-related",
       message: "What is my favorite color?",
-      memoryDecisionPlanner: planner
+      turnMemoryPlanner: planner
     });
 
-    expect(relatedMemoryIds).toHaveLength(1);
+    expect(visibleMemoryTexts).toContain("I like the color blue");
   });
 
   it("emits planner provenance when a memory decision skips storage", async () => {

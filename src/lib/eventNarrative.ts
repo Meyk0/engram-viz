@@ -29,10 +29,10 @@ export function getCurrentEventNarrative(events: EngramEvent[]): EventNarrative 
       }
 
       return {
-        title: event.decision.operation === "ignore" ? "Nothing stored" : "Memory checked",
+        title: event.decision.operation === "ignore" ? "No new memory" : "Memory checked",
         body:
           event.decision.operation === "ignore"
-            ? "This turn did not contain a durable fact or stable preference."
+            ? friendlyIgnoreBody(event.decision.reason)
             : "Engram checked whether this turn should change memory.",
         type: event.type
       };
@@ -47,9 +47,9 @@ export function getCurrentEventNarrative(events: EngramEvent[]): EventNarrative 
       };
     case "store":
       return {
-        title: "Stored",
+        title: event.memory.supersedes?.length ? "Updated memory" : "Stored new memory",
         body: event.decision
-          ? `Saved as a new memory because it looked like ${memoryReasonLabel(event.decision.reason)}.`
+          ? `Saved because it looked like ${memoryReasonLabel(event.decision.reason)}.`
           : "Saved as a new memory in the hippocampus.",
         type: event.type,
         region: event.memory.region
@@ -97,7 +97,7 @@ export function getCurrentEventNarrative(events: EngramEvent[]): EventNarrative 
       };
     case "consolidate":
       return {
-        title: "Stabilized",
+        title: "Stabilized related memories",
         body: event.decision
           ? `${pluralize(event.removed.length, "new memory")} merged into stable knowledge.`
           : `${event.removed.length} related memories merged into stable knowledge.`,
@@ -125,11 +125,34 @@ function memoryReasonLabel(reason: string) {
     case "preference":
       return "a stable preference";
     case "personal-fact":
+    case "personal_fact":
       return "durable personal information";
+    case "place-fact":
+    case "place_fact":
+      return "personal context about a place";
     case "project-fact":
+    case "project_fact":
       return "a durable project fact";
+    case "correction":
+      return "an update to an earlier memory";
+    case "memory-question":
+      return "a question that used memory";
     default:
       return "a durable memory";
+  }
+}
+
+function friendlyIgnoreBody(reason: string) {
+  switch (reason) {
+    case "memory-question":
+      return "This turn used memory for the answer, but did not add a new memory.";
+    case "command":
+      return "This was a request to do something, not a durable fact to remember.";
+    case "not-durable":
+    case "transient":
+      return "This turn did not include a durable fact to remember.";
+    default:
+      return "Nothing new needed to be stored for this turn.";
   }
 }
 
