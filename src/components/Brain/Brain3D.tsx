@@ -19,6 +19,7 @@ import type { EngramEvent } from "@/types";
 
 type Brain3DProps = {
   events: EngramEvent[];
+  dreamReviewActive?: boolean;
   onActiveContextSelect?: () => void;
   onMemorySelect?: (id: string) => void;
   onRegionSelect?: (region: keyof typeof regionBounds) => void;
@@ -29,6 +30,7 @@ type Brain3DProps = {
 
 export function Brain3D({
   events,
+  dreamReviewActive = false,
   onActiveContextSelect,
   onMemorySelect,
   onRegionSelect,
@@ -61,6 +63,7 @@ export function Brain3D({
         <Suspense fallback={<FallbackBrain />}>
           <BrainRig
             events={events}
+            dreamReviewActive={dreamReviewActive}
             labelsVisible={labelsVisible}
             onActiveContextSelect={onActiveContextSelect}
             onMemorySelect={onMemorySelect}
@@ -151,6 +154,7 @@ function ResponsiveOrbitControls({ controls }: { controls: RefObject<OrbitContro
 
 function BrainRig({
   events,
+  dreamReviewActive = false,
   labelsVisible,
   onActiveContextSelect,
   onMemorySelect,
@@ -159,7 +163,7 @@ function BrainRig({
   selectedMemoryId
 }: Brain3DProps & { labelsVisible: boolean }) {
   const group = useRef<THREE.Group>(null);
-  const animation = getBrainAnimationState(events);
+  const animation = withDreamReviewHold(getBrainAnimationState(events), dreamReviewActive);
 
   useFrame(({ clock }) => {
     if (!group.current) return;
@@ -192,6 +196,22 @@ function BrainRig({
       <RegionLabels animation={animation} onRegionSelect={onRegionSelect} visible={labelsVisible} />
     </group>
   );
+}
+
+function withDreamReviewHold(animation: ReturnType<typeof getBrainAnimationState>, active: boolean) {
+  if (!active) return animation;
+
+  return {
+    ...animation,
+    hippocampusMarker: Math.max(animation.hippocampusMarker, 0.72),
+    dream: {
+      ...animation.dream,
+      active: true,
+      prefrontalQuiet: Math.max(animation.dream.prefrontalQuiet, 0.72),
+      reviewPulse: Math.max(animation.dream.reviewPulse, 0.58),
+      sleepDimming: Math.max(animation.dream.sleepDimming, 0.5)
+    }
+  };
 }
 
 function DreamQuietField({

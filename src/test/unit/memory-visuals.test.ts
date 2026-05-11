@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   getActiveMemoryIds,
   getActiveContextFill,
+  getDreamEligibleMemories,
   getLatestConsolidateEvent,
   getLatestDreamProposal,
   getLatestLoadEvent,
@@ -207,6 +208,30 @@ describe("memory visual lifecycle", () => {
     const appliedEvents: EngramEvent[] = [{ type: "dream_apply", proposal }, ...proposalEvents];
 
     expect(getMemoryVisuals(appliedEvents).map((visual) => visual.memory.id)).toEqual([semantic.id]);
+  });
+
+  it("keeps historical stored traces eligible for dream review after consolidation", () => {
+    const rawA = makeMemory("mem-a", "hippocampus");
+    const rawB = makeMemory("mem-b", "hippocampus");
+    const rawC = makeMemory("mem-c", "hippocampus");
+    const semantic = {
+      ...makeMemory("mem-semantic", "temporal"),
+      sourceMemoryIds: [rawA.id, rawB.id, rawC.id]
+    };
+    const events: EngramEvent[] = [
+      { type: "consolidate", removed: [rawA.id, rawB.id, rawC.id], added: semantic },
+      { type: "store", memory: rawC },
+      { type: "store", memory: rawB },
+      { type: "store", memory: rawA }
+    ];
+
+    expect(getMemoryVisuals(events).map((visual) => visual.memory.id)).toEqual([semantic.id]);
+    expect(getDreamEligibleMemories(events).map((memory) => memory.id)).toEqual([
+      rawA.id,
+      rawB.id,
+      rawC.id,
+      semantic.id
+    ]);
   });
 });
 

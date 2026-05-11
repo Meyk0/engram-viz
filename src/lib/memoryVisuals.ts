@@ -70,6 +70,48 @@ export function getVisibleMemories(events: EngramEvent[]): EngramMemory[] {
   return [...memories.values()].filter((memory) => memory.status !== "superseded");
 }
 
+export function getDreamEligibleMemories(
+  events: EngramEvent[],
+  visibleMemories: EngramMemory[] = getVisibleMemories(events)
+): EngramMemory[] {
+  const supersededIds = new Set<string>();
+  const byId = new Map<string, EngramMemory>();
+
+  events.forEach((event) => {
+    if (event.type === "store") {
+      event.memory.supersedes?.forEach((id) => supersededIds.add(id));
+    }
+    if (event.type === "dream_apply") {
+      event.proposal.operations.forEach((operation) => {
+        const operationSupersededIds =
+          operation.type === "supersede" ? operation.supersedeIds ?? operation.sourceIds : operation.supersedeIds ?? [];
+        operationSupersededIds.forEach((id) => supersededIds.add(id));
+      });
+    }
+  });
+
+  visibleMemories
+    .filter((memory) => memory.status !== "superseded")
+    .forEach((memory) => byId.set(memory.id, memory));
+
+  events
+    .slice()
+    .reverse()
+    .forEach((event) => {
+      if (event.type === "store" && !supersededIds.has(event.memory.id)) {
+        byId.set(event.memory.id, event.memory);
+      }
+    });
+
+  return [...byId.values()]
+    .filter((memory) => memory.status !== "superseded")
+    .sort(
+      (left, right) =>
+        Date.parse(left.created_at) - Date.parse(right.created_at) ||
+        dreamRegionOrder(left.region) - dreamRegionOrder(right.region)
+    );
+}
+
 export function getMemoryPosition(memory: Pick<EngramMemory, "id" | "region">): [number, number, number] {
   const bounds = regionBounds[memory.region];
   const seed = hash(memory.id);
@@ -193,6 +235,17 @@ function hash(value: string): number {
 function normalizedHash(value: number): number {
   const next = Math.sin(value) * 10000;
   return next - Math.floor(next);
+}
+
+function dreamRegionOrder(region: BrainRegion) {
+  switch (region) {
+    case "hippocampus":
+      return 0;
+    case "temporal":
+      return 1;
+    case "prefrontal":
+      return 2;
+  }
 }
 
 function hasContextClearingEventBefore(events: EngramEvent[], index: number) {

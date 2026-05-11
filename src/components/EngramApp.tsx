@@ -2,7 +2,12 @@
 
 import { useCallback, useMemo, useRef, useState } from "react";
 import { Send, Square } from "lucide-react";
-import { getActiveContextFill, getLatestRetrieveEvent, getLoadedMemoryIds } from "@/lib/memoryVisuals";
+import {
+  getActiveContextFill,
+  getDreamEligibleMemories,
+  getLatestRetrieveEvent,
+  getLoadedMemoryIds
+} from "@/lib/memoryVisuals";
 import { useChat } from "@/hooks/useChat";
 import { useEventQueue } from "@/hooks/useEventQueue";
 import { useMemoryExplanations } from "@/hooks/useMemoryExplanations";
@@ -61,6 +66,10 @@ export function EngramApp() {
   const activeMemories = useMemo(
     () => memories.filter((memory) => memory.status !== "superseded"),
     [memories]
+  );
+  const dreamEligibleMemories = useMemo(
+    () => getDreamEligibleMemories(events, activeMemories),
+    [activeMemories, events]
   );
   const dreamReviewReady = Boolean(dreamProposal && dreamProposal.status === "proposed");
 
@@ -135,7 +144,7 @@ export function EngramApp() {
     setDreamPending(true);
     setDreamError(null);
     setDreamProposal(null);
-    setDreamMemorySnapshot(activeMemories);
+    setDreamMemorySnapshot(dreamEligibleMemories);
     setSelectedMemoryId(undefined);
     setSelectedRegion(undefined);
     setActivePanel("dream");
@@ -144,7 +153,7 @@ export function EngramApp() {
       const response = await fetch("/api/dream", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ clientMemories: activeMemories })
+        body: JSON.stringify({ clientMemories: dreamEligibleMemories })
       });
       const payload = (await response.json()) as { proposal?: DreamProposal; error?: string };
 
@@ -159,7 +168,7 @@ export function EngramApp() {
     } finally {
       setDreamPending(false);
     }
-  }, [activeMemories, dreamPending, isStreaming, pushDreamEvents]);
+  }, [dreamEligibleMemories, dreamPending, isStreaming, pushDreamEvents]);
 
   const applyDreamProposal = useCallback(
     (proposal: DreamProposal) => {
@@ -269,6 +278,7 @@ export function EngramApp() {
         onResetSession={resetDemoSession}
         responseActive={isStreaming}
         selectedMemoryId={selectedMemoryId}
+        dreamReviewActive={activePanel === "dream" && (dreamPending || Boolean(dreamProposal) || Boolean(dreamError))}
       />
 
       <header className="topbar">
@@ -338,7 +348,7 @@ export function EngramApp() {
         open={activePanel === "transcript"}
       />
       <DreamReviewPanel
-        beforeMemories={dreamMemorySnapshot.length > 0 ? dreamMemorySnapshot : activeMemories}
+        beforeMemories={dreamMemorySnapshot.length > 0 ? dreamMemorySnapshot : dreamEligibleMemories}
         error={dreamError}
         onApply={applyDreamProposal}
         onClose={closeSecondaryPanel}
@@ -350,8 +360,8 @@ export function EngramApp() {
       <SecondaryDock
         activePanel={activePanel}
         hasActiveContext={activeContextFill.used > 0}
-        dreamCount={dreamReviewReady ? dreamProposal?.operations.length ?? 0 : activeMemories.length}
-        dreamReady={activeMemories.length >= 3 && !isStreaming}
+        dreamCount={dreamReviewReady ? dreamProposal?.operations.length ?? 0 : dreamEligibleMemories.length}
+        dreamReady={dreamEligibleMemories.length >= 3 && !isStreaming}
         hasDreamReview={dreamReviewReady || dreamPending}
         hasMemoryDetails={memoryDetailCount > 0}
         activeContextCount={activeContextFill.used}
