@@ -55,4 +55,46 @@ describe("brain animation state", () => {
     expect(state.decayDimming).toBeLessThan(0.5);
     expect(Object.values(state.regions).every((pulse) => pulse > 0)).toBe(true);
   });
+
+  it("routes dream review through quiet sleep and hippocampus pulses", () => {
+    const event: EngramEvent = {
+      type: "dream_review",
+      proposalId: "dream-1",
+      ids: ["mem-engram-goal", "mem-indigo"]
+    };
+    const state = getBrainAnimationState([event]);
+
+    expect(getAnimatedRegions(event)).toEqual(["hippocampus"]);
+    expect(state.dream.active).toBe(true);
+    expect(state.dream.prefrontalQuiet).toBeGreaterThan(0);
+    expect(state.dream.reviewPulse).toBeGreaterThan(0);
+    expect(state.dream.sleepDimming).toBeGreaterThan(0);
+  });
+
+  it("routes dream merge and insight operations to temporal transfer arcs", () => {
+    const event: EngramEvent = {
+      type: "dream_merge",
+      proposalId: "dream-1",
+      operation: {
+        id: "op-1",
+        type: "merge",
+        sourceIds: ["mem-a", "mem-b"],
+        reason: "Related durable memories.",
+        confidence: 0.86,
+        result: fixtureMemories[0]
+      }
+    };
+
+    const state = getBrainAnimationState([event]);
+
+    expect(getAnimatedRegions(event)).toEqual(["hippocampus", "temporal"]);
+    expect(state.transfer).toMatchObject({
+      active: true,
+      from: "hippocampus",
+      triggerKey: "dream-1-op-1",
+      to: "temporal",
+      strength: 1
+    });
+    expect(state.dream.operation).toBe("merge");
+  });
 });

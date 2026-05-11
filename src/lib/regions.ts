@@ -58,6 +58,18 @@ export function getEventRegions(event: EngramEvent): BrainRegion[] {
       return ["hippocampus", "temporal"];
     case "init":
       return [...new Set(event.memories.map((memory) => memory.region))];
+    case "dream_start":
+    case "dream_review":
+    case "dream_complete":
+    case "dream_dismiss":
+      return ["hippocampus"];
+    case "dream_merge":
+    case "dream_insight":
+      return ["hippocampus", "temporal"];
+    case "dream_supersede":
+      return ["hippocampus", "temporal"];
+    case "dream_apply":
+      return ["temporal"];
   }
 }
 

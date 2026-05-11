@@ -53,6 +53,44 @@ describe("event schema", () => {
       })
     ).not.toThrow();
   });
+
+  it("accepts dream mode proposal events", () => {
+    const proposal = {
+      id: "dream-1",
+      provider: "deterministic",
+      status: "proposed",
+      reason: "Related memories can be reviewed.",
+      operations: [
+        {
+          id: "dream-op-1",
+          type: "merge",
+          sourceIds: ["mem-a", "mem-b"],
+          reason: "Duplicate preference memories.",
+          confidence: 0.84,
+          result: {
+            id: "mem-temporal",
+            text: "User likes indigo.",
+            importance: 0.82,
+            topic: "preference",
+            region: "temporal",
+            created_at: "2026-05-11T12:00:00.000Z",
+            access_count: 0
+          }
+        }
+      ],
+      created_at: "2026-05-11T12:00:00.000Z"
+    };
+
+    expect(() => parseEngramEvent({ type: "dream_start", proposal })).not.toThrow();
+    expect(() =>
+      parseEngramEvent({
+        type: "dream_merge",
+        proposalId: proposal.id,
+        operation: proposal.operations[0]
+      })
+    ).not.toThrow();
+    expect(() => parseEngramEvent({ type: "dream_apply", proposal })).not.toThrow();
+  });
 });
 
 describe("SSE encoding", () => {

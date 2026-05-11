@@ -120,6 +120,34 @@ test("opens working memory details after retrieval", async ({ page }) => {
   await expect(page.getByLabel("Active context panel")).toContainText("loaded into active context");
 });
 
+test("opens and dismisses Dream Mode reflection after enough memories", async ({ page }) => {
+  test.setTimeout(60_000);
+  await page.goto("/");
+  await page.getByRole("button", { name: "Start", exact: true }).click();
+
+  for (const message of [
+    "I love the color indigo.",
+    "I live in San Francisco.",
+    "My project uses React Three Fiber."
+  ]) {
+    await page.getByLabel("Chat message").fill(message);
+    await page.getByLabel("Send").click();
+    await expect(page.getByRole("button", { name: /^Memory [1-9]/ })).toBeVisible({ timeout: 12_000 });
+    await expect(page.locator(".chat-status")).toContainText("READY", { timeout: 12_000 });
+  }
+
+  const reflect = page.getByRole("button", { name: /Reflect 3/i });
+  await expect(reflect).toBeVisible({ timeout: 12_000 });
+  await reflect.click();
+
+  await expect(page.getByLabel("Dream reflection review")).toBeVisible({ timeout: 12_000 });
+  await expect(page.getByLabel("Dream reflection review")).toContainText("Nothing changes until you apply it");
+  await expect(page.getByLabel("Current memory receipt")).toContainText(/Reflection|Dream|Review/i);
+
+  await page.getByRole("button", { name: "Keep current memories" }).click();
+  await expect(page.getByLabel("Dream reflection review")).toBeHidden();
+});
+
 test("renders a nonblank brain canvas", async ({ page }) => {
   await page.goto("/");
   const canvas = page.locator("canvas").first();

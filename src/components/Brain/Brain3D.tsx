@@ -163,8 +163,11 @@ function BrainRig({
 
   useFrame(({ clock }) => {
     if (!group.current) return;
-    group.current.rotation.y = -1.05 + Math.sin(clock.elapsedTime * 0.1) * 0.035;
-    group.current.position.y = Math.sin(clock.elapsedTime * 0.55) * 0.018;
+    const sleep = animation.dream.sleepDimming;
+    const driftSpeed = 0.1 - sleep * 0.055;
+    const floatSpeed = 0.55 - sleep * 0.28;
+    group.current.rotation.y = -1.05 + Math.sin(clock.elapsedTime * driftSpeed) * (0.035 - sleep * 0.018);
+    group.current.position.y = Math.sin(clock.elapsedTime * floatSpeed) * (0.018 - sleep * 0.008);
   });
 
   return (
@@ -174,27 +177,103 @@ function BrainRig({
       <Axons animation={animation} />
       <MemoryLifecycle
         events={events}
+        dream={animation.dream}
         onActiveContextSelect={onActiveContextSelect}
         onMemorySelect={onMemorySelect}
         responseActive={responseActive}
         selectedMemoryId={selectedMemoryId}
       />
-      <HippocampusMarker pulse={animation.hippocampusMarker} decayDimming={animation.decayDimming} />
+      <DreamQuietField prefrontalQuiet={animation.dream.prefrontalQuiet} sleepDimming={animation.dream.sleepDimming} />
+      <HippocampusMarker
+        pulse={animation.hippocampusMarker}
+        reviewPulse={animation.dream.reviewPulse}
+        decayDimming={animation.decayDimming}
+      />
       <RegionLabels animation={animation} onRegionSelect={onRegionSelect} visible={labelsVisible} />
     </group>
   );
 }
 
-function HippocampusMarker({ pulse, decayDimming }: { pulse: number; decayDimming: number }) {
+function DreamQuietField({
+  prefrontalQuiet,
+  sleepDimming
+}: {
+  prefrontalQuiet: number;
+  sleepDimming: number;
+}) {
+  const prefrontal = useRef<THREE.Mesh>(null);
+  const sleepShell = useRef<THREE.Mesh>(null);
+
+  useFrame(({ clock }) => {
+    if (prefrontal.current) {
+      prefrontal.current.visible = prefrontalQuiet > 0.02;
+      prefrontal.current.scale.setScalar(0.11 + prefrontalQuiet * 0.035);
+      const material = prefrontal.current.material;
+      if (material instanceof THREE.MeshBasicMaterial) {
+        material.opacity = prefrontalQuiet * (0.16 + Math.sin(clock.elapsedTime * 1.4) * 0.025);
+      }
+    }
+
+    if (sleepShell.current) {
+      sleepShell.current.visible = sleepDimming > 0.02;
+      sleepShell.current.scale.setScalar(0.78 + sleepDimming * 0.06);
+      const material = sleepShell.current.material;
+      if (material instanceof THREE.MeshBasicMaterial) {
+        material.opacity = sleepDimming * 0.045;
+      }
+    }
+  });
+
+  return (
+    <group renderOrder={7}>
+      <mesh ref={sleepShell} visible={false}>
+        <sphereGeometry args={[1, 48, 24]} />
+        <meshBasicMaterial
+          color="#141a32"
+          transparent
+          opacity={0}
+          depthWrite={false}
+          depthTest={false}
+          blending={THREE.AdditiveBlending}
+        />
+      </mesh>
+      <mesh ref={prefrontal} position={regionBounds.prefrontal.center} scale={0.11} visible={false}>
+        <sphereGeometry args={[1, 28, 16]} />
+        <meshBasicMaterial
+          color="#050510"
+          transparent
+          opacity={0}
+          depthWrite={false}
+          depthTest={false}
+        />
+      </mesh>
+    </group>
+  );
+}
+
+function HippocampusMarker({
+  pulse,
+  reviewPulse,
+  decayDimming
+}: {
+  pulse: number;
+  reviewPulse: number;
+  decayDimming: number;
+}) {
   const mesh = useRef<THREE.Mesh>(null);
 
   useFrame(({ clock }) => {
     const material = mesh.current?.material;
     if (!(material instanceof THREE.MeshStandardMaterial)) return;
-    material.opacity = Math.max(0.03, 0.05 + pulse * 0.12 - decayDimming * 0.08);
-    material.emissiveIntensity = 0.22 + pulse * 0.65 + Math.sin(clock.elapsedTime * 3.8) * 0.03;
+    const reviewWave = reviewPulse * (0.7 + Math.sin(clock.elapsedTime * 2.1) * 0.3);
+    material.opacity = Math.max(0.03, 0.05 + pulse * 0.12 + reviewWave * 0.16 - decayDimming * 0.08);
+    material.emissiveIntensity = 0.22 + pulse * 0.65 + reviewWave * 0.9 + Math.sin(clock.elapsedTime * 3.8) * 0.03;
     if (mesh.current) {
-      mesh.current.scale.set(0.095 + pulse * 0.016, 0.034 + pulse * 0.006, 0.044 + pulse * 0.008);
+      mesh.current.scale.set(
+        0.095 + pulse * 0.016 + reviewWave * 0.018,
+        0.034 + pulse * 0.006 + reviewWave * 0.008,
+        0.044 + pulse * 0.008 + reviewWave * 0.009
+      );
     }
   });
 

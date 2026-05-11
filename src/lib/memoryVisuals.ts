@@ -48,6 +48,23 @@ export function getVisibleMemories(events: EngramEvent[]): EngramMemory[] {
         event.removed.forEach((id) => memories.delete(id));
         memories.set(event.added.id, event.added);
       }
+      if (event.type === "dream_apply") {
+        event.proposal.operations.forEach((operation) => {
+          const supersededIds = operation.type === "supersede"
+            ? operation.supersedeIds ?? operation.sourceIds
+            : operation.supersedeIds ?? [];
+          supersededIds.forEach((id) => {
+            const memory = memories.get(id);
+            if (memory) memories.set(id, { ...memory, status: "superseded" });
+          });
+
+          if (operation.type === "merge") {
+            operation.sourceIds.forEach((id) => memories.delete(id));
+          }
+
+          if (operation.result) memories.set(operation.result.id, operation.result);
+        });
+      }
     });
 
   return [...memories.values()].filter((memory) => memory.status !== "superseded");
@@ -86,6 +103,28 @@ export function getLatestLoadEvent(events: EngramEvent[]) {
 export function getLatestConsolidateEvent(events: EngramEvent[]) {
   return events.find(
     (event): event is Extract<EngramEvent, { type: "consolidate" }> => event.type === "consolidate"
+  );
+}
+
+export function getLatestDreamProposal(events: EngramEvent[]) {
+  const event = events.find(
+    (item): item is Extract<EngramEvent, { type: "dream_start" | "dream_complete" | "dream_apply" | "dream_dismiss" }> =>
+      item.type === "dream_start" ||
+      item.type === "dream_complete" ||
+      item.type === "dream_apply" ||
+      item.type === "dream_dismiss"
+  );
+
+  return event?.proposal;
+}
+
+export function isDreaming(events: EngramEvent[]) {
+  const latestDreamEvent = events.find((event) => event.type.startsWith("dream_"));
+  return Boolean(
+    latestDreamEvent &&
+      latestDreamEvent.type !== "dream_complete" &&
+      latestDreamEvent.type !== "dream_apply" &&
+      latestDreamEvent.type !== "dream_dismiss"
   );
 }
 

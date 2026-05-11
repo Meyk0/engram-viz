@@ -119,6 +119,62 @@ export function getCurrentEventNarrative(events: EngramEvent[]): EventNarrative 
         body: `${pluralize(event.ids.length, "memory")} was less relevant to this turn, but stayed stored.`,
         type: event.type
       };
+    case "dream_start":
+      return {
+        title: "Dream mode started",
+        body: `Engram is quietly reviewing ${pluralize(getProposalSourceCount(event.proposal), "memory")} for possible reflection.`,
+        type: event.type,
+        region: "hippocampus"
+      };
+    case "dream_review":
+      return {
+        title: "Reviewing memories",
+        body: `${pluralize(event.ids.length, "memory")} is being compared before any change is applied.`,
+        type: event.type,
+        region: "hippocampus"
+      };
+    case "dream_merge":
+      return {
+        title: "Drafted memory merge",
+        body: "Related memories can become one cleaner stable memory if you apply the reflection.",
+        type: event.type,
+        region: "temporal"
+      };
+    case "dream_supersede":
+      return {
+        title: "Drafted memory update",
+        body: `${pluralize(event.operation.supersedeIds?.length ?? event.operation.sourceIds.length, "memory")} would fade from active recall if you apply the reflection.`,
+        type: event.type,
+        region: "temporal"
+      };
+    case "dream_insight":
+      return {
+        title: "Drafted reflected insight",
+        body: "Engram found a higher-level pattern that can be saved as stable knowledge.",
+        type: event.type,
+        region: "temporal"
+      };
+    case "dream_complete":
+      return {
+        title: "Reflection ready",
+        body: `${pluralize(event.proposal.operations.length, "proposed change")} is waiting for review.`,
+        type: event.type,
+        region: "hippocampus"
+      };
+    case "dream_apply":
+      return {
+        title: "Reflection applied",
+        body: `${pluralize(event.proposal.operations.length, "memory change")} updated Engram's stored context.`,
+        type: event.type,
+        region: "temporal"
+      };
+    case "dream_dismiss":
+      return {
+        title: "Reflection dismissed",
+        body: "Current memories stayed unchanged.",
+        type: event.type,
+        region: "hippocampus"
+      };
   }
 }
 
@@ -174,6 +230,10 @@ function regionLabel(region: BrainRegion) {
     case "temporal":
       return "stable knowledge";
   }
+}
+
+function getProposalSourceCount(proposal: Extract<EngramEvent, { type: "dream_start" }>["proposal"]) {
+  return new Set(proposal.operations.flatMap((operation) => operation.sourceIds)).size;
 }
 
 function isStoreFollowupFire(events: EngramEvent[], event: Extract<EngramEvent, { type: "fire" }>) {

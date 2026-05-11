@@ -1,12 +1,15 @@
-import { Activity, BrainCircuit, MapPin, MessageSquareText } from "lucide-react";
+import { Activity, BrainCircuit, MapPin, MessageSquareText, MoonStar } from "lucide-react";
 import type { ReactNode } from "react";
 
-export type SecondaryPanel = "transcript" | "memory" | "context" | "region";
+export type SecondaryPanel = "transcript" | "memory" | "context" | "region" | "dream";
 
 type SecondaryDockProps = {
   activeContextCount: number;
   activePanel: SecondaryPanel | null;
+  dreamCount?: number;
+  dreamReady?: boolean;
   hasActiveContext: boolean;
+  hasDreamReview?: boolean;
   hasMemoryDetails: boolean;
   hasRegionDetails: boolean;
   memoryCount: number;
@@ -18,7 +21,10 @@ type SecondaryDockProps = {
 export function SecondaryDock({
   activeContextCount,
   activePanel,
+  dreamCount = 0,
+  dreamReady,
   hasActiveContext,
+  hasDreamReview = false,
   hasMemoryDetails,
   hasRegionDetails,
   memoryCount,
@@ -26,6 +32,7 @@ export function SecondaryDock({
   regionCount,
   transcriptCount
 }: SecondaryDockProps) {
+  const shouldShowDream = hasDreamReview || dreamReady || dreamCount >= 3;
   const items: Array<{
     count: number;
     icon: ReactNode;
@@ -38,6 +45,16 @@ export function SecondaryDock({
       id: "transcript",
       label: "Transcript"
     },
+    ...(shouldShowDream
+      ? [
+          {
+            count: dreamCount || activeContextCount,
+            icon: <MoonStar size={14} />,
+            id: "dream" as const,
+            label: hasDreamReview ? "Review" : "Reflect"
+          }
+        ]
+      : []),
     ...(hasMemoryDetails
       ? [
           {
@@ -74,6 +91,7 @@ export function SecondaryDock({
     <nav className="secondary-dock" aria-label="Secondary views">
       {items.map((item) => (
         <button
+          aria-label={item.count > 0 ? `${item.label} ${item.count}` : item.label}
           aria-pressed={activePanel === item.id}
           className="secondary-dock-btn"
           data-active={activePanel === item.id}

@@ -20,6 +20,7 @@ import {
   memoryColors,
   type MemoryVisual
 } from "@/lib/memoryVisuals";
+import type { BrainAnimationState } from "@/lib/animations";
 import { regionBounds } from "@/lib/regions";
 import type { EngramEvent, EngramMemory } from "@/types";
 
@@ -35,6 +36,7 @@ const activeContextSlotRadiusX = 0.058;
 const activeContextSlotRadiusY = 0.03;
 
 type MemoryLifecycleProps = {
+  dream?: BrainAnimationState["dream"];
   events: EngramEvent[];
   onActiveContextSelect?: () => void;
   onMemorySelect?: (id: string) => void;
@@ -43,6 +45,7 @@ type MemoryLifecycleProps = {
 };
 
 export function MemoryLifecycle({
+  dream,
   events,
   onActiveContextSelect,
   onMemorySelect,
@@ -57,6 +60,7 @@ export function MemoryLifecycle({
   const latestLoad = useMemo(() => getLatestLoadEvent(events), [events]);
   const latestFire = useMemo(() => getLatestFireEvent(events), [events]);
   const latestConsolidate = useMemo(() => getLatestConsolidateEvent(events), [events]);
+  const latestDreamOperation = useMemo(() => getLatestDreamOperationEvent(events), [events]);
   const prefrontalBoltKey = latestRetrieve && latestRetrieve.ids.length > 0 ? latestRetrieve.query : undefined;
 
   return (
@@ -78,6 +82,8 @@ export function MemoryLifecycle({
         responseActive={responseActive}
       />
       <ConsolidationArc consolidate={latestConsolidate} events={events} />
+      <DreamOperationArc event={latestDreamOperation} events={events} />
+      <DreamReviewPulse active={Boolean(dream?.reviewPulse)} intensity={dream?.reviewPulse ?? 0} />
       <FiredAxons memories={memories} activeIds={activeIds} triggerKey={latestFire ? `${latestFire.region}-${latestFire.ids.join(".")}` : undefined} />
       <ProcessingHalo active={responseActive && loadedIds.length > 0} />
     </group>
@@ -817,6 +823,166 @@ function ConsolidationArc({
   );
 }
 
+type DreamOperationEvent = Extract<
+  EngramEvent,
+  { type: "dream_merge" | "dream_supersede" | "dream_insight" }
+>;
+
+function DreamOperationArc({ event, events }: { event?: DreamOperationEvent; events: EngramEvent[] }) {
+  if (!event) return null;
+  if (event.type === "dream_supersede") {
+    return <DreamSupersedeFade event={event} events={events} />;
+  }
+
+  return <DreamTemporalArc event={event} events={events} />;
+}
+
+function DreamTemporalArc({ event, events }: { event: Exclude<DreamOperationEvent, { type: "dream_supersede" }>; events: EngramEvent[] }) {
+  const arcMaterial = useRef<THREE.MeshBasicMaterial>(null);
+  const tracer = useRef<THREE.Mesh>(null);
+  const activeKey = useRef<string | undefined>(undefined);
+  const startTime = useRef(-10);
+  const sourcePositions = useMemo(
+    () => event.operation.sourceIds.map((id) => getMemoryPositionById(events, id)),
+    [event.operation.sourceIds, events]
+  );
+  const centroid = useMemo(() => getCentroid(sourcePositions), [sourcePositions]);
+  const target = useMemo(
+    () => (event.operation.result ? getMemoryPosition(event.operation.result) : regionBounds.temporal.center),
+    [event.operation.result]
+  );
+  const curve = useMemo(() => getArcCurve(centroid, target, event.type === "dream_insight" ? 0.42 : 0.34), [centroid, event.type, target]);
+  const geometry = useMemo(() => new THREE.TubeGeometry(curve, 58, 0.005, 8, false), [curve]);
+  const triggerKey = `${event.proposalId}-${event.operation.id}`;
+  const color = event.type === "dream_insight" ? memoryColors.store : memoryColors.temporal;
+
+  useFrame(({ clock }) => {
+    if (activeKey.current !== triggerKey) {
+      activeKey.current = triggerKey;
+      startTime.current = clock.elapsedTime;
+    }
+
+    const elapsed = clock.elapsedTime - startTime.current;
+    const active = elapsed >= 0 && elapsed < 2.4;
+    const progress = Math.min(1, easeOutCubic(elapsed / 1.5));
+    const fade = active ? Math.max(0, 1 - Math.max(0, elapsed - 1.1) / 1.3) : 0;
+
+    if (arcMaterial.current) {
+      arcMaterial.current.opacity = fade * 0.5;
+    }
+
+    if (!tracer.current) return;
+    tracer.current.visible = active;
+    tracer.current.position.copy(curve.getPoint(progress));
+    tracer.current.scale.setScalar(0.5 + Math.sin(progress * Math.PI) * 0.9);
+  });
+
+  return (
+    <group renderOrder={8}>
+      <mesh geometry={geometry}>
+        <meshBasicMaterial
+          ref={arcMaterial}
+          color={color}
+          transparent
+          opacity={0}
+          depthWrite={false}
+          depthTest={false}
+          blending={THREE.AdditiveBlending}
+        />
+      </mesh>
+      <mesh ref={tracer} visible={false}>
+        <sphereGeometry args={[0.026, 16, 10]} />
+        <meshBasicMaterial
+          color={color}
+          transparent
+          opacity={0.88}
+          depthWrite={false}
+          depthTest={false}
+          blending={THREE.AdditiveBlending}
+        />
+      </mesh>
+    </group>
+  );
+}
+
+function DreamSupersedeFade({ event, events }: { event: Extract<DreamOperationEvent, { type: "dream_supersede" }>; events: EngramEvent[] }) {
+  const group = useRef<THREE.Group>(null);
+  const activeKey = useRef<string | undefined>(undefined);
+  const startTime = useRef(-10);
+  const ids = event.operation.supersedeIds?.length ? event.operation.supersedeIds : event.operation.sourceIds;
+  const positions = useMemo(() => ids.map((id) => getMemoryPositionById(events, id)), [events, ids]);
+  const triggerKey = `${event.proposalId}-${event.operation.id}`;
+
+  useFrame(({ clock }) => {
+    if (activeKey.current !== triggerKey) {
+      activeKey.current = triggerKey;
+      startTime.current = clock.elapsedTime;
+    }
+
+    const elapsed = clock.elapsedTime - startTime.current;
+    const active = elapsed >= 0 && elapsed < 2.1;
+    const pulse = active ? Math.max(0, 1 - elapsed / 2.1) : 0;
+
+    if (!group.current) return;
+    group.current.visible = active;
+    group.current.children.forEach((child, index) => {
+      if (!(child instanceof THREE.Mesh)) return;
+      child.scale.setScalar(0.036 + pulse * 0.055 + Math.sin(clock.elapsedTime * 4.2 + index) * 0.004);
+      const material = child.material;
+      if (material instanceof THREE.MeshBasicMaterial) {
+        material.opacity = pulse * 0.44;
+      }
+    });
+  });
+
+  return (
+    <group ref={group} renderOrder={9} visible={false}>
+      {positions.map((position, index) => (
+        <mesh key={`${position.join(".")}-${index}`} position={position}>
+          <sphereGeometry args={[1, 18, 10]} />
+          <meshBasicMaterial
+            color={index % 2 === 0 ? "#f97316" : "#ef4444"}
+            transparent
+            opacity={0}
+            depthWrite={false}
+            depthTest={false}
+            blending={THREE.AdditiveBlending}
+          />
+        </mesh>
+      ))}
+    </group>
+  );
+}
+
+function DreamReviewPulse({ active, intensity }: { active: boolean; intensity: number }) {
+  const ring = useRef<THREE.Mesh>(null);
+
+  useFrame(({ clock }) => {
+    if (!ring.current) return;
+    const wave = active ? intensity * (0.72 + Math.sin(clock.elapsedTime * 2.4) * 0.28) : 0;
+    ring.current.visible = wave > 0.02;
+    ring.current.scale.setScalar(0.075 + wave * 0.075);
+    const material = ring.current.material;
+    if (material instanceof THREE.MeshBasicMaterial) {
+      material.opacity = wave * 0.28;
+    }
+  });
+
+  return (
+    <mesh ref={ring} position={regionBounds.hippocampus.center} rotation={[Math.PI / 2, -0.4, 0.18]} visible={false}>
+      <torusGeometry args={[1, 0.018, 8, 72]} />
+      <meshBasicMaterial
+        color={memoryColors.hippocampus}
+        transparent
+        opacity={0}
+        depthWrite={false}
+        depthTest={false}
+        blending={THREE.AdditiveBlending}
+      />
+    </mesh>
+  );
+}
+
 function getArcCurve(from: [number, number, number], to: [number, number, number], lift: number) {
   const start = new THREE.Vector3(...from);
   const target = new THREE.Vector3(...to);
@@ -844,6 +1010,13 @@ function getContextSlotPosition(index: number): [number, number, number] {
     activeContextCenter[1] + Math.sin(angle) * activeContextSlotRadiusY,
     activeContextCenter[2] + 0.045
   ];
+}
+
+function getLatestDreamOperationEvent(events: EngramEvent[]): DreamOperationEvent | undefined {
+  return events.find(
+    (event): event is DreamOperationEvent =>
+      event.type === "dream_merge" || event.type === "dream_supersede" || event.type === "dream_insight"
+  );
 }
 
 function easeOutCubic(value: number) {

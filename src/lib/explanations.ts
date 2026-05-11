@@ -68,6 +68,22 @@ export function explainEvent(event: EngramEvent): string {
       return "Lower-ranked memories dim without being deleted.";
     case "init":
       return "The current session memory state is assembling.";
+    case "dream_start":
+      return "Dream Mode reviews stored memories without changing them yet.";
+    case "dream_review":
+      return "These memories are being compared for possible cleanup.";
+    case "dream_merge":
+      return "Related memories may become one cleaner stable memory if applied.";
+    case "dream_supersede":
+      return "A stale or conflicting memory may be retired from active recall if applied.";
+    case "dream_insight":
+      return "A repeated pattern may become a stable semantic memory if applied.";
+    case "dream_complete":
+      return "The reflection is ready for review before any memory state changes.";
+    case "dream_apply":
+      return "The reviewed reflection changed visible memory state.";
+    case "dream_dismiss":
+      return "The reflection was dismissed, so visible memories stayed unchanged.";
   }
 }
 
@@ -165,5 +181,16 @@ function sourceEventLabel(event: EngramEvent): string {
       return "Dimmed by retrieval rank";
     case "init":
       return "Loaded from session state";
+    case "dream_start":
+    case "dream_review":
+    case "dream_merge":
+    case "dream_supersede":
+    case "dream_insight":
+    case "dream_complete":
+      return "Proposed by Dream Mode";
+    case "dream_apply":
+      return "Applied from Dream Mode";
+    case "dream_dismiss":
+      return "Dismissed from Dream Mode";
   }
 }

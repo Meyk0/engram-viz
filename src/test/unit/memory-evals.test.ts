@@ -3,10 +3,12 @@ import {
   formatMemoryEvalReport,
   memoryConsolidationEvalFixtures,
   memoryConversationEvalFixtures,
+  memoryDreamEvalFixtures,
   memoryRetrievalEvalFixtures,
   memoryScenarioEvalFixtures,
   runConsolidationEvalFixture,
   runConversationEvalFixture,
+  runDreamEvalFixture,
   runMemoryEvalReport,
   runMemoryScenarioEvalFixture,
   runRetrievalEvalFixture
@@ -45,6 +47,14 @@ describe("memory eval fixtures", () => {
     });
   });
 
+  memoryDreamEvalFixtures.forEach((fixture) => {
+    it(fixture.name, () => {
+      const result = runDreamEvalFixture(fixture);
+
+      expect(result.failures, result.failures.join("\n")).toEqual([]);
+    });
+  });
+
   it("produces a green report", () => {
     const report = runMemoryEvalReport();
 
@@ -53,7 +63,8 @@ describe("memory eval fixtures", () => {
       memoryConversationEvalFixtures.length +
         memoryRetrievalEvalFixtures.length +
         memoryConsolidationEvalFixtures.length +
-        memoryScenarioEvalFixtures.length
+        memoryScenarioEvalFixtures.length +
+        memoryDreamEvalFixtures.length
     );
   });
 
@@ -65,5 +76,6 @@ describe("memory eval fixtures", () => {
     expect(formatted).toContain(`retrieval: ${report.bySuite.retrieval.passed}/${report.bySuite.retrieval.total} passed`);
     expect(formatted).toContain(`consolidation: ${report.bySuite.consolidation.passed}/${report.bySuite.consolidation.total} passed`);
     expect(formatted).toContain(`scenario: ${report.bySuite.scenario.passed}/${report.bySuite.scenario.total} passed`);
+    expect(formatted).toContain(`dream: ${report.bySuite.dream.passed}/${report.bySuite.dream.total} passed`);
   });
 });

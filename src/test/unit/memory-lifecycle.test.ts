@@ -10,7 +10,8 @@ describe("memory lifecycle strip", () => {
       expect.objectContaining({ id: "store", state: "idle" }),
       expect.objectContaining({ id: "retrieve", state: "active" }),
       expect.objectContaining({ id: "use", state: "idle" }),
-      expect.objectContaining({ id: "stabilize", state: "idle" })
+      expect.objectContaining({ id: "stabilize", state: "idle" }),
+      expect.objectContaining({ id: "reflect", state: "idle" })
     ]);
   });
 
@@ -36,7 +37,8 @@ describe("memory lifecycle strip", () => {
       expect.objectContaining({ id: "store", state: "complete" }),
       expect.objectContaining({ id: "retrieve", state: "complete" }),
       expect.objectContaining({ id: "use", state: "active" }),
-      expect.objectContaining({ id: "stabilize", state: "idle" })
+      expect.objectContaining({ id: "stabilize", state: "idle" }),
+      expect.objectContaining({ id: "reflect", state: "idle" })
     ]);
   });
 
@@ -61,7 +63,28 @@ describe("memory lifecycle strip", () => {
       expect.objectContaining({ id: "store", state: "idle" }),
       expect.objectContaining({ id: "retrieve", state: "idle" }),
       expect.objectContaining({ id: "use", state: "idle" }),
-      expect.objectContaining({ id: "stabilize", state: "active" })
+      expect.objectContaining({ id: "stabilize", state: "active" }),
+      expect.objectContaining({ id: "reflect", state: "idle" })
+    ]);
+  });
+
+  it("marks dream review events as reflection", () => {
+    const proposal = {
+      id: "dream-1",
+      provider: "deterministic" as const,
+      status: "proposed" as const,
+      reason: "Review related memories.",
+      operations: [],
+      created_at: "2026-05-02T00:00:00.000Z"
+    };
+
+    expect(getActiveLifecycleStep([{ type: "dream_complete", proposal }])).toBe("reflect");
+    expect(getMemoryLifecycleSteps([{ type: "dream_complete", proposal }])).toEqual([
+      expect.objectContaining({ id: "store", state: "idle" }),
+      expect.objectContaining({ id: "retrieve", state: "idle" }),
+      expect.objectContaining({ id: "use", state: "idle" }),
+      expect.objectContaining({ id: "stabilize", state: "idle" }),
+      expect.objectContaining({ id: "reflect", state: "active" })
     ]);
   });
 });

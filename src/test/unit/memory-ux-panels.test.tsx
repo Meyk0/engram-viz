@@ -1,9 +1,13 @@
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
+import { DreamReviewPanel } from "@/components/UI/DreamReviewPanel";
 import { EventFeed } from "@/components/UI/EventFeed";
 import { MemoryInspector } from "@/components/UI/MemoryInspector";
 import { OnboardingPanel } from "@/components/UI/OnboardingPanel";
 import { RegionInspector } from "@/components/UI/RegionInspector";
+import { SecondaryDock } from "@/components/UI/SecondaryDock";
+import type { DreamProposal } from "@/types";
 import type { EngramEvent, EngramMemory } from "@/types";
 
 describe("memory UX panels", () => {
@@ -85,6 +89,59 @@ describe("memory UX panels", () => {
     expect(screen.queryByText(/semantic search/)).not.toBeInTheDocument();
     expect(screen.queryByText(/confidence/)).not.toBeInTheDocument();
   });
+
+  it("shows a reflect dock item after enough active memories exist", async () => {
+    const onSelect = vi.fn();
+    const user = userEvent.setup();
+
+    render(
+      <SecondaryDock
+        activeContextCount={3}
+        activePanel={null}
+        dreamCount={3}
+        dreamReady
+        hasActiveContext
+        hasMemoryDetails={false}
+        hasRegionDetails={false}
+        memoryCount={0}
+        onSelect={onSelect}
+        regionCount={0}
+        transcriptCount={1}
+      />
+    );
+
+    await user.click(screen.getByRole("button", { name: /Reflect 3/i }));
+
+    expect(onSelect).toHaveBeenCalledWith("dream");
+  });
+
+  it("reviews dream proposals and lets users apply or keep memories", async () => {
+    const proposal = makeDreamProposal();
+    const onApply = vi.fn();
+    const onDismiss = vi.fn();
+    const user = userEvent.setup();
+
+    render(
+      <DreamReviewPanel
+        beforeMemories={[makeMemory(), { ...makeMemory(), id: "mem-ui", text: "User prefers dark dashboards." }]}
+        onApply={onApply}
+        onDismiss={onDismiss}
+        open
+        proposal={proposal}
+      />
+    );
+
+    expect(screen.getByLabelText("Dream reflection review")).toBeVisible();
+    expect(screen.getByText("Before")).toBeVisible();
+    expect(screen.getByText("After")).toBeVisible();
+    expect(screen.getByText("User likes indigo and dark dashboard interfaces.")).toBeVisible();
+
+    await user.click(screen.getByRole("button", { name: "Apply reflection" }));
+    await user.click(screen.getByRole("button", { name: "Keep current memories" }));
+
+    expect(onApply).toHaveBeenCalledWith(proposal);
+    expect(onDismiss).toHaveBeenCalledWith(proposal);
+  });
 });
 
 function makeMemory(): EngramMemory {
@@ -96,5 +153,31 @@ function makeMemory(): EngramMemory {
     region: "hippocampus",
     created_at: "2026-04-30T00:00:00.000Z",
     access_count: 1
+  };
+}
+
+function makeDreamProposal(): DreamProposal {
+  return {
+    id: "dream-1",
+    provider: "deterministic",
+    status: "proposed",
+    reason: "Two active memories describe the same stable interface preference.",
+    created_at: "2026-05-02T00:00:00.000Z",
+    operations: [
+      {
+        id: "dream-op-1",
+        type: "merge",
+        sourceIds: ["mem-indigo", "mem-ui"],
+        reason: "Both memories describe durable visual preferences.",
+        confidence: 0.88,
+        result: {
+          ...makeMemory(),
+          id: "mem-reflected",
+          text: "User likes indigo and dark dashboard interfaces.",
+          region: "temporal",
+          sourceMemoryIds: ["mem-indigo", "mem-ui"]
+        }
+      }
+    ]
   };
 }

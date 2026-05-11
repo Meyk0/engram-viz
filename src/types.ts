@@ -18,6 +18,27 @@ export type MemoryRetrievalTrace = {
   reason?: string;
 };
 
+export type DreamOperationType = "merge" | "supersede" | "insight";
+
+export type DreamOperation = {
+  id: string;
+  type: DreamOperationType;
+  sourceIds: string[];
+  result?: EngramMemory;
+  supersedeIds?: string[];
+  reason: string;
+  confidence: number;
+};
+
+export type DreamProposal = {
+  id: string;
+  provider: MemoryDecisionTraceProvider;
+  status: "proposed" | "skipped";
+  reason: string;
+  operations: DreamOperation[];
+  created_at: string;
+};
+
 export type EngramMemory = {
   id: string;
   text: string;
@@ -49,7 +70,15 @@ export type EngramEvent =
   | { type: "consolidate"; removed: string[]; added: EngramMemory; decision?: MemoryDecisionTrace }
   | { type: "load"; ids: string[] }
   | { type: "decay"; ids: string[] }
-  | { type: "init"; memories: EngramMemory[] };
+  | { type: "init"; memories: EngramMemory[] }
+  | { type: "dream_start"; proposal: DreamProposal }
+  | { type: "dream_review"; proposalId: string; ids: string[] }
+  | { type: "dream_merge"; proposalId: string; operation: DreamOperation }
+  | { type: "dream_supersede"; proposalId: string; operation: DreamOperation }
+  | { type: "dream_insight"; proposalId: string; operation: DreamOperation }
+  | { type: "dream_complete"; proposal: DreamProposal }
+  | { type: "dream_apply"; proposal: DreamProposal }
+  | { type: "dream_dismiss"; proposal: DreamProposal };
 
 export type ChatProvider = "demo" | "openai" | "anthropic";
 

@@ -1,4 +1,4 @@
-import type { BrainRegion, EngramEvent } from "@/types";
+import type { BrainRegion, DreamOperationType, EngramEvent } from "@/types";
 
 export const animationTimings = {
   storeMs: 800,
@@ -23,6 +23,15 @@ export type BrainAnimationState = {
   hippocampusMarker: number;
   transfer: TransferAnimationState;
   decayDimming: number;
+  dream: {
+    active: boolean;
+    operation?: DreamOperationType;
+    operationKey?: string;
+    prefrontalQuiet: number;
+    reviewPulse: number;
+    sleepDimming: number;
+    supersedePulse: number;
+  };
 };
 
 const regions: BrainRegion[] = ["prefrontal", "hippocampus", "temporal"];
@@ -45,15 +54,22 @@ export function getBrainAnimationState(events: EngramEvent[]): BrainAnimationSta
     strength: 0
   };
   let decayDimming = 0;
+  let dreamOperation: DreamOperationType | undefined;
+  let dreamOperationKey: string | undefined;
+  let prefrontalQuiet = 0;
+  let reviewPulse = 0;
+  let sleepDimming = 0;
+  let supersedePulse = 0;
 
   recent.forEach((event, index) => {
     const recency = Math.max(0.18, 1 - index * 0.16);
+    const eventWeight = getEventWeight(event);
 
     getAnimatedRegions(event).forEach((region) => {
-      regionState[region] = Math.max(regionState[region], getEventWeight(event) * recency);
+      regionState[region] = Math.max(regionState[region], eventWeight * recency);
     });
 
-    if (event.type === "store") {
+    if (event.type === "store" || event.type === "dream_start" || event.type === "dream_review") {
       hippocampusMarker = Math.max(hippocampusMarker, recency);
     }
 
@@ -73,13 +89,49 @@ export function getBrainAnimationState(events: EngramEvent[]): BrainAnimationSta
     if (event.type === "decay") {
       decayDimming = Math.max(decayDimming, 0.42 * recency);
     }
+
+    if (isDreamEvent(event)) {
+      prefrontalQuiet = Math.max(prefrontalQuiet, 0.75 * recency);
+      sleepDimming = Math.max(sleepDimming, 0.58 * recency);
+      reviewPulse = Math.max(reviewPulse, getDreamReviewWeight(event) * recency);
+    }
+
+    if (event.type === "dream_merge" || event.type === "dream_insight") {
+      const strength = Math.max(0, 1 - index * 0.2);
+      if (strength > transfer.strength) {
+        transfer = {
+          active: true,
+          from: "hippocampus",
+          triggerKey: `${event.proposalId}-${event.operation.id}`,
+          to: "temporal",
+          strength
+        };
+      }
+      dreamOperation = event.operation.type;
+      dreamOperationKey = `${event.proposalId}-${event.operation.id}`;
+    }
+
+    if (event.type === "dream_supersede") {
+      dreamOperation = event.operation.type;
+      dreamOperationKey = `${event.proposalId}-${event.operation.id}`;
+      supersedePulse = Math.max(supersedePulse, recency);
+    }
   });
 
   return {
     regions: regionState,
     hippocampusMarker,
     transfer,
-    decayDimming
+    decayDimming,
+    dream: {
+      active: sleepDimming > 0,
+      operation: dreamOperation,
+      operationKey: dreamOperationKey,
+      prefrontalQuiet,
+      reviewPulse,
+      sleepDimming,
+      supersedePulse
+    }
   };
 }
 
@@ -101,6 +153,17 @@ export function getAnimatedRegions(event: EngramEvent): BrainRegion[] {
       return uniqueRegions(event.memories.map((memory) => memory.region));
     case "load":
       return event.ids.length > 0 ? ["prefrontal"] : [];
+    case "dream_start":
+    case "dream_review":
+    case "dream_complete":
+    case "dream_apply":
+    case "dream_dismiss":
+      return ["hippocampus"];
+    case "dream_merge":
+    case "dream_insight":
+      return ["hippocampus", "temporal"];
+    case "dream_supersede":
+      return ["hippocampus", "temporal"];
   }
 }
 
@@ -120,7 +183,42 @@ function getEventWeight(event: EngramEvent): number {
     case "init":
     case "load":
       return 0.36;
+    case "dream_start":
+    case "dream_review":
+    case "dream_complete":
+      return 0.7;
+    case "dream_merge":
+    case "dream_insight":
+      return 0.92;
+    case "dream_supersede":
+      return 0.82;
+    case "dream_apply":
+      return 0.88;
+    case "dream_dismiss":
+      return 0.42;
   }
+}
+
+function getDreamReviewWeight(event: EngramEvent) {
+  switch (event.type) {
+    case "dream_start":
+    case "dream_review":
+      return 1;
+    case "dream_merge":
+    case "dream_supersede":
+    case "dream_insight":
+      return 0.76;
+    case "dream_complete":
+    case "dream_apply":
+    case "dream_dismiss":
+      return 0.48;
+    default:
+      return 0;
+  }
+}
+
+function isDreamEvent(event: EngramEvent) {
+  return event.type.startsWith("dream_");
 }
 
 function uniqueRegions(nextRegions: BrainRegion[]): BrainRegion[] {

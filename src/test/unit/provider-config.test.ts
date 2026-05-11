@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { configuredChatProvider } from "@/lib/chat/providers";
 import {
   configuredConsolidationPlannerProvider,
+  configuredDreamPlannerProvider,
   configuredMemoryPlannerProvider,
   configuredTurnMemoryPlannerProvider
 } from "@/lib/memory/planner-config";
@@ -15,6 +16,7 @@ const CONSOLIDATION_PLANNER_ENV_KEYS = [
   "CONSOLIDATION_PLANNER",
   "OPENAI_CONSOLIDATION_PLANNER_ENABLED"
 ] as const;
+const DREAM_PLANNER_ENV_KEYS = ["ENGRAM_DREAM_PLANNER", "OPENAI_DREAM_PLANNER_ENABLED"] as const;
 const RETRIEVER_ENV_KEYS = ["ENGRAM_RETRIEVAL_PROVIDER", "RETRIEVAL_PROVIDER", "OPENAI_RETRIEVAL_ENABLED"] as const;
 
 afterEach(() => {
@@ -108,6 +110,27 @@ describe("configuredConsolidationPlannerProvider", () => {
   });
 });
 
+describe("configuredDreamPlannerProvider", () => {
+  it("defaults to deterministic dream planning", () => {
+    resetProviderEnv();
+
+    expect(configuredDreamPlannerProvider()).toBe("deterministic");
+  });
+
+  it("enables OpenAI dream planning only behind its explicit flag", () => {
+    process.env.ENGRAM_DREAM_PLANNER = "openai";
+    process.env.OPENAI_DREAM_PLANNER_ENABLED = "true";
+
+    expect(configuredDreamPlannerProvider()).toBe("openai");
+  });
+
+  it("keeps deterministic dream planning when OpenAI is not enabled", () => {
+    process.env.ENGRAM_DREAM_PLANNER = "openai";
+
+    expect(configuredDreamPlannerProvider()).toBe("deterministic");
+  });
+});
+
 describe("configuredMemoryRetrieverProvider", () => {
   it("defaults to lexical retrieval", () => {
     resetProviderEnv();
@@ -130,7 +153,14 @@ describe("configuredMemoryRetrieverProvider", () => {
 });
 
 function resetProviderEnv() {
-  [...PROVIDER_ENV_KEYS, ...MEMORY_PLANNER_ENV_KEYS, ...TURN_MEMORY_PLANNER_ENV_KEYS, ...CONSOLIDATION_PLANNER_ENV_KEYS, ...RETRIEVER_ENV_KEYS].forEach((key) => {
+  [
+    ...PROVIDER_ENV_KEYS,
+    ...MEMORY_PLANNER_ENV_KEYS,
+    ...TURN_MEMORY_PLANNER_ENV_KEYS,
+    ...CONSOLIDATION_PLANNER_ENV_KEYS,
+    ...DREAM_PLANNER_ENV_KEYS,
+    ...RETRIEVER_ENV_KEYS
+  ].forEach((key) => {
     delete process.env[key];
   });
 }

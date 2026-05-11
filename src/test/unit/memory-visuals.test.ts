@@ -3,6 +3,7 @@ import {
   getActiveMemoryIds,
   getActiveContextFill,
   getLatestConsolidateEvent,
+  getLatestDreamProposal,
   getLatestLoadEvent,
   getLatestRetrieveEvent,
   getLatestStoreEvent,
@@ -10,6 +11,7 @@ import {
   getMemoryPositionById,
   getMemoryPosition,
   getMemoryVisuals,
+  isDreaming,
   memoryColors
 } from "@/lib/memoryVisuals";
 import type { EngramEvent, EngramMemory } from "@/types";
@@ -165,6 +167,46 @@ describe("memory visual lifecycle", () => {
     expect(getMemoryPositionById(events, "missing-memory")).toEqual(
       getMemoryPosition({ id: "missing-memory", region: "hippocampus" })
     );
+  });
+
+  it("keeps dream proposals non-mutating until apply", () => {
+    const rawA = makeMemory("mem-a", "hippocampus");
+    const rawB = makeMemory("mem-b", "hippocampus");
+    const semantic = makeMemory("mem-semantic", "temporal");
+    const proposal = {
+      id: "dream-1",
+      provider: "deterministic" as const,
+      status: "proposed" as const,
+      reason: "Merge related memories.",
+      created_at: "2026-05-11T12:00:00.000Z",
+      operations: [
+        {
+          id: "dream-op-1",
+          type: "merge" as const,
+          sourceIds: [rawA.id, rawB.id],
+          supersedeIds: [rawA.id, rawB.id],
+          result: semantic,
+          reason: "Duplicate memories.",
+          confidence: 0.86
+        }
+      ]
+    };
+    const proposalEvents: EngramEvent[] = [
+      { type: "dream_complete", proposal },
+      { type: "dream_merge", proposalId: proposal.id, operation: proposal.operations[0] },
+      { type: "dream_review", proposalId: proposal.id, ids: [rawA.id, rawB.id] },
+      { type: "dream_start", proposal },
+      { type: "store", memory: rawB },
+      { type: "store", memory: rawA }
+    ];
+
+    expect(getMemoryVisuals(proposalEvents).map((visual) => visual.memory.id).sort()).toEqual([rawA.id, rawB.id]);
+    expect(getLatestDreamProposal(proposalEvents)).toBe(proposal);
+    expect(isDreaming(proposalEvents)).toBe(false);
+
+    const appliedEvents: EngramEvent[] = [{ type: "dream_apply", proposal }, ...proposalEvents];
+
+    expect(getMemoryVisuals(appliedEvents).map((visual) => visual.memory.id)).toEqual([semantic.id]);
   });
 });
 

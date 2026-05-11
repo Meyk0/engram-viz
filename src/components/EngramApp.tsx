@@ -11,12 +11,13 @@ import { Brain3D } from "@/components/Brain/Brain3D";
 import { ActiveContextPanel } from "@/components/UI/ActiveContextPanel";
 import { ChatTranscript } from "@/components/UI/ChatTranscript";
 import { CurrentEventBanner } from "@/components/UI/CurrentEventBanner";
+import { DreamReviewPanel } from "@/components/UI/DreamReviewPanel";
 import { ExplainabilityPanel } from "@/components/UI/ExplainabilityPanel";
 import { MemoryInspector } from "@/components/UI/MemoryInspector";
 import { OnboardingPanel } from "@/components/UI/OnboardingPanel";
 import { RegionInspector } from "@/components/UI/RegionInspector";
 import { SecondaryDock, type SecondaryPanel } from "@/components/UI/SecondaryDock";
-import type { BrainRegion, StreamChunk } from "@/types";
+import type { BrainRegion, DreamOperation, DreamProposal, EngramEvent, EngramMemory, StreamChunk } from "@/types";
 
 const regionShortcuts: Array<{ label: string; region: BrainRegion }> = [
   { label: "New", region: "hippocampus" },
@@ -31,6 +32,10 @@ export function EngramApp() {
   const [onboardingDismissed, setOnboardingDismissed] = useState(false);
   const [selectedMemoryId, setSelectedMemoryId] = useState<string | undefined>(undefined);
   const [selectedRegion, setSelectedRegion] = useState<BrainRegion | undefined>(undefined);
+  const [dreamProposal, setDreamProposal] = useState<DreamProposal | null>(null);
+  const [dreamMemorySnapshot, setDreamMemorySnapshot] = useState<EngramMemory[]>([]);
+  const [dreamPending, setDreamPending] = useState(false);
+  const [dreamError, setDreamError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const { events, pushEvent, clearEvents } = useEventQueue();
   const memories = useMemoryStore(events);
@@ -53,6 +58,11 @@ export function EngramApp() {
     () => memories.find((memory) => memory.id === selectedMemoryId),
     [memories, selectedMemoryId]
   );
+  const activeMemories = useMemo(
+    () => memories.filter((memory) => memory.status !== "superseded"),
+    [memories]
+  );
+  const dreamReviewReady = Boolean(dreamProposal && dreamProposal.status === "proposed");
 
   const onChunk = useCallback(
     (chunk: StreamChunk) => {
@@ -101,6 +111,74 @@ export function EngramApp() {
     setActivePanel(null);
   }, []);
 
+  const pushDreamEvents = useCallback(
+    (proposal: DreamProposal) => {
+      pushEvent({ type: "dream_start", proposal });
+
+      const reviewIds = unique(proposal.operations.flatMap((operation) => operation.sourceIds));
+      if (reviewIds.length > 0) {
+        pushEvent({ type: "dream_review", proposalId: proposal.id, ids: reviewIds });
+      }
+
+      proposal.operations.forEach((operation) => {
+        pushEvent(dreamOperationEvent(proposal.id, operation));
+      });
+
+      pushEvent({ type: "dream_complete", proposal });
+    },
+    [pushEvent]
+  );
+
+  const runDreamReview = useCallback(async () => {
+    if (dreamPending || isStreaming) return;
+
+    setDreamPending(true);
+    setDreamError(null);
+    setDreamProposal(null);
+    setDreamMemorySnapshot(activeMemories);
+    setSelectedMemoryId(undefined);
+    setSelectedRegion(undefined);
+    setActivePanel("dream");
+
+    try {
+      const response = await fetch("/api/dream", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ clientMemories: activeMemories })
+      });
+      const payload = (await response.json()) as { proposal?: DreamProposal; error?: string };
+
+      if (!response.ok || !payload.proposal) {
+        throw new Error(payload.error ?? "Dream review failed.");
+      }
+
+      setDreamProposal(payload.proposal);
+      pushDreamEvents(payload.proposal);
+    } catch (error) {
+      setDreamError(error instanceof Error ? error.message : "Dream review failed.");
+    } finally {
+      setDreamPending(false);
+    }
+  }, [activeMemories, dreamPending, isStreaming, pushDreamEvents]);
+
+  const applyDreamProposal = useCallback(
+    (proposal: DreamProposal) => {
+      pushEvent({ type: "dream_apply", proposal });
+      setDreamProposal(null);
+      setActivePanel(null);
+    },
+    [pushEvent]
+  );
+
+  const dismissDreamProposal = useCallback(
+    (proposal: DreamProposal) => {
+      pushEvent({ type: "dream_dismiss", proposal });
+      setDreamProposal(null);
+      setActivePanel(null);
+    },
+    [pushEvent]
+  );
+
   const openActiveContext = useCallback(() => {
     setSelectedMemoryId(undefined);
     setSelectedRegion(undefined);
@@ -129,11 +207,30 @@ export function EngramApp() {
     setSelectedMemoryId(undefined);
     setSelectedRegion(undefined);
     setActivePanel(null);
+    setDreamProposal(null);
+    setDreamMemorySnapshot([]);
+    setDreamPending(false);
+    setDreamError(null);
     setOnboardingDismissed(false);
   }, [clearEvents, resetSession]);
 
   const onDockSelect = useCallback(
     (panel: SecondaryPanel) => {
+      if (panel === "dream") {
+        if (activePanel === "dream") {
+          setActivePanel(null);
+          return;
+        }
+        if (dreamProposal) {
+          setSelectedMemoryId(undefined);
+          setSelectedRegion(undefined);
+          setActivePanel("dream");
+          return;
+        }
+        void runDreamReview();
+        return;
+      }
+
       const nextPanel = activePanel === panel ? null : panel;
       setActivePanel(nextPanel);
       if (nextPanel !== "memory") {
@@ -143,7 +240,7 @@ export function EngramApp() {
         setSelectedRegion(undefined);
       }
     },
-    [activePanel]
+    [activePanel, dreamProposal, runDreamReview]
   );
 
   async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -240,9 +337,22 @@ export function EngramApp() {
         onClose={closeSecondaryPanel}
         open={activePanel === "transcript"}
       />
+      <DreamReviewPanel
+        beforeMemories={dreamMemorySnapshot.length > 0 ? dreamMemorySnapshot : activeMemories}
+        error={dreamError}
+        onApply={applyDreamProposal}
+        onClose={closeSecondaryPanel}
+        onDismiss={dismissDreamProposal}
+        open={activePanel === "dream"}
+        pending={dreamPending}
+        proposal={dreamProposal}
+      />
       <SecondaryDock
         activePanel={activePanel}
         hasActiveContext={activeContextFill.used > 0}
+        dreamCount={dreamReviewReady ? dreamProposal?.operations.length ?? 0 : activeMemories.length}
+        dreamReady={activeMemories.length >= 3 && !isStreaming}
+        hasDreamReview={dreamReviewReady || dreamPending}
         hasMemoryDetails={memoryDetailCount > 0}
         activeContextCount={activeContextFill.used}
         memoryCount={memoryDetailCount}
@@ -277,4 +387,19 @@ export function EngramApp() {
       </form>
     </main>
   );
+}
+
+function dreamOperationEvent(proposalId: string, operation: DreamOperation): EngramEvent {
+  switch (operation.type) {
+    case "merge":
+      return { type: "dream_merge", proposalId, operation };
+    case "supersede":
+      return { type: "dream_supersede", proposalId, operation };
+    case "insight":
+      return { type: "dream_insight", proposalId, operation };
+  }
+}
+
+function unique(values: string[]) {
+  return [...new Set(values)];
 }

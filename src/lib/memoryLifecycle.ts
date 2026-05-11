@@ -1,6 +1,6 @@
 import type { EngramEvent } from "@/types";
 
-export type MemoryLifecycleStepId = "store" | "retrieve" | "use" | "stabilize";
+export type MemoryLifecycleStepId = "store" | "retrieve" | "use" | "stabilize" | "reflect";
 
 export type MemoryLifecycleStep = {
   caption: string;
@@ -13,7 +13,8 @@ const lifecycleStepCopy: Array<Omit<MemoryLifecycleStep, "state">> = [
   { id: "store", label: "Store", caption: "save durable facts" },
   { id: "retrieve", label: "Retrieve", caption: "find relevant memories" },
   { id: "use", label: "Use", caption: "load working memory" },
-  { id: "stabilize", label: "Stabilize", caption: "merge repeated memories" }
+  { id: "stabilize", label: "Stabilize", caption: "merge repeated memories" },
+  { id: "reflect", label: "Reflect", caption: "review memory changes" }
 ];
 
 export function getMemoryLifecycleSteps(events: EngramEvent[], streaming = false): MemoryLifecycleStep[] {
@@ -33,6 +34,7 @@ export function getActiveLifecycleStep(
 
   if (!event) return streaming ? "retrieve" : undefined;
 
+  if (event.type.startsWith("dream_")) return "reflect";
   if (event.type === "store" || isStoreFollowupFire(events)) return "store";
   if (event.type === "consolidate" || isConsolidationFollowupFire(events)) return "stabilize";
   if (
@@ -66,6 +68,8 @@ function hasLifecycleEvidence(events: EngramEvent[], step: MemoryLifecycleStepId
       );
     case "stabilize":
       return events.some((event) => event.type === "consolidate");
+    case "reflect":
+      return events.some((event) => event.type.startsWith("dream_"));
   }
 }
 

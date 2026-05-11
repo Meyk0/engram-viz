@@ -86,4 +86,32 @@ describe("event narrative", () => {
       body: "3 memories are active in working memory."
     });
   });
+
+  it("explains dream proposals without exposing planner internals", () => {
+    const event: EngramEvent = {
+      type: "dream_complete",
+      proposal: {
+        id: "dream-1",
+        provider: "llm",
+        status: "proposed",
+        reason: "Model planner confidence 0.92",
+        created_at: "2026-05-02T00:00:00.000Z",
+        operations: [
+          {
+            id: "op-1",
+            type: "insight",
+            sourceIds: ["mem-a", "mem-b"],
+            reason: "Related memories form a stable pattern.",
+            confidence: 0.9
+          }
+        ]
+      }
+    };
+
+    expect(getCurrentEventNarrative([event])).toMatchObject({
+      title: "Reflection ready",
+      body: "1 proposed change is waiting for review.",
+      region: "hippocampus"
+    });
+  });
 });

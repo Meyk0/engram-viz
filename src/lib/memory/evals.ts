@@ -1,6 +1,7 @@
-import type { EngramMemory } from "@/types";
+import type { DreamOperationType, EngramMemory } from "@/types";
 import { createConsolidatedMemory } from "@/lib/memory/consolidate";
 import { findConsolidationCandidate } from "@/lib/memory/consolidationPolicy";
+import { deterministicDreamPlanner } from "@/lib/memory/dream-planner";
 import { retrieveMemories } from "@/lib/memory/retrieve";
 import {
   createMemory,
@@ -48,7 +49,7 @@ type ScenarioTurnExpectation = {
   consolidatedTextIncludes?: string[];
 };
 
-export type MemoryEvalSuite = "conversation" | "retrieval" | "consolidation" | "scenario";
+export type MemoryEvalSuite = "conversation" | "retrieval" | "consolidation" | "scenario" | "dream";
 
 export type MemoryConversationEvalFixture = {
   name: string;
@@ -93,6 +94,17 @@ export type MemoryScenarioEvalFixture = {
   };
 };
 
+export type MemoryDreamEvalFixture = {
+  name: string;
+  memories: EvalMemoryInput[];
+  expected: {
+    operationType?: DreamOperationType;
+    resultTextIncludes?: string[];
+    skipped?: boolean;
+    supersedeIds?: string[];
+  };
+};
+
 export type MemoryEvalResult = {
   suite: MemoryEvalSuite;
   fixtureName: string;
@@ -117,7 +129,8 @@ const MEMORY_EVAL_SUITES: MemoryEvalSuite[] = [
   "conversation",
   "retrieval",
   "consolidation",
-  "scenario"
+  "scenario",
+  "dream"
 ];
 const BASE_TIME = Date.parse("2026-04-29T17:00:00.000Z");
 
@@ -815,6 +828,130 @@ export const memoryScenarioEvalFixtures: MemoryScenarioEvalFixture[] = [
   }
 ];
 
+export const memoryDreamEvalFixtures: MemoryDreamEvalFixture[] = [
+  {
+    name: "favorite color duplicate memories merge",
+    memories: [
+      {
+        id: "color-1",
+        text: "User loves the color indigo.",
+        topic: "personal preference",
+        kind: "preference",
+        entities: ["indigo"],
+        cluster: "favorite_color"
+      },
+      {
+        id: "color-2",
+        text: "User's favorite color is indigo.",
+        topic: "personal preference",
+        kind: "preference",
+        entities: ["indigo"],
+        cluster: "favorite_color"
+      },
+      {
+        id: "food-1",
+        text: "User enjoys sushi.",
+        topic: "food preference",
+        kind: "preference",
+        entities: ["sushi"],
+        cluster: "food_preference"
+      }
+    ],
+    expected: {
+      operationType: "merge",
+      resultTextIncludes: ["indigo"]
+    }
+  },
+  {
+    name: "city correction supersedes stale location",
+    memories: [
+      {
+        id: "city-old",
+        text: "User lives in San Francisco.",
+        topic: "location",
+        kind: "personal_fact",
+        entities: ["San Francisco"],
+        cluster: "current_location",
+        created_at: "2026-04-29T17:00:00.000Z"
+      },
+      {
+        id: "city-new",
+        text: "User lives in Oakland now.",
+        topic: "location",
+        kind: "personal_fact",
+        entities: ["Oakland"],
+        cluster: "current_location",
+        created_at: "2026-04-29T17:02:00.000Z"
+      },
+      {
+        id: "coffee-1",
+        text: "User likes coffee roasters.",
+        topic: "personal preference",
+        kind: "preference",
+        entities: ["coffee"],
+        cluster: "food_preference"
+      }
+    ],
+    expected: {
+      operationType: "supersede",
+      supersedeIds: ["city-old"]
+    }
+  },
+  {
+    name: "California memories produce semantic insight",
+    memories: [
+      {
+        id: "ca-1",
+        text: "User loves California road trips.",
+        topic: "location",
+        kind: "personal_fact",
+        entities: ["California"],
+        cluster: "california_life"
+      },
+      {
+        id: "ca-2",
+        text: "User prefers coastal weekends.",
+        topic: "location",
+        kind: "personal_fact",
+        cluster: "california_life"
+      },
+      {
+        id: "ca-3",
+        text: "User enjoys redwood hikes.",
+        topic: "location",
+        kind: "personal_fact",
+        entities: ["redwoods"],
+        cluster: "california_life"
+      }
+    ],
+    expected: {
+      operationType: "insight",
+      resultTextIncludes: ["California", "coastal", "redwood"]
+    }
+  },
+  {
+    name: "unrelated memories do not over-merge",
+    memories: [
+      { id: "u-1", text: "User likes indigo.", cluster: "favorite_color", entities: ["indigo"] },
+      { id: "u-2", text: "User lives in San Francisco.", cluster: "current_location", entities: ["San Francisco"] },
+      { id: "u-3", text: "User works on Engram.", cluster: "work_project", entities: ["Engram"] }
+    ],
+    expected: {
+      skipped: true
+    }
+  },
+  {
+    name: "fewer than three memories skip dream mode",
+    memories: [
+      { id: "few-1", text: "User likes sushi.", cluster: "food_preference", entities: ["sushi"] },
+      { id: "few-2", text: "User likes omakase.", cluster: "food_preference", entities: ["omakase"] }
+    ],
+    expected: {
+      skipped: true
+    }
+  }
+];
+
 export function runConversationEvalFixture(
   fixture: MemoryConversationEvalFixture
 ): MemoryEvalResult {
@@ -946,12 +1083,52 @@ export function runMemoryScenarioEvalFixture(fixture: MemoryScenarioEvalFixture)
   return { suite: "scenario", fixtureName: fixture.name, failures };
 }
 
+export function runDreamEvalFixture(fixture: MemoryDreamEvalFixture): MemoryEvalResult {
+  const proposal = deterministicDreamPlanner.decide({
+    memories: fixture.memories.map(toEngramMemory),
+    now: "2026-05-11T12:00:00.000Z"
+  });
+  const failures: string[] = [];
+
+  if (fixture.expected.skipped) {
+    if (proposal.status !== "skipped") {
+      failures.push(`expected dream proposal to skip, got ${proposal.status}`);
+    }
+    return { suite: "dream", fixtureName: fixture.name, failures };
+  }
+
+  const operation = proposal.operations[0];
+  if (!operation) {
+    failures.push(`expected dream operation ${fixture.expected.operationType ?? "any"}, got none`);
+    return { suite: "dream", fixtureName: fixture.name, failures };
+  }
+
+  if (fixture.expected.operationType && operation.type !== fixture.expected.operationType) {
+    failures.push(`expected dream operation ${fixture.expected.operationType}, got ${operation.type}`);
+  }
+
+  fixture.expected.resultTextIncludes?.forEach((text) => {
+    if (!operation.result?.text.includes(text)) {
+      failures.push(`expected dream result to include "${text}", got "${operation.result?.text ?? "none"}"`);
+    }
+  });
+
+  fixture.expected.supersedeIds?.forEach((id) => {
+    if (!(operation.supersedeIds ?? []).includes(id)) {
+      failures.push(`expected dream supersede ids to include "${id}", got ${formatIds(operation.supersedeIds ?? [])}`);
+    }
+  });
+
+  return { suite: "dream", fixtureName: fixture.name, failures };
+}
+
 export function runMemoryEvalReport(): MemoryEvalReport {
   const results = [
     ...memoryConversationEvalFixtures.map(runConversationEvalFixture),
     ...memoryRetrievalEvalFixtures.map(runRetrievalEvalFixture),
     ...memoryConsolidationEvalFixtures.map(runConsolidationEvalFixture),
-    ...memoryScenarioEvalFixtures.map(runMemoryScenarioEvalFixture)
+    ...memoryScenarioEvalFixtures.map(runMemoryScenarioEvalFixture),
+    ...memoryDreamEvalFixtures.map(runDreamEvalFixture)
   ];
   const bySuite = createEmptySuiteSummary();
 
@@ -1194,7 +1371,8 @@ function createEmptySuiteSummary(): Record<MemoryEvalSuite, MemoryEvalSuiteSumma
     conversation: createEmptySummary(),
     retrieval: createEmptySummary(),
     consolidation: createEmptySummary(),
-    scenario: createEmptySummary()
+    scenario: createEmptySummary(),
+    dream: createEmptySummary()
   };
 }
 

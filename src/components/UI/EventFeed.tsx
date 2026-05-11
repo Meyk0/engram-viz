@@ -44,6 +44,8 @@ function eventRegion(event: EngramEvent) {
   if (event.type === "store") return event.memory.region;
   if (event.type === "fire") return event.region;
   if (event.type === "consolidate") return event.added.region;
+  if (event.type === "dream_merge" || event.type === "dream_insight" || event.type === "dream_apply") return "temporal";
+  if (event.type.startsWith("dream_")) return "hippocampus";
   return undefined;
 }
 
@@ -69,6 +71,22 @@ function eventLabel(event: EngramEvent) {
       return "Dimmed older signal";
     case "init":
       return "Loaded memory map";
+    case "dream_start":
+      return "Started reflection";
+    case "dream_review":
+      return "Reviewed memories";
+    case "dream_merge":
+      return "Drafted merge";
+    case "dream_supersede":
+      return "Drafted update";
+    case "dream_insight":
+      return "Drafted insight";
+    case "dream_complete":
+      return "Reflection ready";
+    case "dream_apply":
+      return "Applied reflection";
+    case "dream_dismiss":
+      return "Kept current memories";
   }
 }
 
@@ -103,6 +121,22 @@ function eventSummary(event: EngramEvent) {
       return `${pluralize(event.ids.length, "memory")} stayed stored, but became less relevant to this turn.`;
     case "init":
       return `The brain started with ${pluralize(event.memories.length, "stored memory")}.`;
+    case "dream_start":
+      return "Engram started an offline-style review of existing memories.";
+    case "dream_review":
+      return `${pluralize(event.ids.length, "memory")} compared before any change is applied.`;
+    case "dream_merge":
+      return `Proposed merge: "${event.operation.result?.text ?? "related memories"}"`;
+    case "dream_supersede":
+      return `${pluralize(event.operation.supersedeIds?.length ?? event.operation.sourceIds.length, "memory")} would be retired from active recall.`;
+    case "dream_insight":
+      return `Proposed insight: "${event.operation.result?.text ?? "recurring memory pattern"}"`;
+    case "dream_complete":
+      return `${pluralize(event.proposal.operations.length, "reflection change")} is ready to review.`;
+    case "dream_apply":
+      return `${pluralize(event.proposal.operations.length, "reflection change")} updated visible memory.`;
+    case "dream_dismiss":
+      return "No memory changes were applied.";
   }
 }
 
@@ -118,6 +152,17 @@ function eventKey(event: EngramEvent) {
       return event.query;
     case "init":
       return event.memories.map((memory) => memory.id).join(".");
+    case "dream_start":
+    case "dream_complete":
+    case "dream_apply":
+    case "dream_dismiss":
+      return event.proposal.id;
+    case "dream_review":
+      return `${event.proposalId}-${event.ids.join(".")}`;
+    case "dream_merge":
+    case "dream_supersede":
+    case "dream_insight":
+      return `${event.proposalId}-${event.operation.id}`;
     default:
       return event.ids.join(".");
   }

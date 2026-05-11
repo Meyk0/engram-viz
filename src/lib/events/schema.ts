@@ -40,6 +40,25 @@ export const memoryRetrievalTraceSchema = z.object({
   reason: z.string().min(1).optional()
 });
 
+export const dreamOperationSchema = z.object({
+  id: z.string().min(1),
+  type: z.enum(["merge", "supersede", "insight"]),
+  sourceIds: z.array(z.string().min(1)),
+  result: engramMemorySchema.optional(),
+  supersedeIds: z.array(z.string().min(1)).optional(),
+  reason: z.string().min(1),
+  confidence: z.number().min(0).max(1)
+});
+
+export const dreamProposalSchema = z.object({
+  id: z.string().min(1),
+  provider: z.enum(["deterministic", "llm", "fallback"]),
+  status: z.enum(["proposed", "skipped"]),
+  reason: z.string().min(1),
+  operations: z.array(dreamOperationSchema),
+  created_at: z.string().datetime()
+});
+
 export const engramEventSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("plan"), decision: memoryDecisionTraceSchema }),
   z.object({ type: z.literal("store"), memory: engramMemorySchema, decision: memoryDecisionTraceSchema.optional() }),
@@ -58,7 +77,15 @@ export const engramEventSchema = z.discriminatedUnion("type", [
   }),
   z.object({ type: z.literal("load"), ids: z.array(z.string()) }),
   z.object({ type: z.literal("decay"), ids: z.array(z.string()) }),
-  z.object({ type: z.literal("init"), memories: z.array(engramMemorySchema) })
+  z.object({ type: z.literal("init"), memories: z.array(engramMemorySchema) }),
+  z.object({ type: z.literal("dream_start"), proposal: dreamProposalSchema }),
+  z.object({ type: z.literal("dream_review"), proposalId: z.string().min(1), ids: z.array(z.string().min(1)) }),
+  z.object({ type: z.literal("dream_merge"), proposalId: z.string().min(1), operation: dreamOperationSchema }),
+  z.object({ type: z.literal("dream_supersede"), proposalId: z.string().min(1), operation: dreamOperationSchema }),
+  z.object({ type: z.literal("dream_insight"), proposalId: z.string().min(1), operation: dreamOperationSchema }),
+  z.object({ type: z.literal("dream_complete"), proposal: dreamProposalSchema }),
+  z.object({ type: z.literal("dream_apply"), proposal: dreamProposalSchema }),
+  z.object({ type: z.literal("dream_dismiss"), proposal: dreamProposalSchema })
 ]);
 
 export const streamChunkSchema = z.discriminatedUnion("kind", [
