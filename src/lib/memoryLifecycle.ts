@@ -14,7 +14,7 @@ const lifecycleStepCopy: Array<Omit<MemoryLifecycleStep, "state">> = [
   { id: "retrieve", label: "Retrieve", caption: "find relevant memories" },
   { id: "use", label: "Use", caption: "load working memory" },
   { id: "stabilize", label: "Stabilize", caption: "merge repeated memories" },
-  { id: "reflect", label: "Reflect", caption: "review memory changes" }
+  { id: "reflect", label: "Dream", caption: "offline cleanup" }
 ];
 
 export function getMemoryLifecycleSteps(events: EngramEvent[], streaming = false): MemoryLifecycleStep[] {

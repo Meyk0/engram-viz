@@ -72,7 +72,7 @@ function eventLabel(event: EngramEvent) {
     case "init":
       return "Loaded memory map";
     case "dream_start":
-      return "Started reflection";
+      return "Started dream";
     case "dream_review":
       return "Reviewed memories";
     case "dream_merge":
@@ -82,9 +82,9 @@ function eventLabel(event: EngramEvent) {
     case "dream_insight":
       return "Drafted insight";
     case "dream_complete":
-      return "Reflection ready";
+      return "Dream ready";
     case "dream_apply":
-      return "Applied reflection";
+      return "Applied dream";
     case "dream_dismiss":
       return "Kept current memories";
   }
@@ -132,9 +132,9 @@ function eventSummary(event: EngramEvent) {
     case "dream_insight":
       return `Proposed insight: "${event.operation.result?.text ?? "recurring memory pattern"}"`;
     case "dream_complete":
-      return `${pluralize(event.proposal.operations.length, "reflection change")} is ready to review.`;
+      return `${pluralize(event.proposal.operations.length, "dream change")} is ready to review.`;
     case "dream_apply":
-      return `${pluralize(event.proposal.operations.length, "reflection change")} updated visible memory.`;
+      return `${pluralize(event.proposal.operations.length, "dream change")} updated visible memory.`;
     case "dream_dismiss":
       return "No memory changes were applied.";
   }

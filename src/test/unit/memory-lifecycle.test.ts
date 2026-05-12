@@ -68,7 +68,7 @@ describe("memory lifecycle strip", () => {
     ]);
   });
 
-  it("marks dream review events as reflection", () => {
+  it("marks dream events as Dream lifecycle state", () => {
     const proposal = {
       id: "dream-1",
       provider: "deterministic" as const,

@@ -45,7 +45,7 @@ export function Brain3D({
   }, []);
 
   return (
-    <section className="brain-scene" aria-label="Engram 3D brain scene">
+    <section className="brain-scene" data-dream-active={dreamReviewActive} aria-label="Engram 3D brain scene">
       <Canvas
         camera={{ position: brainCameraProfiles.desktop.position, fov: 46, near: 0.1, far: 100 }}
         dpr={[1, 1.75]}
@@ -104,6 +104,12 @@ export function Brain3D({
           <Trash2 size={14} />
         </button>
       </div>
+      {dreamReviewActive ? (
+        <div className="dream-state-badge" aria-live="polite">
+          <span>Dream Mode</span>
+          <strong>Offline memory cleanup</strong>
+        </div>
+      ) : null}
     </section>
   );
 }
@@ -203,13 +209,13 @@ function withDreamReviewHold(animation: ReturnType<typeof getBrainAnimationState
 
   return {
     ...animation,
-    hippocampusMarker: Math.max(animation.hippocampusMarker, 0.72),
+    hippocampusMarker: Math.max(animation.hippocampusMarker, 0.9),
     dream: {
       ...animation.dream,
       active: true,
-      prefrontalQuiet: Math.max(animation.dream.prefrontalQuiet, 0.72),
-      reviewPulse: Math.max(animation.dream.reviewPulse, 0.58),
-      sleepDimming: Math.max(animation.dream.sleepDimming, 0.5)
+      prefrontalQuiet: Math.max(animation.dream.prefrontalQuiet, 0.86),
+      reviewPulse: Math.max(animation.dream.reviewPulse, 0.86),
+      sleepDimming: Math.max(animation.dream.sleepDimming, 0.72)
     }
   };
 }
@@ -236,10 +242,10 @@ function DreamQuietField({
 
     if (sleepShell.current) {
       sleepShell.current.visible = sleepDimming > 0.02;
-      sleepShell.current.scale.setScalar(0.78 + sleepDimming * 0.06);
+      sleepShell.current.scale.setScalar(0.78 + sleepDimming * 0.12);
       const material = sleepShell.current.material;
       if (material instanceof THREE.MeshBasicMaterial) {
-        material.opacity = sleepDimming * 0.045;
+        material.opacity = sleepDimming * 0.12;
       }
     }
   });

@@ -109,7 +109,7 @@ describe("event narrative", () => {
     };
 
     expect(getCurrentEventNarrative([event])).toMatchObject({
-      title: "Reflection ready",
+      title: "Dream ready",
       body: "1 proposed change is waiting for review.",
       region: "hippocampus"
     });

@@ -51,7 +51,7 @@ export function SecondaryDock({
             count: dreamCount || activeContextCount,
             icon: <MoonStar size={14} />,
             id: "dream" as const,
-            label: hasDreamReview ? "Review" : "Reflect"
+            label: "Dream"
           }
         ]
       : []),

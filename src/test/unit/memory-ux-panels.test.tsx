@@ -90,7 +90,7 @@ describe("memory UX panels", () => {
     expect(screen.queryByText(/confidence/)).not.toBeInTheDocument();
   });
 
-  it("shows a reflect dock item after enough active memories exist", async () => {
+  it("shows a dream dock item after enough active memories exist", async () => {
     const onSelect = vi.fn();
     const user = userEvent.setup();
 
@@ -110,7 +110,7 @@ describe("memory UX panels", () => {
       />
     );
 
-    await user.click(screen.getByRole("button", { name: /Reflect 3/i }));
+    await user.click(screen.getByRole("button", { name: /Dream 3/i }));
 
     expect(onSelect).toHaveBeenCalledWith("dream");
   });
@@ -131,12 +131,12 @@ describe("memory UX panels", () => {
       />
     );
 
-    expect(screen.getByLabelText("Dream reflection review")).toBeVisible();
+    expect(screen.getByLabelText("Dream review")).toBeVisible();
     expect(screen.getByText("Before")).toBeVisible();
     expect(screen.getByText("After")).toBeVisible();
     expect(screen.getByText("User likes indigo and dark dashboard interfaces.")).toBeVisible();
 
-    await user.click(screen.getByRole("button", { name: "Apply reflection" }));
+    await user.click(screen.getByRole("button", { name: "Apply dream" }));
     await user.click(screen.getByRole("button", { name: "Keep current memories" }));
 
     expect(onApply).toHaveBeenCalledWith(proposal);

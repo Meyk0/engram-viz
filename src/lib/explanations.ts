@@ -79,11 +79,11 @@ export function explainEvent(event: EngramEvent): string {
     case "dream_insight":
       return "A repeated pattern may become a stable semantic memory if applied.";
     case "dream_complete":
-      return "The reflection is ready for review before any memory state changes.";
+      return "The dream is ready for review before any memory state changes.";
     case "dream_apply":
-      return "The reviewed reflection changed visible memory state.";
+      return "The reviewed dream changed visible memory state.";
     case "dream_dismiss":
-      return "The reflection was dismissed, so visible memories stayed unchanged.";
+      return "The dream was dismissed, so visible memories stayed unchanged.";
   }
 }
 

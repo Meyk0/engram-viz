@@ -30,14 +30,14 @@ export function DreamReviewPanel({
   const canApply = Boolean(proposal && proposal.status === "proposed" && operationCount > 0);
 
   return (
-    <aside className="secondary-panel secondary-panel-right dream-review-panel" aria-label="Dream reflection review">
+    <aside className="secondary-panel secondary-panel-right dream-review-panel" aria-label="Dream review">
       <header className="secondary-panel-header">
         <div>
           <div className="secondary-panel-eyebrow">Dream Mode</div>
-          <div className="secondary-panel-title">Reflection proposal</div>
+          <div className="secondary-panel-title">Dream proposal</div>
         </div>
         {onClose ? (
-          <button className="panel-icon-btn" type="button" onClick={onClose} aria-label="Close reflection review">
+          <button className="panel-icon-btn" type="button" onClick={onClose} aria-label="Close dream panel">
             <X size={14} />
           </button>
         ) : null}
@@ -47,15 +47,19 @@ export function DreamReviewPanel({
         <div className="dream-review-kicker">
           <MoonStar size={13} />
           {pending
-            ? "Reviewing memories"
+            ? "Dreaming over memories"
             : proposal?.provider === "llm"
               ? "Model-reviewed memories"
-              : "Deterministic memory review"}
+              : "Dream review complete"}
         </div>
-        <p>{error ?? proposal?.reason ?? "Engram is reviewing memory traces before proposing any change."}</p>
+        <p>
+          {error ??
+            proposal?.reason ??
+            "Engram is dreaming over memory traces: checking duplicates, stale conflicts, and possible insights."}
+        </p>
         <span>
           {pending
-            ? "Nothing is changing yet."
+            ? "Input memories stay unchanged while the dream runs."
             : `${operationCount} ${operationCount === 1 ? "change" : "changes"} proposed. Nothing changes until you apply it.`}
         </span>
       </div>
@@ -69,7 +73,7 @@ export function DreamReviewPanel({
             <div className="dream-operation-heading">
               <MoonStar size={14} />
               <div>
-                <strong>No safe reflection yet</strong>
+                <strong>No safe dream yet</strong>
                 <span>Current memories stay as they are.</span>
               </div>
             </div>
@@ -81,7 +85,7 @@ export function DreamReviewPanel({
         <div className="dream-review-actions">
           {canApply ? (
             <button className="dream-action dream-action-primary" type="button" onClick={() => onApply(proposal)}>
-              Apply reflection
+              Apply dream
             </button>
           ) : null}
           <button className="dream-action" type="button" onClick={() => onDismiss(proposal)}>
@@ -157,7 +161,7 @@ function operationLabel(operation: DreamOperation) {
     case "supersede":
       return `Supersede ${pluralize(operation.supersedeIds?.length ?? operation.sourceIds.length, "memory")}`;
     case "insight":
-      return "Create reflected insight";
+      return "Create dream insight";
   }
 }
 

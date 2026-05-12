@@ -122,13 +122,13 @@ export function getCurrentEventNarrative(events: EngramEvent[]): EventNarrative 
     case "dream_start":
       return {
         title: "Dream mode started",
-        body: `Engram is quietly reviewing ${pluralize(getProposalSourceCount(event.proposal), "memory")} for possible reflection.`,
+        body: `Engram is dreaming over ${pluralize(getProposalSourceCount(event.proposal), "memory")} for possible cleanup.`,
         type: event.type,
         region: "hippocampus"
       };
     case "dream_review":
       return {
-        title: "Reviewing memories",
+        title: "Dreaming over memories",
         body: `${pluralize(event.ids.length, "memory")} is being compared before any change is applied.`,
         type: event.type,
         region: "hippocampus"
@@ -136,41 +136,41 @@ export function getCurrentEventNarrative(events: EngramEvent[]): EventNarrative 
     case "dream_merge":
       return {
         title: "Drafted memory merge",
-        body: "Related memories can become one cleaner stable memory if you apply the reflection.",
+        body: "Related memories can become one cleaner stable memory if you apply the dream.",
         type: event.type,
         region: "temporal"
       };
     case "dream_supersede":
       return {
         title: "Drafted memory update",
-        body: `${pluralize(event.operation.supersedeIds?.length ?? event.operation.sourceIds.length, "memory")} would fade from active recall if you apply the reflection.`,
+        body: `${pluralize(event.operation.supersedeIds?.length ?? event.operation.sourceIds.length, "memory")} would fade from active recall if you apply the dream.`,
         type: event.type,
         region: "temporal"
       };
     case "dream_insight":
       return {
-        title: "Drafted reflected insight",
+        title: "Drafted dream insight",
         body: "Engram found a higher-level pattern that can be saved as stable knowledge.",
         type: event.type,
         region: "temporal"
       };
     case "dream_complete":
       return {
-        title: "Reflection ready",
+        title: "Dream ready",
         body: `${pluralize(event.proposal.operations.length, "proposed change")} is waiting for review.`,
         type: event.type,
         region: "hippocampus"
       };
     case "dream_apply":
       return {
-        title: "Reflection applied",
+        title: "Dream applied",
         body: `${pluralize(event.proposal.operations.length, "memory change")} updated Engram's stored context.`,
         type: event.type,
         region: "temporal"
       };
     case "dream_dismiss":
       return {
-        title: "Reflection dismissed",
+        title: "Dream dismissed",
         body: "Current memories stayed unchanged.",
         type: event.type,
         region: "hippocampus"
