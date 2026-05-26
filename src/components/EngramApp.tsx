@@ -263,11 +263,56 @@ export function EngramApp() {
     setFocusedTimelineId(undefined);
   }, []);
 
-  const fillDemoPrompt = useCallback((prompt: string) => {
-    setOnboardingDismissed(true);
-    setMessage(prompt);
-    inputRef.current?.focus();
-  }, []);
+  const sendTurn = useCallback(
+    async (value: string) => {
+      const current = value.trim();
+      if (!current || isStreaming) return;
+
+      setMessage("");
+      setDraftTurn({ user: current, assistant: "" });
+      const timelineEntryId = `timeline-turn-${crypto.randomUUID()}`;
+      activeTimelineEntryId.current = timelineEntryId;
+      setTimelineEntries((entries) => [
+        ...entries,
+        createConversationTimelineEntry({
+          id: timelineEntryId,
+          startedAt: new Date().toISOString(),
+          userText: current
+        })
+      ]);
+
+      try {
+        await sendMessage(current);
+        setDraftTurn(null);
+        setTimelineEntries((entries) =>
+          completeTimelineEntry(entries, timelineEntryId, {
+            completedAt: new Date().toISOString()
+          })
+        );
+      } catch {
+        setDraftTurn((turn) =>
+          turn ? { ...turn, assistant: turn.assistant || "No response received." } : turn
+        );
+        setTimelineEntries((entries) =>
+          completeTimelineEntry(entries, timelineEntryId, {
+            completedAt: new Date().toISOString(),
+            status: "error"
+          })
+        );
+      } finally {
+        activeTimelineEntryId.current = undefined;
+      }
+    },
+    [isStreaming, sendMessage]
+  );
+
+  const sendDemoPrompt = useCallback(
+    (prompt: string) => {
+      setOnboardingDismissed(true);
+      void sendTurn(prompt);
+    },
+    [sendTurn]
+  );
 
   const onRegionSelect = useCallback((region: BrainRegion) => {
     setSelectedMemoryId(undefined);
@@ -329,43 +374,9 @@ export function EngramApp() {
     [activePanel, dreamProposal, runDreamReview]
   );
 
-  async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
+  function onSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const current = message.trim();
-    if (!current) return;
-
-    setMessage("");
-    setDraftTurn({ user: current, assistant: "" });
-    const timelineEntryId = `timeline-turn-${crypto.randomUUID()}`;
-    activeTimelineEntryId.current = timelineEntryId;
-    setTimelineEntries((entries) => [
-      ...entries,
-      createConversationTimelineEntry({
-        id: timelineEntryId,
-        startedAt: new Date().toISOString(),
-        userText: current
-      })
-    ]);
-
-    try {
-      await sendMessage(current);
-      setDraftTurn(null);
-      setTimelineEntries((entries) =>
-        completeTimelineEntry(entries, timelineEntryId, {
-          completedAt: new Date().toISOString()
-        })
-      );
-    } catch {
-      setDraftTurn((turn) => (turn ? { ...turn, assistant: turn.assistant || "No response received." } : turn));
-      setTimelineEntries((entries) =>
-        completeTimelineEntry(entries, timelineEntryId, {
-          completedAt: new Date().toISOString(),
-          status: "error"
-        })
-      );
-    } finally {
-      activeTimelineEntryId.current = undefined;
-    }
+    void sendTurn(message);
   }
 
   return (
@@ -417,7 +428,7 @@ export function EngramApp() {
         />
       )}
 
-      <DemoPromptGuide prompt={nextDemoPrompt} onPromptSelect={fillDemoPrompt} />
+      <DemoPromptGuide prompt={nextDemoPrompt} onPromptSend={sendDemoPrompt} />
 
       <ExplainabilityPanel
         explanations={explanations}

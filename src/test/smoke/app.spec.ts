@@ -56,10 +56,7 @@ test("uses the guided demo prompt and focuses completed memory story turns", asy
   await page.goto("/");
 
   await page.getByRole("button", { name: "Start", exact: true }).click();
-  await page.getByRole("button", { name: /Fill demo prompt: I love the color indigo/i }).click();
-  await expect(page.getByLabel("Chat message")).toHaveValue("I love the color indigo.");
-
-  await page.getByLabel("Send").click();
+  await page.getByRole("button", { name: /Send demo prompt: I love the color indigo/i }).click();
   await expect(page.locator(".chat-status")).toContainText("READY", { timeout: 12_000 });
   await page.getByRole("button", { name: "Story" }).click({ force: true });
   const timeline = page.getByRole("complementary", { name: "Memory story" });
@@ -71,9 +68,7 @@ test("uses the guided demo prompt and focuses completed memory story turns", asy
   await page.getByRole("button", { name: "Clear focus" }).click();
   await page.getByLabel("Close memory story").click();
 
-  await page.getByRole("button", { name: /Fill demo prompt: What color do I love/i }).click();
-  await expect(page.getByLabel("Chat message")).toHaveValue("What color do I love?");
-  await page.getByLabel("Send").click();
+  await page.getByRole("button", { name: /Send demo prompt: What color do I love/i }).click();
   await page.getByRole("button", { name: "Story" }).click({ force: true });
   await expect(page.getByLabel("Timeline turn 2")).toBeVisible({ timeout: 12_000 });
 });

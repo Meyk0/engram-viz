@@ -143,15 +143,15 @@ describe("memory UX panels", () => {
     expect(onSelect).toHaveBeenCalledWith("timeline");
   });
 
-  it("fills but does not send guided demo prompts", async () => {
-    const onPromptSelect = vi.fn();
+  it("sends guided demo prompts in one click", async () => {
+    const onPromptSend = vi.fn();
     const user = userEvent.setup();
 
-    render(<DemoPromptGuide prompt="I love the color indigo." onPromptSelect={onPromptSelect} />);
+    render(<DemoPromptGuide prompt="I love the color indigo." onPromptSend={onPromptSend} />);
 
-    await user.click(screen.getByRole("button", { name: /Fill demo prompt: I love the color indigo/i }));
+    await user.click(screen.getByRole("button", { name: /Send demo prompt: I love the color indigo/i }));
 
-    expect(onPromptSelect).toHaveBeenCalledWith("I love the color indigo.");
+    expect(onPromptSend).toHaveBeenCalledWith("I love the color indigo.");
   });
 
   it("selects timeline entries for brain focus", async () => {

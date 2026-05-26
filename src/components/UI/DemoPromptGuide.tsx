@@ -1,11 +1,11 @@
 import { Sparkles } from "lucide-react";
 
 type DemoPromptGuideProps = {
-  onPromptSelect: (prompt: string) => void;
+  onPromptSend: (prompt: string) => void;
   prompt?: string;
 };
 
-export function DemoPromptGuide({ onPromptSelect, prompt }: DemoPromptGuideProps) {
+export function DemoPromptGuide({ onPromptSend, prompt }: DemoPromptGuideProps) {
   if (!prompt) return null;
 
   return (
@@ -16,8 +16,8 @@ export function DemoPromptGuide({ onPromptSelect, prompt }: DemoPromptGuideProps
       </span>
       <button
         type="button"
-        onClick={() => onPromptSelect(prompt)}
-        aria-label={`Fill demo prompt: ${prompt}`}
+        onClick={() => onPromptSend(prompt)}
+        aria-label={`Send demo prompt: ${prompt}`}
       >
         {prompt}
       </button>
