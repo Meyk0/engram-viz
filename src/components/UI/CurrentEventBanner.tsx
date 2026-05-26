@@ -4,16 +4,28 @@ import { MemoryLifecycleStrip } from "@/components/UI/MemoryLifecycleStrip";
 import type { EngramEvent } from "@/types";
 
 type CurrentEventBannerProps = {
+  compact?: boolean;
   draftAssistant?: string;
   events: EngramEvent[];
   streaming?: boolean;
 };
 
-export function CurrentEventBanner({ draftAssistant = "", events, streaming = false }: CurrentEventBannerProps) {
+export function CurrentEventBanner({
+  compact = false,
+  draftAssistant = "",
+  events,
+  streaming = false
+}: CurrentEventBannerProps) {
   const narrative = getLiveNarrative({ draftAssistant, events, streaming });
 
   return (
-    <aside className="current-event-banner" data-type={narrative.type} data-region={narrative.region} aria-label="Current memory receipt">
+    <aside
+      className="current-event-banner"
+      data-compact={compact}
+      data-type={narrative.type}
+      data-region={narrative.region}
+      aria-label="Current memory receipt"
+    >
       <div className="current-event-title">
         {narrative.title}
         {streaming && !draftAssistant ? (
@@ -25,7 +37,7 @@ export function CurrentEventBanner({ draftAssistant = "", events, streaming = fa
         ) : null}
       </div>
       <div className="current-event-body">{narrative.body}</div>
-      <MemoryLifecycleStrip events={events} streaming={streaming} />
+      {!compact ? <MemoryLifecycleStrip events={events} streaming={streaming} /> : null}
     </aside>
   );
 }

@@ -1,6 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
+import { DemoPromptGuide } from "@/components/UI/DemoPromptGuide";
 import { DreamReviewPanel } from "@/components/UI/DreamReviewPanel";
 import { EventFeed } from "@/components/UI/EventFeed";
 import { MemoryTimelinePanel } from "@/components/UI/MemoryTimelinePanel";
@@ -118,7 +119,7 @@ describe("memory UX panels", () => {
     expect(onSelect).toHaveBeenCalledWith("dream");
   });
 
-  it("opens a timeline dock item from a fresh session", async () => {
+  it("opens a memory story dock item from a fresh session", async () => {
     const onSelect = vi.fn();
     const user = userEvent.setup();
 
@@ -137,27 +138,18 @@ describe("memory UX panels", () => {
       />
     );
 
-    await user.click(screen.getByRole("button", { name: "Timeline" }));
+    await user.click(screen.getByRole("button", { name: "Story" }));
 
     expect(onSelect).toHaveBeenCalledWith("timeline");
   });
 
-  it("fills but does not send guided timeline prompts", async () => {
+  it("fills but does not send guided demo prompts", async () => {
     const onPromptSelect = vi.fn();
     const user = userEvent.setup();
 
-    render(
-      <MemoryTimelinePanel
-        entries={[]}
-        onClearFocus={vi.fn()}
-        onClose={vi.fn()}
-        onPromptSelect={onPromptSelect}
-        onSelectEntry={vi.fn()}
-        open
-      />
-    );
+    render(<DemoPromptGuide prompt="I love the color indigo." onPromptSelect={onPromptSelect} />);
 
-    await user.click(screen.getByRole("button", { name: /I love the color indigo/i }));
+    await user.click(screen.getByRole("button", { name: /Fill demo prompt: I love the color indigo/i }));
 
     expect(onPromptSelect).toHaveBeenCalledWith("I love the color indigo.");
   });
@@ -177,7 +169,6 @@ describe("memory UX panels", () => {
         entries={[entry]}
         onClearFocus={vi.fn()}
         onClose={vi.fn()}
-        onPromptSelect={vi.fn()}
         onSelectEntry={onSelectEntry}
         open
       />

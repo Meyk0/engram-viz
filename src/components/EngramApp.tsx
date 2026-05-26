@@ -16,6 +16,7 @@ import { Brain3D } from "@/components/Brain/Brain3D";
 import { ActiveContextPanel } from "@/components/UI/ActiveContextPanel";
 import { ChatTranscript } from "@/components/UI/ChatTranscript";
 import { CurrentEventBanner } from "@/components/UI/CurrentEventBanner";
+import { DemoPromptGuide } from "@/components/UI/DemoPromptGuide";
 import { DreamReviewPanel } from "@/components/UI/DreamReviewPanel";
 import { ExplainabilityPanel } from "@/components/UI/ExplainabilityPanel";
 import { MemoryTimelinePanel } from "@/components/UI/MemoryTimelinePanel";
@@ -32,6 +33,7 @@ import {
   createDreamTimelineEntry,
   dreamTimelineEntryId,
   getTimelineFocus,
+  timelineDemoPrompts,
   type MemoryTimelineEntry
 } from "@/lib/timeline";
 import type { BrainRegion, DreamProposal, EngramEvent, EngramMemory, StreamChunk } from "@/types";
@@ -129,6 +131,14 @@ export function EngramApp() {
     () => history.filter((turn) => turn.role === "user").length + (draftTurn ? 1 : 0),
     [draftTurn, history]
   );
+  const conversationTimelineCount = useMemo(
+    () => timelineEntries.filter((entry) => entry.kind === "conversation").length,
+    [timelineEntries]
+  );
+  const nextDemoPrompt = !activePanel && !isStreaming && !message.trim() && onboardingDismissed
+    ? timelineDemoPrompts[conversationTimelineCount]
+    : undefined;
+  const showInitialDemoPrompt = Boolean(nextDemoPrompt && events.length === 0);
   const memoryDetailCount = selectedMemory ? 1 : explanations.length;
   const regionDetailCount = selectedRegion ? 1 : 0;
   const showOnboarding = events.length === 0 && !onboardingDismissed;
@@ -398,13 +408,16 @@ export function EngramApp() {
 
       {showOnboarding ? (
         <OnboardingPanel onStart={startOnboarding} />
-      ) : (
+      ) : showInitialDemoPrompt ? null : (
         <CurrentEventBanner
+          compact={Boolean(activePanel)}
           draftAssistant={draftTurn?.assistant}
           events={events}
           streaming={isStreaming}
         />
       )}
+
+      <DemoPromptGuide prompt={nextDemoPrompt} onPromptSelect={fillDemoPrompt} />
 
       <ExplainabilityPanel
         explanations={explanations}
@@ -445,7 +458,6 @@ export function EngramApp() {
         entries={timelineEntries}
         onClearFocus={clearTimelineFocus}
         onClose={closeSecondaryPanel}
-        onPromptSelect={fillDemoPrompt}
         onSelectEntry={onTimelineSelect}
         open={activePanel === "timeline"}
       />
@@ -459,27 +471,30 @@ export function EngramApp() {
         pending={dreamPending}
         proposal={dreamProposal}
       />
-      <SecondaryDock
-        activePanel={activePanel}
-        hasActiveContext={activeContextFill.used > 0}
-        dreamCount={dreamReviewReady ? dreamProposal?.operations.length ?? 0 : dreamEligibleMemories.length}
-        dreamReady={dreamEligibleMemories.length >= 3 && !isStreaming}
-        hasDreamReview={dreamReviewReady || dreamPending}
-        hasMemoryDetails={memoryDetailCount > 0}
-        activeContextCount={activeContextFill.used}
-        timelineCount={timelineEntries.length}
-        memoryCount={memoryDetailCount}
-        onSelect={onDockSelect}
-        hasRegionDetails={regionDetailCount > 0}
-        regionCount={regionDetailCount}
-        transcriptCount={transcriptCount}
-      />
+      {!showOnboarding ? (
+        <SecondaryDock
+          activePanel={activePanel}
+          hasActiveContext={activeContextFill.used > 0}
+          dreamCount={dreamReviewReady ? dreamProposal?.operations.length ?? 0 : dreamEligibleMemories.length}
+          dreamReady={dreamEligibleMemories.length >= 3 && !isStreaming}
+          hasDreamReview={dreamReviewReady || dreamPending}
+          hasMemoryDetails={memoryDetailCount > 0}
+          activeContextCount={activeContextFill.used}
+          timelineCount={timelineEntries.length}
+          memoryCount={memoryDetailCount}
+          onSelect={onDockSelect}
+          hasRegionDetails={regionDetailCount > 0}
+          regionCount={regionDetailCount}
+          transcriptCount={transcriptCount}
+        />
+      ) : null}
 
       <form className="chat-bar" onSubmit={onSubmit}>
         <span className="chat-prefix">›</span>
         <input
           ref={inputRef}
           className="chat-input"
+          suppressHydrationWarning
           value={message}
           onChange={(event) => setMessage(event.target.value)}
           placeholder="Tell me something about yourself..."

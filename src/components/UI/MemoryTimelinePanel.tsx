@@ -2,7 +2,6 @@ import { X } from "lucide-react";
 import {
   buildTimelineSteps,
   getTimelineEntryRegions,
-  timelineDemoPrompts,
   type MemoryTimelineEntry,
   type MemoryTimelineStep
 } from "@/lib/timeline";
@@ -12,7 +11,6 @@ type MemoryTimelinePanelProps = {
   entries: MemoryTimelineEntry[];
   onClearFocus: () => void;
   onClose: () => void;
-  onPromptSelect: (prompt: string) => void;
   onSelectEntry: (entry: MemoryTimelineEntry) => void;
   open: boolean;
 };
@@ -22,18 +20,17 @@ export function MemoryTimelinePanel({
   entries,
   onClearFocus,
   onClose,
-  onPromptSelect,
   onSelectEntry,
   open
 }: MemoryTimelinePanelProps) {
   if (!open) return null;
 
   return (
-    <aside className="secondary-panel secondary-panel-left memory-timeline-panel" aria-label="Memory timeline">
+    <aside className="secondary-panel secondary-panel-left memory-timeline-panel" aria-label="Memory story">
       <div className="secondary-panel-header">
         <div>
-          <div className="secondary-panel-eyebrow">{entries.length} turns</div>
-          <div className="secondary-panel-title">Timeline</div>
+          <div className="secondary-panel-eyebrow">{entries.length} entries</div>
+          <div className="secondary-panel-title">Memory Story</div>
         </div>
         <div className="timeline-header-actions">
           {activeEntryId ? (
@@ -41,29 +38,17 @@ export function MemoryTimelinePanel({
               Clear focus
             </button>
           ) : null}
-          <button className="panel-icon-btn" type="button" onClick={onClose} aria-label="Close timeline">
+          <button className="panel-icon-btn" type="button" onClick={onClose} aria-label="Close memory story">
             <X size={13} />
           </button>
         </div>
       </div>
 
-      <section className="timeline-script" aria-label="Guided demo script">
-        <div className="timeline-script-kicker">Guided demo</div>
-        <p>Use these prompts to show store, retrieve, correction, and working memory.</p>
-        <div className="timeline-script-prompts">
-          {timelineDemoPrompts.map((prompt, index) => (
-            <button key={prompt} type="button" onClick={() => onPromptSelect(prompt)}>
-              <span>{index + 1}</span>
-              {prompt}
-            </button>
-          ))}
-        </div>
-        <div className="timeline-script-hint">Dream Mode becomes useful after several related memories exist.</div>
-      </section>
-
       <div className="timeline-entry-list">
         {entries.length === 0 ? (
-          <div className="timeline-empty">No turns yet. Pick a demo prompt or tell Engram something durable.</div>
+          <div className="timeline-empty">
+            No story yet. Send a message and Engram will summarize what changed in memory.
+          </div>
         ) : (
           entries.map((entry, index) => (
             <TimelineEntryCard
@@ -71,7 +56,6 @@ export function MemoryTimelinePanel({
               entry={entry}
               index={index}
               key={entry.id}
-              latest={index === entries.length - 1}
               onSelectEntry={onSelectEntry}
             />
           ))
@@ -85,13 +69,11 @@ function TimelineEntryCard({
   active,
   entry,
   index,
-  latest,
   onSelectEntry
 }: {
   active: boolean;
   entry: MemoryTimelineEntry;
   index: number;
-  latest: boolean;
   onSelectEntry: (entry: MemoryTimelineEntry) => void;
 }) {
   const steps = buildTimelineSteps(entry);
@@ -114,8 +96,8 @@ function TimelineEntryCard({
         <b>{entry.status}</b>
       </button>
 
-      <details open={active || latest || entry.status === "running"}>
-        <summary>Story steps</summary>
+      <details open={active || entry.status === "running"}>
+        <summary>Details</summary>
         <div className="timeline-entry-body">
           {entry.userText ? (
             <div className="timeline-turn-copy">

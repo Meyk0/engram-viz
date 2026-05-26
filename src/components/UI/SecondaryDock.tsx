@@ -45,13 +45,13 @@ export function SecondaryDock({
       count: timelineCount,
       icon: <History size={14} />,
       id: "timeline",
-      label: "Timeline"
+      label: "Story"
     },
     {
       count: transcriptCount,
       icon: <MessageSquareText size={14} />,
       id: "transcript",
-      label: "Transcript"
+      label: "Chat"
     },
     ...(shouldShowDream
       ? [
@@ -69,7 +69,7 @@ export function SecondaryDock({
             count: memoryCount,
             icon: <BrainCircuit size={14} />,
             id: "memory" as const,
-            label: "Memory"
+            label: "Memories"
           }
         ]
       : []),
@@ -79,7 +79,7 @@ export function SecondaryDock({
             count: activeContextCount,
             icon: <Activity size={14} />,
             id: "context" as const,
-            label: "Context"
+            label: "Working"
           }
         ]
       : []),

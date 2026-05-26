@@ -219,6 +219,7 @@ input {
 
 .topbar,
 .current-event-banner,
+.demo-prompt-guide,
 .mobile-region-shortcuts,
 .secondary-dock,
 .secondary-panel,
@@ -255,6 +256,7 @@ input {
 
 .secondary-dock,
 .secondary-panel,
+.demo-prompt-guide,
 .chat-bar {
   font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
 }
@@ -292,6 +294,21 @@ input {
   box-shadow:
     0 10px 44px rgba(0, 0, 0, 0.42),
     0 0 22px rgba(168, 85, 247, 0.12);
+}
+
+.current-event-banner[data-compact="true"] {
+  top: 88px;
+  right: 24px;
+  left: auto;
+  width: min(340px, calc(100vw - 48px));
+  transform: none;
+  padding: 9px 12px;
+}
+
+.current-event-banner[data-compact="true"] .current-event-body {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .current-event-title {
@@ -523,6 +540,53 @@ input {
   border: 1px solid rgba(0, 212, 255, 0.34);
   background: rgba(0, 212, 255, 0.12);
   color: rgba(220, 245, 255, 0.94);
+}
+
+.demo-prompt-guide {
+  bottom: 124px;
+  left: 50%;
+  display: flex;
+  max-width: min(560px, calc(100vw - 40px));
+  min-height: 34px;
+  align-items: center;
+  gap: 8px;
+  padding: 6px;
+  border: 1px solid rgba(0, 212, 255, 0.1);
+  border-radius: 8px;
+  background: rgba(4, 6, 26, 0.7);
+  box-shadow:
+    0 8px 30px rgba(0, 0, 0, 0.42),
+    0 0 16px rgba(0, 212, 255, 0.05);
+  transform: translateX(-50%);
+  backdrop-filter: blur(16px) saturate(1.25);
+}
+
+.demo-prompt-guide span {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 5px;
+  color: rgba(0, 212, 255, 0.58);
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.demo-prompt-guide button {
+  min-width: 0;
+  overflow: hidden;
+  padding: 6px 8px;
+  border: 1px solid rgba(0, 212, 255, 0.11);
+  border-radius: 6px;
+  background: rgba(0, 212, 255, 0.05);
+  color: rgba(220, 238, 255, 0.76);
+  cursor: pointer;
+  font-size: 10px;
+  line-height: 1.25;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .secondary-panel {
@@ -998,7 +1062,8 @@ input {
 .memory-timeline-panel {
   display: flex;
   flex-direction: column;
-  max-height: min(72vh, 680px);
+  width: min(360px, calc(100vw - 48px));
+  max-height: min(48vh, 480px);
 }
 
 .timeline-header-actions {
@@ -1725,6 +1790,26 @@ input {
     top: 136px;
     width: calc(100vw - 28px);
     padding: 9px 12px;
+  }
+
+  .current-event-banner[data-compact="true"] {
+    display: none;
+  }
+
+  .demo-prompt-guide {
+    right: 16px;
+    bottom: 126px;
+    left: 16px;
+    max-width: none;
+    transform: none;
+  }
+
+  .demo-prompt-guide span {
+    font-size: 7px;
+  }
+
+  .demo-prompt-guide button {
+    font-size: 9px;
   }
 
   .dream-state-badge {

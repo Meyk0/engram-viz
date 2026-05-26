@@ -4,7 +4,7 @@ test("loads the Engram shell", async ({ page }) => {
   await page.goto("/");
   await expect(page.getByRole("heading", { name: "ENGRAM", exact: true })).toBeVisible();
   await expect(page.getByLabel("Engram memory model introduction")).toContainText("stores, retrieves, and uses");
-  await expect(page.getByLabel("Secondary views")).toBeVisible();
+  await expect(page.getByLabel("Secondary views")).toHaveCount(0);
   await expect(page.getByLabel("Chat transcript")).toBeHidden();
   await expect(page.getByLabel("Chat message")).toBeVisible();
 });
@@ -18,15 +18,16 @@ test("starts onboarding without prefilled text", async ({ page }) => {
   await expect(page.getByLabel("Chat message")).toHaveValue("");
 });
 
-test("keeps desktop memory receipt above the brain focus", async ({ page }) => {
+test("keeps the initial guide compact and out of the onboarding stack", async ({ page }) => {
   await page.goto("/");
   await page.getByRole("button", { name: "Start", exact: true }).click();
 
-  const receipt = await page.getByLabel("Current memory receipt").boundingBox();
+  const guide = await page.getByLabel("Guided demo prompt").boundingBox();
 
-  expect(receipt).not.toBeNull();
-  expect(receipt!.y).toBeLessThan(70);
-  expect(receipt!.y + receipt!.height).toBeLessThan(175);
+  await expect(page.getByLabel("Current memory receipt")).toHaveCount(0);
+  expect(guide).not.toBeNull();
+  expect(guide!.height).toBeLessThan(54);
+  expect(guide!.y).toBeGreaterThan(500);
 });
 
 test("exposes brain thumbnail metadata", async ({ page }) => {
@@ -45,37 +46,36 @@ test("exposes brain thumbnail metadata", async ({ page }) => {
 
 test("opens transcript only from the dock", async ({ page }) => {
   await page.goto("/");
-  await page.getByRole("button", { name: "Transcript" }).click();
+  await page.getByRole("button", { name: "Start", exact: true }).click();
+  await page.getByRole("button", { name: "Chat" }).click();
   await expect(page.getByLabel("Chat transcript")).toBeVisible();
 });
 
-test("uses the memory timeline demo script and focuses completed turns", async ({ page }) => {
+test("uses the guided demo prompt and focuses completed memory story turns", async ({ page }) => {
   test.setTimeout(60_000);
   await page.goto("/");
 
-  await page.getByRole("button", { name: "Timeline" }).click();
-  const timeline = page.getByRole("complementary", { name: "Memory timeline" });
-  await expect(timeline).toBeVisible();
-  await page.getByRole("button", { name: /I love the color indigo/i }).click();
+  await page.getByRole("button", { name: "Start", exact: true }).click();
+  await page.getByRole("button", { name: /Fill demo prompt: I love the color indigo/i }).click();
   await expect(page.getByLabel("Chat message")).toHaveValue("I love the color indigo.");
 
   await page.getByLabel("Send").click();
+  await expect(page.locator(".chat-status")).toContainText("READY", { timeout: 12_000 });
+  await page.getByRole("button", { name: "Story" }).click({ force: true });
+  const timeline = page.getByRole("complementary", { name: "Memory story" });
+  await expect(timeline).toBeVisible();
   await expect(page.getByLabel("Timeline turn 1")).toBeVisible({ timeout: 12_000 });
+  await page.getByLabel("Timeline turn 1").locator("button").first().click({ force: true });
+  await expect(page.getByLabel("Timeline turn 1")).toHaveAttribute("data-active", "true");
   await expect(timeline).toContainText("Stored new memory", { timeout: 12_000 });
+  await page.getByRole("button", { name: "Clear focus" }).click();
+  await page.getByLabel("Close memory story").click();
 
-  await page.getByRole("button", { name: /What color do I love/i }).click();
+  await page.getByRole("button", { name: /Fill demo prompt: What color do I love/i }).click();
   await expect(page.getByLabel("Chat message")).toHaveValue("What color do I love?");
   await page.getByLabel("Send").click();
+  await page.getByRole("button", { name: "Story" }).click({ force: true });
   await expect(page.getByLabel("Timeline turn 2")).toBeVisible({ timeout: 12_000 });
-
-  await page.getByRole("button", { name: /Turn 1/i }).click();
-  await expect(page.getByLabel("Timeline turn 1")).toHaveAttribute("data-active", "true");
-  await expect(page.getByRole("button", { name: "Clear focus" })).toBeVisible();
-
-  page.once("dialog", (dialog) => dialog.accept());
-  await page.getByLabel("Reset demo session").click();
-  await page.getByRole("button", { name: "Timeline" }).click();
-  await expect(timeline).toContainText("No turns yet");
 });
 
 test("exposes brain label and reset controls", async ({ page }) => {
@@ -92,13 +92,16 @@ test("resets the demo session from the brain controls", async ({ page }) => {
 
   await page.getByLabel("Chat message").fill("I love the color indigo.");
   await page.getByLabel("Send").click();
-  await expect(page.getByRole("button", { name: /^Memory [1-9]/ })).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByRole("button", { name: /^Memories [1-9]/ })).toBeVisible({ timeout: 10_000 });
+  await expect(page.locator(".chat-status")).toContainText("READY", { timeout: 12_000 });
 
   page.once("dialog", (dialog) => dialog.accept());
-  await page.getByLabel("Reset demo session").click();
+  await page.getByLabel("Reset demo session").evaluate((element) => {
+    (element as HTMLButtonElement).click();
+  });
 
   await expect(page.getByLabel("Engram memory model introduction")).toBeVisible();
-  await expect(page.getByRole("button", { name: /^Memory [1-9]/ })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: /^Memories [1-9]/ })).toHaveCount(0);
   await expect(page.getByLabel("Chat message")).toHaveValue("");
 });
 
@@ -121,14 +124,14 @@ test("keeps mobile memory controls visually separated", async ({ page }) => {
 
   const topbar = await page.locator(".topbar").boundingBox();
   const shortcuts = await page.getByLabel("Brain region shortcuts").boundingBox();
-  const receipt = await page.getByLabel("Current memory receipt").boundingBox();
+  const guide = await page.getByLabel("Guided demo prompt").boundingBox();
 
   expect(topbar).not.toBeNull();
   expect(shortcuts).not.toBeNull();
-  expect(receipt).not.toBeNull();
+  expect(guide).not.toBeNull();
   expect(shortcuts!.y - (topbar!.y + topbar!.height)).toBeGreaterThan(10);
-  expect(receipt!.y - (shortcuts!.y + shortcuts!.height)).toBeGreaterThan(20);
-  expect(receipt!.height).toBeLessThan(120);
+  expect(guide!.y - (shortcuts!.y + shortcuts!.height)).toBeGreaterThan(420);
+  expect(guide!.height).toBeLessThan(54);
 });
 
 test("opens working memory details after retrieval", async ({ page }) => {
@@ -136,7 +139,7 @@ test("opens working memory details after retrieval", async ({ page }) => {
 
   await page.getByLabel("Chat message").fill("I prefer deep red interfaces and dark dashboards.");
   await page.getByLabel("Send").click();
-  await expect(page.getByRole("button", { name: /^Memory [1-9]/ })).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByRole("button", { name: /^Memories [1-9]/ })).toBeVisible({ timeout: 10_000 });
 
   await page.getByLabel("Chat message").fill("What interface colors do I prefer?");
   await page.getByLabel("Send").click();
@@ -145,7 +148,7 @@ test("opens working memory details after retrieval", async ({ page }) => {
     name: /Open working memory details: ([1-9]|10) of 10 loaded/i
   });
   await expect(workingMemory).toBeVisible({ timeout: 10_000 });
-  await page.getByRole("button", { name: /Context/i }).click();
+  await page.getByRole("button", { name: /^Working [1-9]/ }).click({ force: true });
   await expect(page.getByLabel("Active context panel")).toContainText("loaded into active context");
 });
 
@@ -162,7 +165,7 @@ test("opens and dismisses Dream Mode after enough memories", async ({ page }) =>
   ]) {
     await page.getByLabel("Chat message").fill(message);
     await page.getByLabel("Send").click();
-    await expect(page.getByRole("button", { name: /^Memory [1-9]/ })).toBeVisible({ timeout: 12_000 });
+    await expect(page.getByRole("button", { name: /^Memories [1-9]/ })).toBeVisible({ timeout: 12_000 });
     await expect(page.locator(".chat-status")).toContainText("READY", { timeout: 12_000 });
   }
 
