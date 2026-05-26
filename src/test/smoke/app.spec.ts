@@ -49,6 +49,35 @@ test("opens transcript only from the dock", async ({ page }) => {
   await expect(page.getByLabel("Chat transcript")).toBeVisible();
 });
 
+test("uses the memory timeline demo script and focuses completed turns", async ({ page }) => {
+  test.setTimeout(60_000);
+  await page.goto("/");
+
+  await page.getByRole("button", { name: "Timeline" }).click();
+  const timeline = page.getByRole("complementary", { name: "Memory timeline" });
+  await expect(timeline).toBeVisible();
+  await page.getByRole("button", { name: /I love the color indigo/i }).click();
+  await expect(page.getByLabel("Chat message")).toHaveValue("I love the color indigo.");
+
+  await page.getByLabel("Send").click();
+  await expect(page.getByLabel("Timeline turn 1")).toBeVisible({ timeout: 12_000 });
+  await expect(timeline).toContainText("Stored new memory", { timeout: 12_000 });
+
+  await page.getByRole("button", { name: /What color do I love/i }).click();
+  await expect(page.getByLabel("Chat message")).toHaveValue("What color do I love?");
+  await page.getByLabel("Send").click();
+  await expect(page.getByLabel("Timeline turn 2")).toBeVisible({ timeout: 12_000 });
+
+  await page.getByRole("button", { name: /Turn 1/i }).click();
+  await expect(page.getByLabel("Timeline turn 1")).toHaveAttribute("data-active", "true");
+  await expect(page.getByRole("button", { name: "Clear focus" })).toBeVisible();
+
+  page.once("dialog", (dialog) => dialog.accept());
+  await page.getByLabel("Reset demo session").click();
+  await page.getByRole("button", { name: "Timeline" }).click();
+  await expect(timeline).toContainText("No turns yet");
+});
+
 test("exposes brain label and reset controls", async ({ page }) => {
   await page.goto("/");
   await expect(page.getByLabel("Brain view controls")).toBeVisible();

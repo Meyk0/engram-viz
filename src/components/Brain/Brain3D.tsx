@@ -15,11 +15,14 @@ import { RegionLabels } from "@/components/Brain/RegionLabels";
 import { getBrainAnimationState } from "@/lib/animations";
 import { brainCameraProfiles, getBrainCameraProfile } from "@/lib/brainCamera";
 import { regionBounds } from "@/lib/regions";
-import type { EngramEvent } from "@/types";
+import type { BrainRegion, EngramEvent } from "@/types";
 
 type Brain3DProps = {
   events: EngramEvent[];
   dreamReviewActive?: boolean;
+  focusedMemoryIds?: string[];
+  focusedRegions?: BrainRegion[];
+  focusPulseKey?: string;
   onActiveContextSelect?: () => void;
   onMemorySelect?: (id: string) => void;
   onRegionSelect?: (region: keyof typeof regionBounds) => void;
@@ -31,6 +34,9 @@ type Brain3DProps = {
 export function Brain3D({
   events,
   dreamReviewActive = false,
+  focusedMemoryIds = [],
+  focusedRegions = [],
+  focusPulseKey,
   onActiveContextSelect,
   onMemorySelect,
   onRegionSelect,
@@ -64,6 +70,9 @@ export function Brain3D({
           <BrainRig
             events={events}
             dreamReviewActive={dreamReviewActive}
+            focusedMemoryIds={focusedMemoryIds}
+            focusedRegions={focusedRegions}
+            focusPulseKey={focusPulseKey}
             labelsVisible={labelsVisible}
             onActiveContextSelect={onActiveContextSelect}
             onMemorySelect={onMemorySelect}
@@ -161,6 +170,9 @@ function ResponsiveOrbitControls({ controls }: { controls: RefObject<OrbitContro
 function BrainRig({
   events,
   dreamReviewActive = false,
+  focusedMemoryIds = [],
+  focusedRegions = [],
+  focusPulseKey,
   labelsVisible,
   onActiveContextSelect,
   onMemorySelect,
@@ -183,11 +195,13 @@ function BrainRig({
   return (
     <group ref={group} scale={1.58} rotation={[0.02, -1.05, 0]}>
       <BrainMesh />
-      <RegionHighlights animation={animation} />
+      <RegionHighlights animation={animation} focusedRegions={focusedRegions} focusPulseKey={focusPulseKey} />
       <Axons animation={animation} />
       <MemoryLifecycle
         events={events}
         dream={animation.dream}
+        focusedMemoryIds={focusedMemoryIds}
+        focusPulseKey={focusPulseKey}
         onActiveContextSelect={onActiveContextSelect}
         onMemorySelect={onMemorySelect}
         responseActive={responseActive}

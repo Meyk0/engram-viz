@@ -38,6 +38,8 @@ const activeContextSlotRadiusY = 0.03;
 type MemoryLifecycleProps = {
   dream?: BrainAnimationState["dream"];
   events: EngramEvent[];
+  focusedMemoryIds?: string[];
+  focusPulseKey?: string;
   onActiveContextSelect?: () => void;
   onMemorySelect?: (id: string) => void;
   responseActive?: boolean;
@@ -47,6 +49,8 @@ type MemoryLifecycleProps = {
 export function MemoryLifecycle({
   dream,
   events,
+  focusedMemoryIds = [],
+  focusPulseKey,
   onActiveContextSelect,
   onMemorySelect,
   responseActive = false,
@@ -54,6 +58,7 @@ export function MemoryLifecycle({
 }: MemoryLifecycleProps) {
   const memories = useMemo(() => getMemoryVisuals(events), [events]);
   const activeIds = useMemo(() => new Set(getActiveMemoryIds(events)), [events]);
+  const focusedIds = useMemo(() => new Set(focusedMemoryIds), [focusedMemoryIds]);
   const loadedIds = useMemo(() => getLoadedMemoryIds(events), [events]);
   const latestStore = useMemo(() => getLatestStoreEvent(events), [events]);
   const latestRetrieve = useMemo(() => getLatestRetrieveEvent(events), [events]);
@@ -68,6 +73,8 @@ export function MemoryLifecycle({
       <MemoryNeurons
         memories={memories}
         activeIds={activeIds}
+        focusedIds={focusedIds}
+        focusPulseKey={focusPulseKey}
         latestStoreId={latestStore?.memory.id}
         onMemorySelect={onMemorySelect}
         selectedMemoryId={selectedMemoryId}
@@ -93,12 +100,16 @@ export function MemoryLifecycle({
 function MemoryNeurons({
   memories,
   activeIds,
+  focusedIds,
+  focusPulseKey,
   latestStoreId,
   onMemorySelect,
   selectedMemoryId
 }: {
   memories: MemoryVisual[];
   activeIds: Set<string>;
+  focusedIds: Set<string>;
+  focusPulseKey?: string;
   latestStoreId?: string;
   onMemorySelect?: (id: string) => void;
   selectedMemoryId?: string;
@@ -108,6 +119,8 @@ function MemoryNeurons({
       {memories.map((visual) => (
         <MemoryNeuron
           active={activeIds.has(visual.memory.id)}
+          timelineFocused={focusedIds.has(visual.memory.id)}
+          focusPulseKey={focusPulseKey}
           key={visual.memory.id}
           onSelect={onMemorySelect}
           selected={selectedMemoryId === visual.memory.id}
@@ -121,15 +134,19 @@ function MemoryNeurons({
 
 function MemoryNeuron({
   active,
+  focusPulseKey,
   onSelect,
   selected,
   storeActive,
+  timelineFocused,
   visual
 }: {
   active: boolean;
+  focusPulseKey?: string;
   onSelect?: (id: string) => void;
   selected: boolean;
   storeActive: boolean;
+  timelineFocused: boolean;
   visual: MemoryVisual;
 }) {
   const mesh = useRef<THREE.Mesh>(null);
@@ -138,6 +155,8 @@ function MemoryNeuron({
   const storeRingMaterial = useRef<THREE.MeshBasicMaterial>(null);
   const storeActiveId = useRef<string | undefined>(undefined);
   const storeStartTime = useRef(-10);
+  const focusActiveKey = useRef<string | undefined>(undefined);
+  const focusStartTime = useRef(-10);
   const baseScale = visual.memory.region === "temporal" ? 0.024 : 0.03;
 
   useFrame(({ clock }) => {
@@ -152,13 +171,21 @@ function MemoryNeuron({
       storeActiveId.current = undefined;
     }
 
+    if (timelineFocused && focusActiveKey.current !== focusPulseKey) {
+      focusActiveKey.current = focusPulseKey;
+      focusStartTime.current = clock.elapsedTime;
+    }
+
     const storeElapsed = storeActive ? clock.elapsedTime - storeStartTime.current : 10;
     const storePulse = storeActive ? Math.max(0, 1 - storeElapsed / 2.4) : 0;
+    const focusElapsed = timelineFocused ? clock.elapsedTime - focusStartTime.current : 10;
+    const focusPulse = timelineFocused ? Math.max(0.16, 1 - focusElapsed / 3) : 0;
     const shimmerMagnitude = visual.memory.region === "temporal" ? 0.018 : 0.045;
     const shimmer = Math.sin(clock.elapsedTime * 3.4 + visual.position[0] * 8) * shimmerMagnitude;
     const pulse = selected ? 0.58 : active ? 0.42 : 0;
-    mesh.current.scale.setScalar(baseScale * (1 + shimmer + pulse + storePulse * 1.55));
-    material.current.emissiveIntensity = 0.45 + pulse * 2.4 + storePulse * 3.1 + (visual.isHighImportance ? 0.28 : 0);
+    mesh.current.scale.setScalar(baseScale * (1 + shimmer + pulse + focusPulse * 0.8 + storePulse * 1.55));
+    material.current.emissiveIntensity =
+      0.45 + pulse * 2.4 + focusPulse * 2.1 + storePulse * 3.1 + (visual.isHighImportance ? 0.28 : 0);
 
     if (storeRing.current && storeRingMaterial.current) {
       storeRing.current.visible = storePulse > 0.02;
@@ -203,13 +230,13 @@ function MemoryNeuron({
           />
         </mesh>
       ) : null}
-      {selected ? (
+      {selected || timelineFocused ? (
         <mesh scale={baseScale * 2.25}>
           <sphereGeometry args={[1, 22, 12]} />
           <meshBasicMaterial
-            color="#ffffff"
+            color={timelineFocused ? "#00d4ff" : "#ffffff"}
             transparent
-            opacity={0.16}
+            opacity={timelineFocused ? 0.22 : 0.16}
             depthWrite={false}
             depthTest={false}
             blending={THREE.AdditiveBlending}

@@ -1,7 +1,7 @@
-import { Activity, BrainCircuit, MapPin, MessageSquareText, MoonStar } from "lucide-react";
+import { Activity, BrainCircuit, History, MapPin, MessageSquareText, MoonStar } from "lucide-react";
 import type { ReactNode } from "react";
 
-export type SecondaryPanel = "transcript" | "memory" | "context" | "region" | "dream";
+export type SecondaryPanel = "timeline" | "transcript" | "memory" | "context" | "region" | "dream";
 
 type SecondaryDockProps = {
   activeContextCount: number;
@@ -15,6 +15,7 @@ type SecondaryDockProps = {
   memoryCount: number;
   onSelect: (panel: SecondaryPanel) => void;
   regionCount: number;
+  timelineCount: number;
   transcriptCount: number;
 };
 
@@ -30,6 +31,7 @@ export function SecondaryDock({
   memoryCount,
   onSelect,
   regionCount,
+  timelineCount,
   transcriptCount
 }: SecondaryDockProps) {
   const shouldShowDream = hasDreamReview || dreamReady || dreamCount >= 3;
@@ -39,6 +41,12 @@ export function SecondaryDock({
     id: SecondaryPanel;
     label: string;
   }> = [
+    {
+      count: timelineCount,
+      icon: <History size={14} />,
+      id: "timeline",
+      label: "Timeline"
+    },
     {
       count: transcriptCount,
       icon: <MessageSquareText size={14} />,

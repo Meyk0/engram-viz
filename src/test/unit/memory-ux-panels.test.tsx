@@ -3,10 +3,12 @@ import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { DreamReviewPanel } from "@/components/UI/DreamReviewPanel";
 import { EventFeed } from "@/components/UI/EventFeed";
+import { MemoryTimelinePanel } from "@/components/UI/MemoryTimelinePanel";
 import { MemoryInspector } from "@/components/UI/MemoryInspector";
 import { OnboardingPanel } from "@/components/UI/OnboardingPanel";
 import { RegionInspector } from "@/components/UI/RegionInspector";
 import { SecondaryDock } from "@/components/UI/SecondaryDock";
+import { createConversationTimelineEntry } from "@/lib/timeline";
 import type { DreamProposal } from "@/types";
 import type { EngramEvent, EngramMemory } from "@/types";
 
@@ -106,6 +108,7 @@ describe("memory UX panels", () => {
         memoryCount={0}
         onSelect={onSelect}
         regionCount={0}
+        timelineCount={0}
         transcriptCount={1}
       />
     );
@@ -113,6 +116,77 @@ describe("memory UX panels", () => {
     await user.click(screen.getByRole("button", { name: /Dream 3/i }));
 
     expect(onSelect).toHaveBeenCalledWith("dream");
+  });
+
+  it("opens a timeline dock item from a fresh session", async () => {
+    const onSelect = vi.fn();
+    const user = userEvent.setup();
+
+    render(
+      <SecondaryDock
+        activeContextCount={0}
+        activePanel={null}
+        hasActiveContext={false}
+        hasMemoryDetails={false}
+        hasRegionDetails={false}
+        memoryCount={0}
+        onSelect={onSelect}
+        regionCount={0}
+        timelineCount={0}
+        transcriptCount={0}
+      />
+    );
+
+    await user.click(screen.getByRole("button", { name: "Timeline" }));
+
+    expect(onSelect).toHaveBeenCalledWith("timeline");
+  });
+
+  it("fills but does not send guided timeline prompts", async () => {
+    const onPromptSelect = vi.fn();
+    const user = userEvent.setup();
+
+    render(
+      <MemoryTimelinePanel
+        entries={[]}
+        onClearFocus={vi.fn()}
+        onClose={vi.fn()}
+        onPromptSelect={onPromptSelect}
+        onSelectEntry={vi.fn()}
+        open
+      />
+    );
+
+    await user.click(screen.getByRole("button", { name: /I love the color indigo/i }));
+
+    expect(onPromptSelect).toHaveBeenCalledWith("I love the color indigo.");
+  });
+
+  it("selects timeline entries for brain focus", async () => {
+    const entry = createConversationTimelineEntry({
+      id: "turn-1",
+      startedAt: "2026-05-26T00:00:00.000Z",
+      userText: "I love the color indigo."
+    });
+    const onSelectEntry = vi.fn();
+    const user = userEvent.setup();
+
+    render(
+      <MemoryTimelinePanel
+        activeEntryId={entry.id}
+        entries={[entry]}
+        onClearFocus={vi.fn()}
+        onClose={vi.fn()}
+        onPromptSelect={vi.fn()}
+        onSelectEntry={onSelectEntry}
+        open
+      />
+    );
+
+    await user.click(screen.getByRole("button", { name: /Turn 1/i }));
+
+    expect(screen.getByLabelText("Timeline turn 1")).toHaveAttribute("data-active", "true");
+    expect(onSelectEntry).toHaveBeenCalledWith(entry);
   });
 
   it("reviews dream proposals and lets users apply or keep memories", async () => {

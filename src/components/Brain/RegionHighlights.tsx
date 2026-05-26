@@ -7,6 +7,8 @@ import type { BrainRegion } from "@/types";
 
 type RegionHighlightsProps = {
   animation: BrainAnimationState;
+  focusedRegions?: BrainRegion[];
+  focusPulseKey?: string;
 };
 
 const highlightScaleByRegion: Record<BrainRegion, number> = {
@@ -15,17 +17,20 @@ const highlightScaleByRegion: Record<BrainRegion, number> = {
   temporal: 1
 };
 
-export function RegionHighlights({ animation }: RegionHighlightsProps) {
+export function RegionHighlights({ animation, focusedRegions = [], focusPulseKey }: RegionHighlightsProps) {
+  const focused = new Set(focusedRegions);
+
   return (
     <group>
       {(Object.keys(regionBounds) as BrainRegion[]).map((region) => {
         const bounds = regionBounds[region];
         const highlightScale = highlightScaleByRegion[region];
-        const pulse = animation.regions[region];
+        const focusPulse = focused.has(region) ? 0.78 : 0;
+        const pulse = Math.max(animation.regions[region], focusPulse);
         const fade = animation.decayDimming * 0.18;
         const visiblePulse = Math.max(0, pulse - 0.05);
         return (
-          <group key={region} position={bounds.center}>
+          <group key={`${region}-${focusPulseKey ?? "live"}`} position={bounds.center}>
             <mesh
               renderOrder={4}
               scale={[

@@ -18,11 +18,23 @@ import { ChatTranscript } from "@/components/UI/ChatTranscript";
 import { CurrentEventBanner } from "@/components/UI/CurrentEventBanner";
 import { DreamReviewPanel } from "@/components/UI/DreamReviewPanel";
 import { ExplainabilityPanel } from "@/components/UI/ExplainabilityPanel";
+import { MemoryTimelinePanel } from "@/components/UI/MemoryTimelinePanel";
 import { MemoryInspector } from "@/components/UI/MemoryInspector";
 import { OnboardingPanel } from "@/components/UI/OnboardingPanel";
 import { RegionInspector } from "@/components/UI/RegionInspector";
 import { SecondaryDock, type SecondaryPanel } from "@/components/UI/SecondaryDock";
-import type { BrainRegion, DreamOperation, DreamProposal, EngramEvent, EngramMemory, StreamChunk } from "@/types";
+import {
+  appendTimelineAssistantText,
+  appendTimelineEvent,
+  buildDreamTimelineEvents,
+  completeTimelineEntry,
+  createConversationTimelineEntry,
+  createDreamTimelineEntry,
+  dreamTimelineEntryId,
+  getTimelineFocus,
+  type MemoryTimelineEntry
+} from "@/lib/timeline";
+import type { BrainRegion, DreamProposal, EngramEvent, EngramMemory, StreamChunk } from "@/types";
 
 const regionShortcuts: Array<{ label: string; region: BrainRegion }> = [
   { label: "New", region: "hippocampus" },
@@ -41,7 +53,10 @@ export function EngramApp() {
   const [dreamMemorySnapshot, setDreamMemorySnapshot] = useState<EngramMemory[]>([]);
   const [dreamPending, setDreamPending] = useState(false);
   const [dreamError, setDreamError] = useState<string | null>(null);
+  const [timelineEntries, setTimelineEntries] = useState<MemoryTimelineEntry[]>([]);
+  const [focusedTimelineId, setFocusedTimelineId] = useState<string | undefined>(undefined);
   const inputRef = useRef<HTMLInputElement>(null);
+  const activeTimelineEntryId = useRef<string | undefined>(undefined);
   const { events, pushEvent, clearEvents } = useEventQueue();
   const memories = useMemoryStore(events);
   const explanations = useMemoryExplanations(events);
@@ -63,6 +78,14 @@ export function EngramApp() {
     () => memories.find((memory) => memory.id === selectedMemoryId),
     [memories, selectedMemoryId]
   );
+  const focusedTimelineEntry = useMemo(
+    () => timelineEntries.find((entry) => entry.id === focusedTimelineId),
+    [focusedTimelineId, timelineEntries]
+  );
+  const timelineFocus = useMemo(() => getTimelineFocus(focusedTimelineEntry), [focusedTimelineEntry]);
+  const timelineFocusPulseKey = focusedTimelineEntry
+    ? `${focusedTimelineEntry.id}-${focusedTimelineEntry.events.length}-${focusedTimelineEntry.status}`
+    : undefined;
   const activeMemories = useMemo(
     () => memories.filter((memory) => memory.status !== "superseded"),
     [memories]
@@ -79,9 +102,21 @@ export function EngramApp() {
         setDraftTurn((current) =>
           current ? { ...current, assistant: `${current.assistant}${chunk.delta}` } : current
         );
+        const timelineEntryId = activeTimelineEntryId.current;
+        if (timelineEntryId) {
+          setTimelineEntries((current) =>
+            appendTimelineAssistantText(current, timelineEntryId, chunk.delta)
+          );
+        }
       }
       if (chunk.kind === "event") {
         pushEvent(chunk.event);
+        const timelineEntryId = activeTimelineEntryId.current;
+        if (timelineEntryId) {
+          setTimelineEntries((current) =>
+            appendTimelineEvent(current, timelineEntryId, chunk.event)
+          );
+        }
       }
     },
     [pushEvent]
@@ -122,18 +157,16 @@ export function EngramApp() {
 
   const pushDreamEvents = useCallback(
     (proposal: DreamProposal) => {
-      pushEvent({ type: "dream_start", proposal });
-
-      const reviewIds = unique(proposal.operations.flatMap((operation) => operation.sourceIds));
-      if (reviewIds.length > 0) {
-        pushEvent({ type: "dream_review", proposalId: proposal.id, ids: reviewIds });
-      }
-
-      proposal.operations.forEach((operation) => {
-        pushEvent(dreamOperationEvent(proposal.id, operation));
-      });
-
-      pushEvent({ type: "dream_complete", proposal });
+      const dreamEvents = buildDreamTimelineEvents(proposal);
+      dreamEvents.forEach(pushEvent);
+      setTimelineEntries((current) => [
+        ...current,
+        createDreamTimelineEntry({
+          events: dreamEvents,
+          proposal,
+          startedAt: new Date().toISOString()
+        })
+      ]);
     },
     [pushEvent]
   );
@@ -172,7 +205,15 @@ export function EngramApp() {
 
   const applyDreamProposal = useCallback(
     (proposal: DreamProposal) => {
-      pushEvent({ type: "dream_apply", proposal });
+      const event: EngramEvent = { type: "dream_apply", proposal };
+      const entryId = dreamTimelineEntryId(proposal.id);
+      pushEvent(event);
+      setTimelineEntries((current) =>
+        completeTimelineEntry(appendTimelineEvent(current, entryId, event), entryId, {
+          completedAt: new Date().toISOString(),
+          status: "applied"
+        })
+      );
       setDreamProposal(null);
       setActivePanel(null);
     },
@@ -181,7 +222,15 @@ export function EngramApp() {
 
   const dismissDreamProposal = useCallback(
     (proposal: DreamProposal) => {
-      pushEvent({ type: "dream_dismiss", proposal });
+      const event: EngramEvent = { type: "dream_dismiss", proposal };
+      const entryId = dreamTimelineEntryId(proposal.id);
+      pushEvent(event);
+      setTimelineEntries((current) =>
+        completeTimelineEntry(appendTimelineEvent(current, entryId, event), entryId, {
+          completedAt: new Date().toISOString(),
+          status: "dismissed"
+        })
+      );
       setDreamProposal(null);
       setActivePanel(null);
     },
@@ -192,6 +241,22 @@ export function EngramApp() {
     setSelectedMemoryId(undefined);
     setSelectedRegion(undefined);
     setActivePanel("context");
+  }, []);
+
+  const onTimelineSelect = useCallback((entry: MemoryTimelineEntry) => {
+    setFocusedTimelineId(entry.id);
+    setSelectedMemoryId(undefined);
+    setSelectedRegion(undefined);
+  }, []);
+
+  const clearTimelineFocus = useCallback(() => {
+    setFocusedTimelineId(undefined);
+  }, []);
+
+  const fillDemoPrompt = useCallback((prompt: string) => {
+    setOnboardingDismissed(true);
+    setMessage(prompt);
+    inputRef.current?.focus();
   }, []);
 
   const onRegionSelect = useCallback((region: BrainRegion) => {
@@ -220,6 +285,8 @@ export function EngramApp() {
     setDreamMemorySnapshot([]);
     setDreamPending(false);
     setDreamError(null);
+    setTimelineEntries([]);
+    setFocusedTimelineId(undefined);
     setOnboardingDismissed(false);
   }, [clearEvents, resetSession]);
 
@@ -259,12 +326,35 @@ export function EngramApp() {
 
     setMessage("");
     setDraftTurn({ user: current, assistant: "" });
+    const timelineEntryId = `timeline-turn-${crypto.randomUUID()}`;
+    activeTimelineEntryId.current = timelineEntryId;
+    setTimelineEntries((entries) => [
+      ...entries,
+      createConversationTimelineEntry({
+        id: timelineEntryId,
+        startedAt: new Date().toISOString(),
+        userText: current
+      })
+    ]);
 
     try {
       await sendMessage(current);
       setDraftTurn(null);
+      setTimelineEntries((entries) =>
+        completeTimelineEntry(entries, timelineEntryId, {
+          completedAt: new Date().toISOString()
+        })
+      );
     } catch {
       setDraftTurn((turn) => (turn ? { ...turn, assistant: turn.assistant || "No response received." } : turn));
+      setTimelineEntries((entries) =>
+        completeTimelineEntry(entries, timelineEntryId, {
+          completedAt: new Date().toISOString(),
+          status: "error"
+        })
+      );
+    } finally {
+      activeTimelineEntryId.current = undefined;
     }
   }
 
@@ -278,6 +368,9 @@ export function EngramApp() {
         onResetSession={resetDemoSession}
         responseActive={isStreaming}
         selectedMemoryId={selectedMemoryId}
+        focusedMemoryIds={timelineFocus.memoryIds}
+        focusedRegions={timelineFocus.regions}
+        focusPulseKey={timelineFocusPulseKey}
         dreamReviewActive={activePanel === "dream" && (dreamPending || Boolean(dreamProposal) || Boolean(dreamError))}
       />
 
@@ -347,6 +440,15 @@ export function EngramApp() {
         onClose={closeSecondaryPanel}
         open={activePanel === "transcript"}
       />
+      <MemoryTimelinePanel
+        activeEntryId={focusedTimelineId}
+        entries={timelineEntries}
+        onClearFocus={clearTimelineFocus}
+        onClose={closeSecondaryPanel}
+        onPromptSelect={fillDemoPrompt}
+        onSelectEntry={onTimelineSelect}
+        open={activePanel === "timeline"}
+      />
       <DreamReviewPanel
         beforeMemories={dreamMemorySnapshot.length > 0 ? dreamMemorySnapshot : dreamEligibleMemories}
         error={dreamError}
@@ -365,6 +467,7 @@ export function EngramApp() {
         hasDreamReview={dreamReviewReady || dreamPending}
         hasMemoryDetails={memoryDetailCount > 0}
         activeContextCount={activeContextFill.used}
+        timelineCount={timelineEntries.length}
         memoryCount={memoryDetailCount}
         onSelect={onDockSelect}
         hasRegionDetails={regionDetailCount > 0}
@@ -397,19 +500,4 @@ export function EngramApp() {
       </form>
     </main>
   );
-}
-
-function dreamOperationEvent(proposalId: string, operation: DreamOperation): EngramEvent {
-  switch (operation.type) {
-    case "merge":
-      return { type: "dream_merge", proposalId, operation };
-    case "supersede":
-      return { type: "dream_supersede", proposalId, operation };
-    case "insight":
-      return { type: "dream_insight", proposalId, operation };
-  }
-}
-
-function unique(values: string[]) {
-  return [...new Set(values)];
 }
