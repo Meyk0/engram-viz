@@ -5,7 +5,7 @@ test("loads the Engram shell", async ({ page }) => {
   await expect(page.getByRole("heading", { name: "ENGRAM", exact: true })).toBeVisible();
   await expect(page.getByRole("complementary", { name: "How Engram works" })).toHaveCount(0);
   await expect(page.getByLabel("Secondary views")).toBeVisible();
-  await expect(page.getByLabel("Guided demo prompt")).toBeVisible();
+  await expect(page.getByLabel("Demo controls")).toBeVisible();
   await expect(page.getByLabel("Chat transcript")).toBeHidden();
   await expect(page.getByLabel("Chat message")).toBeVisible();
 });
@@ -20,7 +20,7 @@ test("starts directly without an onboarding gate", async ({ page }) => {
 test("keeps the initial guide compact over the active brain", async ({ page }) => {
   await page.goto("/");
 
-  const guide = await page.getByLabel("Guided demo prompt").boundingBox();
+  const guide = await page.getByLabel("Demo controls").boundingBox();
 
   await expect(page.getByLabel("Current memory receipt")).toHaveCount(0);
   expect(guide).not.toBeNull();
@@ -35,7 +35,7 @@ test("opens a clean recording demo route", async ({ page }) => {
   await expect(page.getByLabel("Secondary views")).toHaveCount(0);
   await expect(page.getByLabel("Current memory receipt")).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Exit recording mode" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Run full guided demo" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Run demo" })).toBeVisible();
 });
 
 test("exposes brain thumbnail metadata", async ({ page }) => {
@@ -58,12 +58,14 @@ test("opens transcript only from the dock", async ({ page }) => {
   await expect(page.getByLabel("Chat transcript")).toBeVisible();
 });
 
-test("uses the guided demo prompt and focuses completed memory story turns", async ({ page }) => {
+test("runs the demo and focuses completed memory story turns", async ({ page }) => {
   test.setTimeout(60_000);
   await page.goto("/");
 
-  await page.getByRole("button", { name: /Send demo prompt: I love the color indigo/i }).click();
-  await expect(page.locator(".chat-status")).toContainText("READY", { timeout: 12_000 });
+  await page.getByRole("button", { name: "Run demo" }).click();
+  await expect(page.getByRole("button", { name: "Stop demo" })).toBeVisible();
+  await expect(page.locator(".chat-status")).toContainText("READY", { timeout: 16_000 });
+  await page.getByRole("button", { name: "Stop demo" }).click();
   await expect(page.getByLabel("Brain action caption")).toContainText("Store", { timeout: 12_000 });
   await page.getByRole("button", { name: "Story" }).click({ force: true });
   const timeline = page.getByRole("complementary", { name: "Memory story" });
@@ -75,7 +77,9 @@ test("uses the guided demo prompt and focuses completed memory story turns", asy
   await page.getByRole("button", { name: "Clear focus" }).click();
   await page.getByLabel("Close memory story").click();
 
-  await page.getByRole("button", { name: /Send demo prompt: What color do I love/i }).click();
+  await page.getByRole("button", { name: "Run demo" }).click();
+  await expect(page.locator(".chat-status")).toContainText("READY", { timeout: 16_000 });
+  await page.getByRole("button", { name: "Stop demo" }).click();
   await page.getByRole("button", { name: "Story" }).click({ force: true });
   await expect(page.getByLabel("Timeline turn 2")).toBeVisible({ timeout: 12_000 });
 });
@@ -106,7 +110,7 @@ test("resets the demo session from the brain controls", async ({ page }) => {
     (element as HTMLButtonElement).click();
   });
 
-  await expect(page.getByLabel("Guided demo prompt")).toBeVisible();
+  await expect(page.getByLabel("Demo controls")).toBeVisible();
   await expect(page.getByRole("button", { name: /^Memories [1-9]/ })).toHaveCount(0);
   await expect(page.getByLabel("Chat message")).toHaveValue("");
 });
@@ -128,7 +132,7 @@ test("keeps mobile memory controls visually separated", async ({ page }) => {
 
   const topbar = await page.locator(".topbar").boundingBox();
   const shortcuts = await page.getByLabel("Brain region shortcuts").boundingBox();
-  const guide = await page.getByLabel("Guided demo prompt").boundingBox();
+  const guide = await page.getByLabel("Demo controls").boundingBox();
 
   expect(topbar).not.toBeNull();
   expect(shortcuts).not.toBeNull();

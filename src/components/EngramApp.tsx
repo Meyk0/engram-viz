@@ -144,12 +144,8 @@ export function EngramApp({ recordingMode = false }: EngramAppProps) {
     () => timelineEntries.filter((entry) => entry.kind === "conversation").length,
     [timelineEntries]
   );
-  const nextScriptPrompt = timelineDemoPrompts[conversationTimelineCount];
-  const nextDemoPrompt = !activePanel && !isStreaming && !message.trim() && !demoPlaybackActive
-    ? nextScriptPrompt
-    : undefined;
   const remainingDemoSteps = Math.max(0, timelineDemoPrompts.length - conversationTimelineCount);
-  const showInitialDemoPrompt = Boolean(nextDemoPrompt && events.length === 0 && !demoPlaybackActive);
+  const showInitialState = events.length === 0;
   const memoryDetailCount = selectedMemory ? 1 : explanations.length;
   const regionDetailCount = selectedRegion ? 1 : 0;
   const shouldShowProvenance = loadedMemoryIds.length > 0 && !activePanel;
@@ -335,14 +331,6 @@ export function EngramApp({ recordingMode = false }: EngramAppProps) {
     [isStreaming, sendMessage]
   );
 
-  const sendDemoPrompt = useCallback(
-    (prompt: string) => {
-      setDemoPlaybackActive(false);
-      void sendTurn(prompt);
-    },
-    [sendTurn]
-  );
-
   const runDemoPlayback = useCallback(() => {
     setActivePanel(null);
     setSelectedMemoryId(undefined);
@@ -366,7 +354,7 @@ export function EngramApp({ recordingMode = false }: EngramAppProps) {
       return () => window.clearTimeout(timer);
     }
 
-    const delay = conversationTimelineCount === 0 ? 450 : 1350;
+    const delay = conversationTimelineCount === 0 ? 700 : 3200;
     const timer = window.setTimeout(() => {
       void sendTurn(prompt);
     }, delay);
@@ -498,7 +486,7 @@ export function EngramApp({ recordingMode = false }: EngramAppProps) {
         </nav>
       ) : null}
 
-      {!cleanDemoMode && !showInitialDemoPrompt ? (
+      {!cleanDemoMode && !showInitialState ? (
         <CurrentEventBanner
           compact={Boolean(activePanel)}
           draftAssistant={draftTurn?.assistant}
@@ -514,8 +502,6 @@ export function EngramApp({ recordingMode = false }: EngramAppProps) {
       ) : null}
 
       <DemoPromptGuide
-        prompt={nextDemoPrompt}
-        onPromptSend={sendDemoPrompt}
         onRunDemo={runDemoPlayback}
         onStopDemo={stopDemoPlayback}
         remainingCount={remainingDemoSteps}

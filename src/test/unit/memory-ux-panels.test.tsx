@@ -146,47 +146,27 @@ describe("memory UX panels", () => {
     expect(onSelect).toHaveBeenCalledWith("timeline");
   });
 
-  it("sends guided demo prompts in one click", async () => {
-    const onPromptSend = vi.fn();
-    const user = userEvent.setup();
-
-    render(
-      <DemoPromptGuide
-        prompt="I love the color indigo."
-        onPromptSend={onPromptSend}
-        onRunDemo={vi.fn()}
-        onStopDemo={vi.fn()}
-        remainingCount={5}
-      />
-    );
-
-    await user.click(screen.getByRole("button", { name: /Send demo prompt: I love the color indigo/i }));
-
-    expect(onPromptSend).toHaveBeenCalledWith("I love the color indigo.");
-  });
-
-  it("runs or stops the guided demo from the compact guide", async () => {
+  it("runs or stops the demo from a single compact guide", async () => {
     const onRunDemo = vi.fn();
     const onStopDemo = vi.fn();
     const user = userEvent.setup();
 
     const { rerender } = render(
       <DemoPromptGuide
-        prompt="I love the color indigo."
-        onPromptSend={vi.fn()}
         onRunDemo={onRunDemo}
         onStopDemo={onStopDemo}
         remainingCount={5}
       />
     );
 
-    await user.click(screen.getByRole("button", { name: "Run full guided demo" }));
+    expect(screen.getByLabelText("Demo controls")).toBeVisible();
+    expect(screen.queryByText("Try next")).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Run demo" }));
     expect(onRunDemo).toHaveBeenCalledTimes(1);
 
     rerender(
       <DemoPromptGuide
-        prompt="What color do I love?"
-        onPromptSend={vi.fn()}
         onRunDemo={onRunDemo}
         onStopDemo={onStopDemo}
         remainingCount={4}
@@ -194,7 +174,7 @@ describe("memory UX panels", () => {
       />
     );
 
-    await user.click(screen.getByRole("button", { name: "Stop guided demo" }));
+    await user.click(screen.getByRole("button", { name: "Stop demo" }));
     expect(onStopDemo).toHaveBeenCalledTimes(1);
   });
 

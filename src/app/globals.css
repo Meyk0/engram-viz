@@ -617,7 +617,7 @@ input {
   bottom: 124px;
   left: 50%;
   display: flex;
-  max-width: min(720px, calc(100vw - 40px));
+  max-width: min(300px, calc(100vw - 40px));
   min-height: 34px;
   align-items: center;
   gap: 8px;
@@ -644,13 +644,6 @@ input {
   text-transform: uppercase;
 }
 
-.demo-prompt-actions {
-  display: inline-flex;
-  min-width: 0;
-  align-items: center;
-  gap: 6px;
-}
-
 .demo-prompt-guide button {
   min-width: 0;
   overflow: hidden;
@@ -664,34 +657,6 @@ input {
   line-height: 1.25;
   text-align: left;
   text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.demo-prompt-step {
-  display: inline-flex;
-  max-width: min(420px, 52vw);
-  align-items: center;
-  gap: 7px;
-}
-
-.demo-prompt-step b {
-  flex: 0 0 auto;
-  color: rgba(0, 212, 255, 0.72);
-  font-size: 8px;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-}
-
-.demo-prompt-step span {
-  display: block;
-  min-width: 0;
-  overflow: hidden;
-  color: rgba(220, 238, 255, 0.74);
-  font-size: 10px;
-  font-weight: 500;
-  letter-spacing: 0;
-  text-overflow: ellipsis;
-  text-transform: none;
   white-space: nowrap;
 }
 
@@ -1974,19 +1939,6 @@ input {
 
   .demo-prompt-guide span {
     font-size: 7px;
-  }
-
-  .demo-prompt-actions {
-    flex: 1 1 auto;
-  }
-
-  .demo-prompt-step {
-    flex: 1 1 auto;
-    max-width: none;
-  }
-
-  .demo-prompt-step b {
-    display: none;
   }
 
   .demo-run-btn {

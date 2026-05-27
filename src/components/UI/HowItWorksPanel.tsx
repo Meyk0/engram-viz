@@ -43,7 +43,7 @@ export function HowItWorksPanel({ onClose, open }: HowItWorksPanelProps) {
           </div>
         </dl>
         <p className="how-it-works-hint">
-          Use Try next for the guided demo, or open Story to follow the memory lifecycle turn by turn.
+          Use Run demo for a short walkthrough, or open Story to follow the memory lifecycle turn by turn.
         </p>
       </div>
     </aside>
