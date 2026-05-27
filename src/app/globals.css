@@ -170,6 +170,36 @@ input {
   opacity: 0.45;
 }
 
+.brain-scene-tools[data-recording="true"] .brain-tool-btn {
+  border-color: rgba(168, 85, 247, 0.2);
+  background: rgba(8, 6, 30, 0.5);
+  color: rgba(232, 220, 255, 0.68);
+}
+
+.engram-shell[data-recording="true"] .topbar {
+  top: 30px;
+  left: 36px;
+}
+
+.engram-shell[data-recording="true"] .tagline {
+  max-width: 420px;
+}
+
+.engram-shell[data-recording="true"] .brain-action-caption {
+  top: 118px;
+  min-width: 300px;
+  padding: 12px 14px;
+  background: rgba(4, 6, 26, 0.46);
+}
+
+.engram-shell[data-recording="true"] .brain-action-caption strong {
+  font-size: 13px;
+}
+
+.engram-shell[data-recording="true"] .demo-prompt-guide {
+  bottom: 106px;
+}
+
 .region-label-3d {
   pointer-events: auto;
   font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
@@ -218,6 +248,8 @@ input {
 }
 
 .topbar,
+.answer-provenance-pill,
+.brain-action-caption,
 .current-event-banner,
 .demo-prompt-guide,
 .mobile-region-shortcuts,
@@ -256,9 +288,96 @@ input {
 
 .secondary-dock,
 .secondary-panel,
+.answer-provenance-pill,
+.brain-action-caption,
 .demo-prompt-guide,
 .chat-bar {
   font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.brain-action-caption {
+  top: 138px;
+  left: 50%;
+  z-index: 9;
+  display: grid;
+  min-width: 238px;
+  max-width: min(440px, calc(100vw - 48px));
+  gap: 4px;
+  padding: 10px 12px;
+  border: 1px solid rgba(0, 212, 255, 0.12);
+  border-left: 2px solid var(--cyan);
+  border-radius: 0 8px 8px 0;
+  background: rgba(4, 6, 26, 0.56);
+  box-shadow:
+    0 12px 36px rgba(0, 0, 0, 0.34),
+    0 0 18px rgba(0, 212, 255, 0.06);
+  transform: translateX(-50%);
+  backdrop-filter: blur(14px) saturate(1.24);
+}
+
+.brain-action-caption[data-region="hippocampus"] {
+  border-left-color: var(--violet);
+}
+
+.brain-action-caption[data-region="temporal"] {
+  border-left-color: var(--temporal);
+}
+
+.brain-action-caption span {
+  color: rgba(0, 212, 255, 0.58);
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.17em;
+  text-transform: uppercase;
+}
+
+.brain-action-caption[data-region="hippocampus"] span {
+  color: rgba(168, 85, 247, 0.82);
+}
+
+.brain-action-caption[data-region="temporal"] span {
+  color: rgba(20, 241, 149, 0.72);
+}
+
+.brain-action-caption strong {
+  color: rgba(230, 242, 255, 0.82);
+  font-size: 11px;
+  line-height: 1.25;
+}
+
+.answer-provenance-pill {
+  right: 24px;
+  bottom: 92px;
+  z-index: 12;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 34px;
+  padding: 0 10px;
+  border: 1px solid rgba(0, 212, 255, 0.18);
+  border-radius: 8px;
+  background: rgba(4, 6, 26, 0.68);
+  color: rgba(0, 212, 255, 0.8);
+  cursor: pointer;
+  box-shadow:
+    0 10px 30px rgba(0, 0, 0, 0.38),
+    0 0 16px rgba(0, 212, 255, 0.08);
+  backdrop-filter: blur(14px) saturate(1.22);
+}
+
+.answer-provenance-pill span {
+  color: rgba(230, 242, 255, 0.86);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.answer-provenance-pill b {
+  color: rgba(220, 238, 255, 0.46);
+  font-size: 8px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
 }
 
 .current-event-banner {
@@ -498,7 +617,7 @@ input {
   bottom: 124px;
   left: 50%;
   display: flex;
-  max-width: min(560px, calc(100vw - 40px));
+  max-width: min(720px, calc(100vw - 40px));
   min-height: 34px;
   align-items: center;
   gap: 8px;
@@ -525,6 +644,13 @@ input {
   text-transform: uppercase;
 }
 
+.demo-prompt-actions {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  gap: 6px;
+}
+
 .demo-prompt-guide button {
   min-width: 0;
   overflow: hidden;
@@ -539,6 +665,55 @@ input {
   text-align: left;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.demo-prompt-step {
+  display: inline-flex;
+  max-width: min(420px, 52vw);
+  align-items: center;
+  gap: 7px;
+}
+
+.demo-prompt-step b {
+  flex: 0 0 auto;
+  color: rgba(0, 212, 255, 0.72);
+  font-size: 8px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.demo-prompt-step span {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  color: rgba(220, 238, 255, 0.74);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0;
+  text-overflow: ellipsis;
+  text-transform: none;
+  white-space: nowrap;
+}
+
+.demo-run-btn {
+  display: inline-flex;
+  min-height: 28px;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 6px;
+  border-color: rgba(168, 85, 247, 0.26) !important;
+  background: rgba(168, 85, 247, 0.09) !important;
+  color: rgba(238, 226, 255, 0.88) !important;
+  font-size: 8px !important;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.demo-run-btn small {
+  color: rgba(220, 238, 255, 0.42);
+  font-size: 7px;
+  letter-spacing: 0.1em;
 }
 
 .secondary-panel {
@@ -1775,6 +1950,20 @@ input {
     display: none;
   }
 
+  .brain-action-caption {
+    top: 132px;
+    right: 16px;
+    left: 16px;
+    min-width: 0;
+    max-width: none;
+    padding: 8px 10px;
+    transform: none;
+  }
+
+  .brain-action-caption strong {
+    font-size: 10px;
+  }
+
   .demo-prompt-guide {
     right: 16px;
     bottom: 126px;
@@ -1787,8 +1976,41 @@ input {
     font-size: 7px;
   }
 
+  .demo-prompt-actions {
+    flex: 1 1 auto;
+  }
+
+  .demo-prompt-step {
+    flex: 1 1 auto;
+    max-width: none;
+  }
+
+  .demo-prompt-step b {
+    display: none;
+  }
+
+  .demo-run-btn {
+    min-width: 74px !important;
+    justify-content: center;
+  }
+
+  .demo-run-btn small {
+    display: none;
+  }
+
   .demo-prompt-guide button {
     font-size: 9px;
+  }
+
+  .answer-provenance-pill {
+    right: 16px;
+    bottom: 176px;
+    min-height: 30px;
+    padding: 0 8px;
+  }
+
+  .answer-provenance-pill b {
+    display: none;
   }
 
   .dream-state-badge {
@@ -1870,5 +2092,19 @@ input {
 
   .secondary-dock-btn span {
     display: none;
+  }
+
+  .engram-shell[data-recording="true"] .topbar {
+    top: 18px;
+    left: 18px;
+  }
+
+  .engram-shell[data-recording="true"] .brain-action-caption {
+    top: 118px;
+    min-width: 0;
+  }
+
+  .engram-shell[data-recording="true"] .demo-prompt-guide {
+    bottom: 112px;
   }
 }

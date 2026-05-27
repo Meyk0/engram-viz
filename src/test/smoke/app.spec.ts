@@ -24,8 +24,18 @@ test("keeps the initial guide compact over the active brain", async ({ page }) =
 
   await expect(page.getByLabel("Current memory receipt")).toHaveCount(0);
   expect(guide).not.toBeNull();
-  expect(guide!.height).toBeLessThan(54);
+  expect(guide!.height).toBeLessThan(62);
   expect(guide!.y).toBeGreaterThan(500);
+});
+
+test("opens a clean recording demo route", async ({ page }) => {
+  await page.goto("/demo");
+
+  await expect(page.getByRole("heading", { name: "ENGRAM", exact: true })).toBeVisible();
+  await expect(page.getByLabel("Secondary views")).toHaveCount(0);
+  await expect(page.getByLabel("Current memory receipt")).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Exit recording mode" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Run full guided demo" })).toBeVisible();
 });
 
 test("exposes brain thumbnail metadata", async ({ page }) => {
@@ -54,6 +64,7 @@ test("uses the guided demo prompt and focuses completed memory story turns", asy
 
   await page.getByRole("button", { name: /Send demo prompt: I love the color indigo/i }).click();
   await expect(page.locator(".chat-status")).toContainText("READY", { timeout: 12_000 });
+  await expect(page.getByLabel("Brain action caption")).toContainText("Store", { timeout: 12_000 });
   await page.getByRole("button", { name: "Story" }).click({ force: true });
   const timeline = page.getByRole("complementary", { name: "Memory story" });
   await expect(timeline).toBeVisible();
@@ -143,6 +154,10 @@ test("opens working memory details after retrieval", async ({ page }) => {
     name: /Open working memory details: ([1-9]|10) of 10 loaded/i
   });
   await expect(workingMemory).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByRole("button", { name: /Show answer provenance: used [1-9]/i })).toBeVisible();
+  await page.getByRole("button", { name: /Show answer provenance: used [1-9]/i }).click();
+  await expect(page.getByLabel("Active context panel")).toContainText("loaded into active context");
+  await page.getByLabel("Close active context").click();
   await page.getByRole("button", { name: /^Working [1-9]/ }).click({ force: true });
   await expect(page.getByLabel("Active context panel")).toContainText("loaded into active context");
 });

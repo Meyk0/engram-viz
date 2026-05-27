@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Send, Square } from "lucide-react";
 import {
   getActiveContextFill,
@@ -14,6 +14,8 @@ import { useMemoryExplanations } from "@/hooks/useMemoryExplanations";
 import { useMemoryStore } from "@/hooks/useMemoryStore";
 import { Brain3D } from "@/components/Brain/Brain3D";
 import { ActiveContextPanel } from "@/components/UI/ActiveContextPanel";
+import { AnswerProvenancePill } from "@/components/UI/AnswerProvenancePill";
+import { BrainActionCaption } from "@/components/UI/BrainActionCaption";
 import { ChatTranscript } from "@/components/UI/ChatTranscript";
 import { CurrentEventBanner } from "@/components/UI/CurrentEventBanner";
 import { DemoPromptGuide } from "@/components/UI/DemoPromptGuide";
@@ -44,10 +46,17 @@ const regionShortcuts: Array<{ label: string; region: BrainRegion }> = [
   { label: "Stable", region: "temporal" }
 ];
 
-export function EngramApp() {
+type EngramAppProps = {
+  recordingMode?: boolean;
+};
+
+export function EngramApp({ recordingMode = false }: EngramAppProps) {
   const [message, setMessage] = useState("");
   const [draftTurn, setDraftTurn] = useState<{ user: string; assistant: string } | null>(null);
   const [activePanel, setActivePanel] = useState<SecondaryPanel | null>(null);
+  const [cleanDemoMode, setCleanDemoMode] = useState(recordingMode);
+  const [demoPlaybackActive, setDemoPlaybackActive] = useState(false);
+  const [provenancePulseKey, setProvenancePulseKey] = useState(0);
   const [selectedMemoryId, setSelectedMemoryId] = useState<string | undefined>(undefined);
   const [selectedRegion, setSelectedRegion] = useState<BrainRegion | undefined>(undefined);
   const [dreamProposal, setDreamProposal] = useState<DreamProposal | null>(null);
@@ -58,6 +67,7 @@ export function EngramApp() {
   const [focusedTimelineId, setFocusedTimelineId] = useState<string | undefined>(undefined);
   const inputRef = useRef<HTMLInputElement>(null);
   const activeTimelineEntryId = useRef<string | undefined>(undefined);
+  const turnInFlight = useRef(false);
   const { events, pushEvent, clearEvents } = useEventQueue();
   const memories = useMemoryStore(events);
   const explanations = useMemoryExplanations(events);
@@ -134,12 +144,31 @@ export function EngramApp() {
     () => timelineEntries.filter((entry) => entry.kind === "conversation").length,
     [timelineEntries]
   );
-  const nextDemoPrompt = !activePanel && !isStreaming && !message.trim()
-    ? timelineDemoPrompts[conversationTimelineCount]
+  const nextScriptPrompt = timelineDemoPrompts[conversationTimelineCount];
+  const nextDemoPrompt = !activePanel && !isStreaming && !message.trim() && !demoPlaybackActive
+    ? nextScriptPrompt
     : undefined;
-  const showInitialDemoPrompt = Boolean(nextDemoPrompt && events.length === 0);
+  const remainingDemoSteps = Math.max(0, timelineDemoPrompts.length - conversationTimelineCount);
+  const showInitialDemoPrompt = Boolean(nextDemoPrompt && events.length === 0 && !demoPlaybackActive);
   const memoryDetailCount = selectedMemory ? 1 : explanations.length;
   const regionDetailCount = selectedRegion ? 1 : 0;
+  const shouldShowProvenance = loadedMemoryIds.length > 0 && !activePanel;
+  const effectiveTimelineFocus = focusedTimelineEntry ? timelineFocus : undefined;
+  const brainFocusMemoryIds = effectiveTimelineFocus
+    ? effectiveTimelineFocus.memoryIds
+    : activePanel === "context"
+      ? loadedMemoryIds
+      : [];
+  const brainFocusRegions = effectiveTimelineFocus
+    ? effectiveTimelineFocus.regions
+    : activePanel === "context" && loadedMemoryIds.length > 0
+      ? (["prefrontal"] satisfies BrainRegion[])
+      : [];
+  const brainFocusPulseKey = effectiveTimelineFocus
+    ? timelineFocusPulseKey
+    : activePanel === "context" && loadedMemoryIds.length > 0
+      ? `context-${provenancePulseKey}-${loadedMemoryIds.join(".")}`
+      : undefined;
 
   const onMemorySelect = useCallback((id: string) => {
     setSelectedMemoryId(id);
@@ -264,8 +293,9 @@ export function EngramApp() {
   const sendTurn = useCallback(
     async (value: string) => {
       const current = value.trim();
-      if (!current || isStreaming) return;
+      if (!current || isStreaming || turnInFlight.current) return;
 
+      turnInFlight.current = true;
       setMessage("");
       setDraftTurn({ user: current, assistant: "" });
       const timelineEntryId = `timeline-turn-${crypto.randomUUID()}`;
@@ -298,6 +328,7 @@ export function EngramApp() {
           })
         );
       } finally {
+        turnInFlight.current = false;
         activeTimelineEntryId.current = undefined;
       }
     },
@@ -306,10 +337,42 @@ export function EngramApp() {
 
   const sendDemoPrompt = useCallback(
     (prompt: string) => {
+      setDemoPlaybackActive(false);
       void sendTurn(prompt);
     },
     [sendTurn]
   );
+
+  const runDemoPlayback = useCallback(() => {
+    setActivePanel(null);
+    setSelectedMemoryId(undefined);
+    setSelectedRegion(undefined);
+    setFocusedTimelineId(undefined);
+    setDemoPlaybackActive(true);
+  }, []);
+
+  const stopDemoPlayback = useCallback(() => {
+    setDemoPlaybackActive(false);
+  }, []);
+
+  useEffect(() => {
+    if (!demoPlaybackActive) return;
+    if (isStreaming) return;
+    if (message.trim()) return;
+
+    const prompt = timelineDemoPrompts[conversationTimelineCount];
+    if (!prompt) {
+      const timer = window.setTimeout(() => setDemoPlaybackActive(false), 0);
+      return () => window.clearTimeout(timer);
+    }
+
+    const delay = conversationTimelineCount === 0 ? 450 : 1350;
+    const timer = window.setTimeout(() => {
+      void sendTurn(prompt);
+    }, delay);
+
+    return () => window.clearTimeout(timer);
+  }, [conversationTimelineCount, demoPlaybackActive, isStreaming, message, sendTurn]);
 
   const onRegionSelect = useCallback((region: BrainRegion) => {
     setSelectedMemoryId(undefined);
@@ -322,6 +385,8 @@ export function EngramApp() {
     if (!confirmed) return;
 
     resetSession();
+    turnInFlight.current = false;
+    activeTimelineEntryId.current = undefined;
     clearEvents();
     setDraftTurn(null);
     setMessage("");
@@ -334,6 +399,8 @@ export function EngramApp() {
     setDreamError(null);
     setTimelineEntries([]);
     setFocusedTimelineId(undefined);
+    setDemoPlaybackActive(false);
+    setProvenancePulseKey((current) => current + 1);
   }, [clearEvents, resetSession]);
 
   const onDockSelect = useCallback(
@@ -367,6 +434,7 @@ export function EngramApp() {
 
   function onSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    setDemoPlaybackActive(false);
     void sendTurn(message);
   }
 
@@ -376,20 +444,35 @@ export function EngramApp() {
     setActivePanel("help");
   }, []);
 
+  const openAnswerProvenance = useCallback(() => {
+    setFocusedTimelineId(undefined);
+    setSelectedMemoryId(undefined);
+    setSelectedRegion(undefined);
+    setProvenancePulseKey((current) => current + 1);
+    setActivePanel("context");
+  }, []);
+
+  const toggleRecordingMode = useCallback(() => {
+    setActivePanel(null);
+    setCleanDemoMode((current) => !current);
+  }, []);
+
   return (
-    <main className="engram-shell">
+    <main className="engram-shell" data-recording={cleanDemoMode}>
       <Brain3D
         events={events}
+        recordingMode={cleanDemoMode}
         onActiveContextSelect={openActiveContext}
         onHelpSelect={openHowItWorks}
         onMemorySelect={onMemorySelect}
         onRegionSelect={onRegionSelect}
         onResetSession={resetDemoSession}
+        onRecordingModeToggle={toggleRecordingMode}
         responseActive={isStreaming}
         selectedMemoryId={selectedMemoryId}
-        focusedMemoryIds={timelineFocus.memoryIds}
-        focusedRegions={timelineFocus.regions}
-        focusPulseKey={timelineFocusPulseKey}
+        focusedMemoryIds={brainFocusMemoryIds}
+        focusedRegions={brainFocusRegions}
+        focusPulseKey={brainFocusPulseKey}
         dreamReviewActive={activePanel === "dream" && (dreamPending || Boolean(dreamProposal) || Boolean(dreamError))}
       />
 
@@ -398,31 +481,46 @@ export function EngramApp() {
         <p className="tagline">Shows what the AI stores, recalls, and uses to answer.</p>
       </header>
 
-      <nav className="mobile-region-shortcuts" aria-label="Brain region shortcuts">
-        {regionShortcuts.map((item) => (
-          <button
-            aria-label={`Open ${item.label} explanation`}
-            data-region={item.region}
-            key={item.region}
-            onClick={() => onRegionSelect(item.region)}
-            type="button"
-          >
-            <span aria-hidden="true" />
-            {item.label}
-          </button>
-        ))}
-      </nav>
+      {!cleanDemoMode ? (
+        <nav className="mobile-region-shortcuts" aria-label="Brain region shortcuts">
+          {regionShortcuts.map((item) => (
+            <button
+              aria-label={`Open ${item.label} explanation`}
+              data-region={item.region}
+              key={item.region}
+              onClick={() => onRegionSelect(item.region)}
+              type="button"
+            >
+              <span aria-hidden="true" />
+              {item.label}
+            </button>
+          ))}
+        </nav>
+      ) : null}
 
-      {showInitialDemoPrompt ? null : (
+      {!cleanDemoMode && !showInitialDemoPrompt ? (
         <CurrentEventBanner
           compact={Boolean(activePanel)}
           draftAssistant={draftTurn?.assistant}
           events={events}
           streaming={isStreaming}
         />
-      )}
+      ) : null}
 
-      <DemoPromptGuide prompt={nextDemoPrompt} onPromptSend={sendDemoPrompt} />
+      <BrainActionCaption demoPlaying={demoPlaybackActive} events={events} streaming={isStreaming} />
+
+      {shouldShowProvenance ? (
+        <AnswerProvenancePill count={loadedMemoryIds.length} onSelect={openAnswerProvenance} />
+      ) : null}
+
+      <DemoPromptGuide
+        prompt={nextDemoPrompt}
+        onPromptSend={sendDemoPrompt}
+        onRunDemo={runDemoPlayback}
+        onStopDemo={stopDemoPlayback}
+        remainingCount={remainingDemoSteps}
+        running={demoPlaybackActive}
+      />
 
       <ExplainabilityPanel
         explanations={explanations}
@@ -477,21 +575,23 @@ export function EngramApp() {
         pending={dreamPending}
         proposal={dreamProposal}
       />
-      <SecondaryDock
-        activePanel={activePanel}
-        hasActiveContext={activeContextFill.used > 0}
-        dreamCount={dreamReviewReady ? dreamProposal?.operations.length ?? 0 : dreamEligibleMemories.length}
-        dreamReady={dreamEligibleMemories.length >= 3 && !isStreaming}
-        hasDreamReview={dreamReviewReady || dreamPending}
-        hasMemoryDetails={memoryDetailCount > 0}
-        activeContextCount={activeContextFill.used}
-        timelineCount={timelineEntries.length}
-        memoryCount={memoryDetailCount}
-        onSelect={onDockSelect}
-        hasRegionDetails={regionDetailCount > 0}
-        regionCount={regionDetailCount}
-        transcriptCount={transcriptCount}
-      />
+      {!cleanDemoMode ? (
+        <SecondaryDock
+          activePanel={activePanel}
+          hasActiveContext={activeContextFill.used > 0}
+          dreamCount={dreamReviewReady ? dreamProposal?.operations.length ?? 0 : dreamEligibleMemories.length}
+          dreamReady={dreamEligibleMemories.length >= 3 && !isStreaming}
+          hasDreamReview={dreamReviewReady || dreamPending}
+          hasMemoryDetails={memoryDetailCount > 0}
+          activeContextCount={activeContextFill.used}
+          timelineCount={timelineEntries.length}
+          memoryCount={memoryDetailCount}
+          onSelect={onDockSelect}
+          hasRegionDetails={regionDetailCount > 0}
+          regionCount={regionDetailCount}
+          transcriptCount={transcriptCount}
+        />
+      ) : null}
 
       <form className="chat-bar" onSubmit={onSubmit}>
         <span className="chat-prefix">›</span>
@@ -508,7 +608,16 @@ export function EngramApp() {
           {isStreaming ? (draftTurn?.assistant ? "RESPONDING" : "THINKING") : "READY"}
         </span>
         {isStreaming ? (
-          <button className="send-btn" type="button" onClick={cancel} aria-label="Cancel response">
+          <button
+            className="send-btn"
+            type="button"
+            onClick={() => {
+              stopDemoPlayback();
+              turnInFlight.current = false;
+              cancel();
+            }}
+            aria-label="Cancel response"
+          >
             <Square size={13} />
           </button>
         ) : (

@@ -3,7 +3,7 @@
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { OrbitControls, Stars } from "@react-three/drei";
 import { Bloom, EffectComposer } from "@react-three/postprocessing";
-import { Info, MapPin, RotateCcw, Trash2 } from "lucide-react";
+import { Clapperboard, Info, MapPin, RotateCcw, Trash2 } from "lucide-react";
 import { Suspense, useCallback, useEffect, useRef, useState, type RefObject } from "react";
 import * as THREE from "three";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
@@ -23,11 +23,13 @@ type Brain3DProps = {
   focusedMemoryIds?: string[];
   focusedRegions?: BrainRegion[];
   focusPulseKey?: string;
+  recordingMode?: boolean;
   onActiveContextSelect?: () => void;
   onHelpSelect?: () => void;
   onMemorySelect?: (id: string) => void;
   onRegionSelect?: (region: keyof typeof regionBounds) => void;
   onResetSession?: () => void;
+  onRecordingModeToggle?: () => void;
   responseActive?: boolean;
   selectedMemoryId?: string;
 };
@@ -38,11 +40,13 @@ export function Brain3D({
   focusedMemoryIds = [],
   focusedRegions = [],
   focusPulseKey,
+  recordingMode = false,
   onActiveContextSelect,
   onHelpSelect,
   onMemorySelect,
   onRegionSelect,
   onResetSession,
+  onRecordingModeToggle,
   responseActive = false,
   selectedMemoryId
 }: Brain3DProps) {
@@ -84,46 +88,68 @@ export function Brain3D({
           />
         </Suspense>
         <ResponsiveBrainCamera controls={controls} />
-        <ResponsiveOrbitControls controls={controls} />
+        <ResponsiveOrbitControls controls={controls} recordingMode={recordingMode} />
         <EffectComposer>
           <Bloom intensity={0.045} luminanceThreshold={0.92} luminanceSmoothing={0.58} mipmapBlur />
         </EffectComposer>
       </Canvas>
-      <div className="brain-scene-tools" aria-label="Brain view controls">
+      <div className="brain-scene-tools" data-recording={recordingMode} aria-label="Brain view controls">
         <button
-          aria-label="Open how Engram works"
+          aria-label={recordingMode ? "Exit recording mode" : "Enter recording mode"}
+          aria-pressed={recordingMode}
           className="brain-tool-btn"
-          disabled={!onHelpSelect}
-          onClick={onHelpSelect}
-          title="How it works"
+          data-active={recordingMode}
+          disabled={!onRecordingModeToggle}
+          onClick={onRecordingModeToggle}
+          title={recordingMode ? "Exit recording mode" : "Recording mode"}
           type="button"
         >
-          <Info size={14} />
+          <Clapperboard size={14} />
         </button>
-        <button className="brain-tool-btn" type="button" onClick={resetView} aria-label="Reset brain view" title="Reset view">
-          <RotateCcw size={14} />
-        </button>
-        <button
-          aria-label={labelsVisible ? "Hide brain labels" : "Show brain labels"}
-          aria-pressed={labelsVisible}
-          className="brain-tool-btn"
-          data-active={labelsVisible}
-          onClick={() => setLabelsVisible((current) => !current)}
-          title={labelsVisible ? "Hide labels" : "Show labels"}
-          type="button"
-        >
-          <MapPin size={14} />
-        </button>
-        <button
-          aria-label="Reset demo session"
-          className="brain-tool-btn"
-          disabled={!onResetSession}
-          onClick={onResetSession}
-          title="Reset demo session"
-          type="button"
-        >
-          <Trash2 size={14} />
-        </button>
+        {recordingMode ? null : (
+          <>
+            <button
+              aria-label="Open how Engram works"
+              className="brain-tool-btn"
+              disabled={!onHelpSelect}
+              onClick={onHelpSelect}
+              title="How it works"
+              type="button"
+            >
+              <Info size={14} />
+            </button>
+            <button
+              className="brain-tool-btn"
+              type="button"
+              onClick={resetView}
+              aria-label="Reset brain view"
+              title="Reset view"
+            >
+              <RotateCcw size={14} />
+            </button>
+            <button
+              aria-label={labelsVisible ? "Hide brain labels" : "Show brain labels"}
+              aria-pressed={labelsVisible}
+              className="brain-tool-btn"
+              data-active={labelsVisible}
+              onClick={() => setLabelsVisible((current) => !current)}
+              title={labelsVisible ? "Hide labels" : "Show labels"}
+              type="button"
+            >
+              <MapPin size={14} />
+            </button>
+            <button
+              aria-label="Reset demo session"
+              className="brain-tool-btn"
+              disabled={!onResetSession}
+              onClick={onResetSession}
+              title="Reset demo session"
+              type="button"
+            >
+              <Trash2 size={14} />
+            </button>
+          </>
+        )}
       </div>
       {dreamReviewActive ? (
         <div className="dream-state-badge" aria-live="polite">
@@ -161,7 +187,13 @@ function ResponsiveBrainCamera({ controls }: { controls: RefObject<OrbitControls
   return null;
 }
 
-function ResponsiveOrbitControls({ controls }: { controls: RefObject<OrbitControlsImpl | null> }) {
+function ResponsiveOrbitControls({
+  controls,
+  recordingMode
+}: {
+  controls: RefObject<OrbitControlsImpl | null>;
+  recordingMode: boolean;
+}) {
   const { size } = useThree();
   const profile = getBrainCameraProfile(size.width, size.height);
 
@@ -169,7 +201,7 @@ function ResponsiveOrbitControls({ controls }: { controls: RefObject<OrbitContro
     <OrbitControls
       ref={controls}
       autoRotate
-      autoRotateSpeed={0.12}
+      autoRotateSpeed={recordingMode ? 0.055 : 0.12}
       enablePan={false}
       enableDamping
       dampingFactor={0.08}

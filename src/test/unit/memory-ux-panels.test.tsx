@@ -1,6 +1,8 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
+import { AnswerProvenancePill } from "@/components/UI/AnswerProvenancePill";
+import { BrainActionCaption } from "@/components/UI/BrainActionCaption";
 import { DemoPromptGuide } from "@/components/UI/DemoPromptGuide";
 import { DreamReviewPanel } from "@/components/UI/DreamReviewPanel";
 import { EventFeed } from "@/components/UI/EventFeed";
@@ -148,11 +150,71 @@ describe("memory UX panels", () => {
     const onPromptSend = vi.fn();
     const user = userEvent.setup();
 
-    render(<DemoPromptGuide prompt="I love the color indigo." onPromptSend={onPromptSend} />);
+    render(
+      <DemoPromptGuide
+        prompt="I love the color indigo."
+        onPromptSend={onPromptSend}
+        onRunDemo={vi.fn()}
+        onStopDemo={vi.fn()}
+        remainingCount={5}
+      />
+    );
 
     await user.click(screen.getByRole("button", { name: /Send demo prompt: I love the color indigo/i }));
 
     expect(onPromptSend).toHaveBeenCalledWith("I love the color indigo.");
+  });
+
+  it("runs or stops the guided demo from the compact guide", async () => {
+    const onRunDemo = vi.fn();
+    const onStopDemo = vi.fn();
+    const user = userEvent.setup();
+
+    const { rerender } = render(
+      <DemoPromptGuide
+        prompt="I love the color indigo."
+        onPromptSend={vi.fn()}
+        onRunDemo={onRunDemo}
+        onStopDemo={onStopDemo}
+        remainingCount={5}
+      />
+    );
+
+    await user.click(screen.getByRole("button", { name: "Run full guided demo" }));
+    expect(onRunDemo).toHaveBeenCalledTimes(1);
+
+    rerender(
+      <DemoPromptGuide
+        prompt="What color do I love?"
+        onPromptSend={vi.fn()}
+        onRunDemo={onRunDemo}
+        onStopDemo={onStopDemo}
+        remainingCount={4}
+        running
+      />
+    );
+
+    await user.click(screen.getByRole("button", { name: "Stop guided demo" }));
+    expect(onStopDemo).toHaveBeenCalledTimes(1);
+  });
+
+  it("summarizes the current brain action for demo captions", () => {
+    render(<BrainActionCaption events={[{ type: "store", memory: makeMemory() }]} />);
+
+    expect(screen.getByLabelText("Brain action caption")).toBeVisible();
+    expect(screen.getByText("Store")).toBeVisible();
+    expect(screen.getByText(/hippocampus/i)).toBeVisible();
+  });
+
+  it("opens latest-answer provenance from a compact indicator", async () => {
+    const onSelect = vi.fn();
+    const user = userEvent.setup();
+
+    render(<AnswerProvenancePill count={2} onSelect={onSelect} />);
+
+    await user.click(screen.getByRole("button", { name: /used 2 memories/i }));
+
+    expect(onSelect).toHaveBeenCalledTimes(1);
   });
 
   it("selects timeline entries for brain focus", async () => {
