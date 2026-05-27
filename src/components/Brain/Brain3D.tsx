@@ -3,7 +3,7 @@
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { OrbitControls, Stars } from "@react-three/drei";
 import { Bloom, EffectComposer } from "@react-three/postprocessing";
-import { MapPin, RotateCcw, Trash2 } from "lucide-react";
+import { Info, MapPin, RotateCcw, Trash2 } from "lucide-react";
 import { Suspense, useCallback, useEffect, useRef, useState, type RefObject } from "react";
 import * as THREE from "three";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
@@ -24,6 +24,7 @@ type Brain3DProps = {
   focusedRegions?: BrainRegion[];
   focusPulseKey?: string;
   onActiveContextSelect?: () => void;
+  onHelpSelect?: () => void;
   onMemorySelect?: (id: string) => void;
   onRegionSelect?: (region: keyof typeof regionBounds) => void;
   onResetSession?: () => void;
@@ -38,6 +39,7 @@ export function Brain3D({
   focusedRegions = [],
   focusPulseKey,
   onActiveContextSelect,
+  onHelpSelect,
   onMemorySelect,
   onRegionSelect,
   onResetSession,
@@ -88,6 +90,16 @@ export function Brain3D({
         </EffectComposer>
       </Canvas>
       <div className="brain-scene-tools" aria-label="Brain view controls">
+        <button
+          aria-label="Open how Engram works"
+          className="brain-tool-btn"
+          disabled={!onHelpSelect}
+          onClick={onHelpSelect}
+          title="How it works"
+          type="button"
+        >
+          <Info size={14} />
+        </button>
         <button className="brain-tool-btn" type="button" onClick={resetView} aria-label="Reset brain view" title="Reset view">
           <RotateCcw size={14} />
         </button>

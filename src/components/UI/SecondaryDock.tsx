@@ -1,7 +1,7 @@
 import { Activity, BrainCircuit, History, MapPin, MessageSquareText, MoonStar } from "lucide-react";
 import type { ReactNode } from "react";
 
-export type SecondaryPanel = "timeline" | "transcript" | "memory" | "context" | "region" | "dream";
+export type SecondaryPanel = "timeline" | "transcript" | "memory" | "context" | "region" | "dream" | "help";
 
 type SecondaryDockProps = {
   activeContextCount: number;

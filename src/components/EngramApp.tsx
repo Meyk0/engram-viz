@@ -19,9 +19,9 @@ import { CurrentEventBanner } from "@/components/UI/CurrentEventBanner";
 import { DemoPromptGuide } from "@/components/UI/DemoPromptGuide";
 import { DreamReviewPanel } from "@/components/UI/DreamReviewPanel";
 import { ExplainabilityPanel } from "@/components/UI/ExplainabilityPanel";
+import { HowItWorksPanel } from "@/components/UI/HowItWorksPanel";
 import { MemoryTimelinePanel } from "@/components/UI/MemoryTimelinePanel";
 import { MemoryInspector } from "@/components/UI/MemoryInspector";
-import { OnboardingPanel } from "@/components/UI/OnboardingPanel";
 import { RegionInspector } from "@/components/UI/RegionInspector";
 import { SecondaryDock, type SecondaryPanel } from "@/components/UI/SecondaryDock";
 import {
@@ -48,7 +48,6 @@ export function EngramApp() {
   const [message, setMessage] = useState("");
   const [draftTurn, setDraftTurn] = useState<{ user: string; assistant: string } | null>(null);
   const [activePanel, setActivePanel] = useState<SecondaryPanel | null>(null);
-  const [onboardingDismissed, setOnboardingDismissed] = useState(false);
   const [selectedMemoryId, setSelectedMemoryId] = useState<string | undefined>(undefined);
   const [selectedRegion, setSelectedRegion] = useState<BrainRegion | undefined>(undefined);
   const [dreamProposal, setDreamProposal] = useState<DreamProposal | null>(null);
@@ -135,13 +134,12 @@ export function EngramApp() {
     () => timelineEntries.filter((entry) => entry.kind === "conversation").length,
     [timelineEntries]
   );
-  const nextDemoPrompt = !activePanel && !isStreaming && !message.trim() && onboardingDismissed
+  const nextDemoPrompt = !activePanel && !isStreaming && !message.trim()
     ? timelineDemoPrompts[conversationTimelineCount]
     : undefined;
   const showInitialDemoPrompt = Boolean(nextDemoPrompt && events.length === 0);
   const memoryDetailCount = selectedMemory ? 1 : explanations.length;
   const regionDetailCount = selectedRegion ? 1 : 0;
-  const showOnboarding = events.length === 0 && !onboardingDismissed;
 
   const onMemorySelect = useCallback((id: string) => {
     setSelectedMemoryId(id);
@@ -308,7 +306,6 @@ export function EngramApp() {
 
   const sendDemoPrompt = useCallback(
     (prompt: string) => {
-      setOnboardingDismissed(true);
       void sendTurn(prompt);
     },
     [sendTurn]
@@ -318,11 +315,6 @@ export function EngramApp() {
     setSelectedMemoryId(undefined);
     setSelectedRegion(region);
     setActivePanel("region");
-  }, []);
-
-  const startOnboarding = useCallback(() => {
-    setOnboardingDismissed(true);
-    inputRef.current?.focus();
   }, []);
 
   const resetDemoSession = useCallback(() => {
@@ -342,7 +334,6 @@ export function EngramApp() {
     setDreamError(null);
     setTimelineEntries([]);
     setFocusedTimelineId(undefined);
-    setOnboardingDismissed(false);
   }, [clearEvents, resetSession]);
 
   const onDockSelect = useCallback(
@@ -379,11 +370,18 @@ export function EngramApp() {
     void sendTurn(message);
   }
 
+  const openHowItWorks = useCallback(() => {
+    setSelectedMemoryId(undefined);
+    setSelectedRegion(undefined);
+    setActivePanel("help");
+  }, []);
+
   return (
     <main className="engram-shell">
       <Brain3D
         events={events}
         onActiveContextSelect={openActiveContext}
+        onHelpSelect={openHowItWorks}
         onMemorySelect={onMemorySelect}
         onRegionSelect={onRegionSelect}
         onResetSession={resetDemoSession}
@@ -400,26 +398,22 @@ export function EngramApp() {
         <p className="tagline">Shows what the AI stores, recalls, and uses to answer.</p>
       </header>
 
-      {!showOnboarding ? (
-        <nav className="mobile-region-shortcuts" aria-label="Brain region shortcuts">
-          {regionShortcuts.map((item) => (
-            <button
-              aria-label={`Open ${item.label} explanation`}
-              data-region={item.region}
-              key={item.region}
-              onClick={() => onRegionSelect(item.region)}
-              type="button"
-            >
-              <span aria-hidden="true" />
-              {item.label}
-            </button>
-          ))}
-        </nav>
-      ) : null}
+      <nav className="mobile-region-shortcuts" aria-label="Brain region shortcuts">
+        {regionShortcuts.map((item) => (
+          <button
+            aria-label={`Open ${item.label} explanation`}
+            data-region={item.region}
+            key={item.region}
+            onClick={() => onRegionSelect(item.region)}
+            type="button"
+          >
+            <span aria-hidden="true" />
+            {item.label}
+          </button>
+        ))}
+      </nav>
 
-      {showOnboarding ? (
-        <OnboardingPanel onStart={startOnboarding} />
-      ) : showInitialDemoPrompt ? null : (
+      {showInitialDemoPrompt ? null : (
         <CurrentEventBanner
           compact={Boolean(activePanel)}
           draftAssistant={draftTurn?.assistant}
@@ -472,6 +466,7 @@ export function EngramApp() {
         onSelectEntry={onTimelineSelect}
         open={activePanel === "timeline"}
       />
+      <HowItWorksPanel onClose={closeSecondaryPanel} open={activePanel === "help"} />
       <DreamReviewPanel
         beforeMemories={dreamMemorySnapshot.length > 0 ? dreamMemorySnapshot : dreamEligibleMemories}
         error={dreamError}
@@ -482,23 +477,21 @@ export function EngramApp() {
         pending={dreamPending}
         proposal={dreamProposal}
       />
-      {!showOnboarding ? (
-        <SecondaryDock
-          activePanel={activePanel}
-          hasActiveContext={activeContextFill.used > 0}
-          dreamCount={dreamReviewReady ? dreamProposal?.operations.length ?? 0 : dreamEligibleMemories.length}
-          dreamReady={dreamEligibleMemories.length >= 3 && !isStreaming}
-          hasDreamReview={dreamReviewReady || dreamPending}
-          hasMemoryDetails={memoryDetailCount > 0}
-          activeContextCount={activeContextFill.used}
-          timelineCount={timelineEntries.length}
-          memoryCount={memoryDetailCount}
-          onSelect={onDockSelect}
-          hasRegionDetails={regionDetailCount > 0}
-          regionCount={regionDetailCount}
-          transcriptCount={transcriptCount}
-        />
-      ) : null}
+      <SecondaryDock
+        activePanel={activePanel}
+        hasActiveContext={activeContextFill.used > 0}
+        dreamCount={dreamReviewReady ? dreamProposal?.operations.length ?? 0 : dreamEligibleMemories.length}
+        dreamReady={dreamEligibleMemories.length >= 3 && !isStreaming}
+        hasDreamReview={dreamReviewReady || dreamPending}
+        hasMemoryDetails={memoryDetailCount > 0}
+        activeContextCount={activeContextFill.used}
+        timelineCount={timelineEntries.length}
+        memoryCount={memoryDetailCount}
+        onSelect={onDockSelect}
+        hasRegionDetails={regionDetailCount > 0}
+        regionCount={regionDetailCount}
+        transcriptCount={transcriptCount}
+      />
 
       <form className="chat-bar" onSubmit={onSubmit}>
         <span className="chat-prefix">›</span>

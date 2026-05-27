@@ -4,9 +4,9 @@ import { describe, expect, it, vi } from "vitest";
 import { DemoPromptGuide } from "@/components/UI/DemoPromptGuide";
 import { DreamReviewPanel } from "@/components/UI/DreamReviewPanel";
 import { EventFeed } from "@/components/UI/EventFeed";
+import { HowItWorksPanel } from "@/components/UI/HowItWorksPanel";
 import { MemoryTimelinePanel } from "@/components/UI/MemoryTimelinePanel";
 import { MemoryInspector } from "@/components/UI/MemoryInspector";
-import { OnboardingPanel } from "@/components/UI/OnboardingPanel";
 import { RegionInspector } from "@/components/UI/RegionInspector";
 import { SecondaryDock } from "@/components/UI/SecondaryDock";
 import { createConversationTimelineEntry } from "@/lib/timeline";
@@ -14,13 +14,14 @@ import type { DreamProposal } from "@/types";
 import type { EngramEvent, EngramMemory } from "@/types";
 
 describe("memory UX panels", () => {
-  it("introduces Engram as a memory map instead of a generic chatbot", () => {
-    render(<OnboardingPanel onStart={vi.fn()} />);
+  it("keeps the memory model explanation available without blocking the app", () => {
+    render(<HowItWorksPanel onClose={vi.fn()} open />);
 
     expect(screen.getByText("AI memory, visible")).toBeVisible();
-    expect(screen.getByText("Engram shows what the AI stores, retrieves, and uses.")).toBeVisible();
+    expect(screen.getByText("How Engram works")).toBeVisible();
     expect(screen.getByText(/Durable facts become memory dots/i)).toBeVisible();
-    expect(screen.getByText(/Start with one durable preference/i)).toBeVisible();
+    expect(screen.getByText(/Hippocampus: durable facts land here first/i)).toBeVisible();
+    expect(screen.queryByRole("button", { name: "Start" })).not.toBeInTheDocument();
   });
 
   it("explains a selected brain region in human and AI terms", () => {

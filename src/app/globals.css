@@ -419,62 +419,39 @@ input {
   color: rgba(220, 245, 255, 0.7);
 }
 
-.onboarding-panel {
-  position: fixed;
-  top: 120px;
-  left: min(7vw, 96px);
-  z-index: 10;
-  width: min(430px, calc(100vw - 40px));
-  padding: 18px 20px 18px;
-  border: 1px solid rgba(0, 212, 255, 0.12);
-  border-left: 2px solid var(--cyan);
-  border-radius: 0 8px 8px 0;
-  background: rgba(4, 6, 24, 0.62);
-  box-shadow:
-    0 16px 52px rgba(0, 0, 0, 0.48),
-    0 0 22px rgba(0, 212, 255, 0.07);
-  backdrop-filter: blur(18px) saturate(1.25);
+.how-it-works-panel {
+  color: var(--cyan);
 }
 
-.onboarding-eyebrow {
-  color: rgba(0, 212, 255, 0.62);
-  font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 8px;
-  letter-spacing: 0.2em;
-  text-transform: uppercase;
+.how-it-works-body {
+  display: grid;
+  gap: 12px;
+  padding: 12px;
+  overflow-y: auto;
 }
 
-.onboarding-panel h2 {
-  margin: 8px 0 0;
-  color: rgba(230, 242, 255, 0.94);
-  font-size: 19px;
-  font-weight: 650;
-  letter-spacing: 0;
-  line-height: 1.18;
+.how-it-works-body p {
+  margin: 0;
+  color: rgba(220, 238, 255, 0.66);
+  font-size: 11px;
+  line-height: 1.5;
 }
 
-.onboarding-panel p {
-  margin: 10px 0 0;
-  color: rgba(220, 238, 255, 0.68);
-  font-size: 12px;
-  line-height: 1.52;
-}
-
-.onboarding-panel .onboarding-hint {
-  color: rgba(0, 212, 255, 0.58);
+.how-it-works-body .how-it-works-hint {
+  color: rgba(0, 212, 255, 0.52);
   font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 8px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 
-.onboarding-regions {
+.memory-model-list {
   display: grid;
   gap: 7px;
-  margin: 15px 0 0;
+  margin: 0;
 }
 
-.onboarding-regions div {
+.memory-model-list div {
   display: grid;
   grid-template-columns: 124px minmax(0, 1fr);
   gap: 10px;
@@ -488,22 +465,22 @@ input {
   color: var(--cyan);
 }
 
-.onboarding-regions div[data-region="hippocampus"] {
+.memory-model-list div[data-region="hippocampus"] {
   color: var(--violet);
 }
 
-.onboarding-regions div[data-region="temporal"] {
+.memory-model-list div[data-region="temporal"] {
   color: var(--temporal);
 }
 
-.onboarding-regions dt,
-.onboarding-regions dd {
+.memory-model-list dt,
+.memory-model-list dd {
   min-width: 0;
   margin: 0;
   font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 
-.onboarding-regions dt {
+.memory-model-list dt {
   color: currentColor;
   font-size: 8px;
   font-weight: 700;
@@ -511,35 +488,10 @@ input {
   text-transform: uppercase;
 }
 
-.onboarding-regions dd {
+.memory-model-list dd {
   color: rgba(220, 238, 255, 0.7);
   font-size: 10px;
   line-height: 1.35;
-}
-
-.onboarding-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 16px;
-}
-
-.onboarding-primary {
-  height: 32px;
-  padding: 0 12px;
-  border-radius: 6px;
-  cursor: pointer;
-  font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 8px;
-  font-weight: 700;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-}
-
-.onboarding-primary {
-  border: 1px solid rgba(0, 212, 255, 0.34);
-  background: rgba(0, 212, 255, 0.12);
-  color: rgba(220, 245, 255, 0.94);
 }
 
 .demo-prompt-guide {
@@ -1728,13 +1680,40 @@ input {
 }
 
 @media (max-width: 760px) {
+  .topbar {
+    top: 18px;
+    left: 18px;
+  }
+
+  .title {
+    font-size: 17px;
+    letter-spacing: 0.28em;
+  }
+
+  .tagline {
+    max-width: 210px;
+    margin-top: 6px;
+    font-size: 11px;
+  }
+
+  .brain-scene-tools {
+    top: 18px;
+    right: 14px;
+    gap: 5px;
+  }
+
+  .brain-tool-btn {
+    width: 30px;
+    height: 30px;
+  }
+
   .region-label-button {
     min-height: 34px;
     padding: 7px 9px;
   }
 
   .mobile-region-shortcuts {
-    top: 82px;
+    top: 86px;
     right: 12px;
     left: 12px;
     z-index: 11;
@@ -1863,6 +1842,11 @@ input {
     left: 16px;
     width: auto;
     max-height: 50vh;
+  }
+
+  .memory-model-list div {
+    grid-template-columns: 1fr;
+    gap: 4px;
   }
 
   .dream-review-panel {
