@@ -56,6 +56,7 @@ export function EngramApp({ recordingMode = false }: EngramAppProps) {
   const [activePanel, setActivePanel] = useState<SecondaryPanel | null>(null);
   const [cleanDemoMode, setCleanDemoMode] = useState(recordingMode);
   const [demoPlaybackActive, setDemoPlaybackActive] = useState(false);
+  const [demoStagedPrompt, setDemoStagedPrompt] = useState<string | null>(null);
   const [provenancePulseKey, setProvenancePulseKey] = useState(0);
   const [selectedMemoryId, setSelectedMemoryId] = useState<string | undefined>(undefined);
   const [selectedRegion, setSelectedRegion] = useState<BrainRegion | undefined>(undefined);
@@ -336,17 +337,22 @@ export function EngramApp({ recordingMode = false }: EngramAppProps) {
     setSelectedMemoryId(undefined);
     setSelectedRegion(undefined);
     setFocusedTimelineId(undefined);
+    setDemoStagedPrompt(null);
     setDemoPlaybackActive(true);
   }, []);
 
   const stopDemoPlayback = useCallback(() => {
+    if (demoStagedPrompt && message === demoStagedPrompt) {
+      setMessage("");
+    }
+    setDemoStagedPrompt(null);
     setDemoPlaybackActive(false);
-  }, []);
+  }, [demoStagedPrompt, message]);
 
   useEffect(() => {
     if (!demoPlaybackActive) return;
     if (isStreaming) return;
-    if (message.trim()) return;
+    if (turnInFlight.current) return;
 
     const prompt = timelineDemoPrompts[conversationTimelineCount];
     if (!prompt) {
@@ -354,13 +360,24 @@ export function EngramApp({ recordingMode = false }: EngramAppProps) {
       return () => window.clearTimeout(timer);
     }
 
-    const delay = conversationTimelineCount === 0 ? 700 : 3200;
+    if (message.trim() && message !== prompt) return;
+
+    if (demoStagedPrompt === prompt) {
+      const sendTimer = window.setTimeout(() => {
+        setDemoStagedPrompt(null);
+        void sendTurn(prompt);
+      }, 2200);
+      return () => window.clearTimeout(sendTimer);
+    }
+
+    const delay = conversationTimelineCount === 0 ? 700 : 2600;
     const timer = window.setTimeout(() => {
-      void sendTurn(prompt);
+      setMessage(prompt);
+      setDemoStagedPrompt(prompt);
     }, delay);
 
     return () => window.clearTimeout(timer);
-  }, [conversationTimelineCount, demoPlaybackActive, isStreaming, message, sendTurn]);
+  }, [conversationTimelineCount, demoPlaybackActive, demoStagedPrompt, isStreaming, message, sendTurn]);
 
   const onRegionSelect = useCallback((region: BrainRegion) => {
     setSelectedMemoryId(undefined);
@@ -387,6 +404,7 @@ export function EngramApp({ recordingMode = false }: EngramAppProps) {
     setDreamError(null);
     setTimelineEntries([]);
     setFocusedTimelineId(undefined);
+    setDemoStagedPrompt(null);
     setDemoPlaybackActive(false);
     setProvenancePulseKey((current) => current + 1);
   }, [clearEvents, resetSession]);
@@ -422,6 +440,7 @@ export function EngramApp({ recordingMode = false }: EngramAppProps) {
 
   function onSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    setDemoStagedPrompt(null);
     setDemoPlaybackActive(false);
     void sendTurn(message);
   }
@@ -444,6 +463,14 @@ export function EngramApp({ recordingMode = false }: EngramAppProps) {
     setActivePanel(null);
     setCleanDemoMode((current) => !current);
   }, []);
+
+  const chatStatus = demoStagedPrompt
+    ? "DEMO LINE"
+    : isStreaming
+      ? draftTurn?.assistant
+        ? "RESPONDING"
+        : "THINKING"
+      : "READY";
 
   return (
     <main className="engram-shell" data-recording={cleanDemoMode}>
@@ -502,6 +529,7 @@ export function EngramApp({ recordingMode = false }: EngramAppProps) {
       ) : null}
 
       <DemoPromptGuide
+        currentPrompt={demoStagedPrompt ?? (demoPlaybackActive ? draftTurn?.user : undefined)}
         onRunDemo={runDemoPlayback}
         onStopDemo={stopDemoPlayback}
         remainingCount={remainingDemoSteps}
@@ -579,7 +607,7 @@ export function EngramApp({ recordingMode = false }: EngramAppProps) {
         />
       ) : null}
 
-      <form className="chat-bar" onSubmit={onSubmit}>
+      <form className="chat-bar" data-demo-preview={Boolean(demoStagedPrompt)} onSubmit={onSubmit}>
         <span className="chat-prefix">›</span>
         <input
           ref={inputRef}
@@ -590,9 +618,7 @@ export function EngramApp({ recordingMode = false }: EngramAppProps) {
           placeholder="Tell me something about yourself..."
           aria-label="Chat message"
         />
-        <span className="chat-status">
-          {isStreaming ? (draftTurn?.assistant ? "RESPONDING" : "THINKING") : "READY"}
-        </span>
+        <span className="chat-status">{chatStatus}</span>
         {isStreaming ? (
           <button
             className="send-btn"

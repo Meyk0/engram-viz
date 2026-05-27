@@ -632,7 +632,24 @@ input {
   backdrop-filter: blur(16px) saturate(1.25);
 }
 
-.demo-prompt-guide span {
+.demo-prompt-guide[data-live="true"] {
+  max-width: min(560px, calc(100vw - 40px));
+  border-color: rgba(168, 85, 247, 0.28);
+  box-shadow:
+    0 10px 34px rgba(0, 0, 0, 0.48),
+    0 0 22px rgba(168, 85, 247, 0.15),
+    inset 2px 0 0 rgba(168, 85, 247, 0.86);
+}
+
+.demo-prompt-meta {
+  display: flex;
+  min-width: 0;
+  flex: 1 1 auto;
+  align-items: center;
+  gap: 10px;
+}
+
+.demo-prompt-label {
   display: inline-flex;
   flex: 0 0 auto;
   align-items: center;
@@ -641,6 +658,25 @@ input {
   font-size: 8px;
   font-weight: 700;
   letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.demo-current-prompt {
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  color: rgba(230, 242, 255, 0.86);
+  font-size: 11px;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.demo-current-prompt b {
+  margin-right: 8px;
+  color: rgba(168, 85, 247, 0.96);
+  font-size: 8px;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
 }
 
@@ -1794,6 +1830,24 @@ input {
   color: rgba(80, 110, 180, 0.46);
 }
 
+.chat-bar[data-demo-preview="true"] {
+  border-top-color: rgba(168, 85, 247, 0.42);
+  box-shadow:
+    0 -12px 34px rgba(168, 85, 247, 0.12),
+    inset 0 1px 0 rgba(168, 85, 247, 0.38);
+}
+
+.chat-bar[data-demo-preview="true"] .chat-prefix,
+.chat-bar[data-demo-preview="true"] .chat-status {
+  color: rgba(168, 85, 247, 0.9);
+  text-shadow: 0 0 12px rgba(168, 85, 247, 0.5);
+}
+
+.chat-bar[data-demo-preview="true"] .chat-input {
+  color: rgba(238, 226, 255, 0.95);
+  text-shadow: 0 0 14px rgba(168, 85, 247, 0.22);
+}
+
 .chat-status {
   color: rgba(0, 212, 255, 0.4);
   font-size: 8px;
@@ -1937,8 +1991,20 @@ input {
     transform: none;
   }
 
-  .demo-prompt-guide span {
+  .demo-prompt-label {
     font-size: 7px;
+  }
+
+  .demo-prompt-meta {
+    gap: 7px;
+  }
+
+  .demo-current-prompt {
+    display: -webkit-box;
+    font-size: 10px;
+    white-space: normal;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
   }
 
   .demo-run-btn {

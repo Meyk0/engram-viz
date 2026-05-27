@@ -64,7 +64,10 @@ test("runs the demo and focuses completed memory story turns", async ({ page }) 
 
   await page.getByRole("button", { name: "Run demo" }).click();
   await expect(page.getByRole("button", { name: "Stop demo" })).toBeVisible();
-  await expect(page.locator(".chat-status")).toContainText("READY", { timeout: 16_000 });
+  await expect(page.locator(".chat-status")).toContainText("DEMO LINE", { timeout: 8_000 });
+  await expect(page.getByLabel("Chat message")).toHaveValue("I love the color indigo.");
+  await expect(page.getByLabel("Demo controls")).toContainText("I love the color indigo.");
+  await expect(page.locator(".chat-status")).toContainText("READY", { timeout: 20_000 });
   await page.getByRole("button", { name: "Stop demo" }).click();
   await expect(page.getByLabel("Brain action caption")).toContainText("Store", { timeout: 12_000 });
   await page.getByRole("button", { name: "Story" }).click({ force: true });
@@ -78,7 +81,9 @@ test("runs the demo and focuses completed memory story turns", async ({ page }) 
   await page.getByLabel("Close memory story").click();
 
   await page.getByRole("button", { name: "Run demo" }).click();
-  await expect(page.locator(".chat-status")).toContainText("READY", { timeout: 16_000 });
+  await expect(page.locator(".chat-status")).toContainText("DEMO LINE", { timeout: 8_000 });
+  await expect(page.getByLabel("Chat message")).toHaveValue("What color do I love?");
+  await expect(page.locator(".chat-status")).toContainText("READY", { timeout: 20_000 });
   await page.getByRole("button", { name: "Stop demo" }).click();
   await page.getByRole("button", { name: "Story" }).click({ force: true });
   await expect(page.getByLabel("Timeline turn 2")).toBeVisible({ timeout: 12_000 });

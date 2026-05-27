@@ -1,6 +1,7 @@
 import { Sparkles } from "lucide-react";
 
 type DemoPromptGuideProps = {
+  currentPrompt?: string;
   onRunDemo: () => void;
   onStopDemo: () => void;
   remainingCount?: number;
@@ -8,6 +9,7 @@ type DemoPromptGuideProps = {
 };
 
 export function DemoPromptGuide({
+  currentPrompt,
   onRunDemo,
   onStopDemo,
   remainingCount = 0,
@@ -16,11 +18,19 @@ export function DemoPromptGuide({
   if (remainingCount <= 0 && !running) return null;
 
   return (
-    <aside className="demo-prompt-guide" aria-label="Demo controls">
-      <span>
-        <Sparkles size={13} aria-hidden="true" />
-        {running ? "Demo playing" : "Demo"}
-      </span>
+    <aside className="demo-prompt-guide" data-live={Boolean(currentPrompt)} aria-label="Demo controls">
+      <div className="demo-prompt-meta">
+        <span className="demo-prompt-label">
+          <Sparkles size={13} aria-hidden="true" />
+          {running ? "Demo playing" : "Demo"}
+        </span>
+        {currentPrompt ? (
+          <p className="demo-current-prompt">
+            <b>User</b>
+            {currentPrompt}
+          </p>
+        ) : null}
+      </div>
       <button
         className="demo-run-btn"
         type="button"

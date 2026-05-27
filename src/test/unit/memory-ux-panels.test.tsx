@@ -178,6 +178,22 @@ describe("memory UX panels", () => {
     expect(onStopDemo).toHaveBeenCalledTimes(1);
   });
 
+  it("shows the currently staged demo line", () => {
+    render(
+      <DemoPromptGuide
+        currentPrompt="I love the color indigo."
+        onRunDemo={vi.fn()}
+        onStopDemo={vi.fn()}
+        remainingCount={5}
+        running
+      />
+    );
+
+    expect(screen.getByLabelText("Demo controls")).toHaveAttribute("data-live", "true");
+    expect(screen.getByText("User")).toBeVisible();
+    expect(screen.getByText("I love the color indigo.")).toBeVisible();
+  });
+
   it("summarizes the current brain action for demo captions", () => {
     render(<BrainActionCaption events={[{ type: "store", memory: makeMemory() }]} />);
 
