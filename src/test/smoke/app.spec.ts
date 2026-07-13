@@ -199,6 +199,33 @@ test("opens working memory details after retrieval", async ({ page }) => {
   await expect(page.getByLabel("Active context panel")).toContainText("loaded into active context");
 });
 
+test("switches between the anatomical brain and semantic memory map without changing memory state", async ({ page }) => {
+  test.setTimeout(45_000);
+  await page.goto("/");
+
+  await page.getByLabel("Chat message").fill("I love the color indigo.");
+  await page.getByLabel("Send").click();
+  await expect(page.getByRole("button", { name: "Memories 1" })).toBeVisible({ timeout: 12_000 });
+  await expect(page.locator(".chat-status")).toContainText("READY", { timeout: 12_000 });
+
+  const semanticMap = page.getByRole("radio", { name: "Semantic map" });
+  await expect(semanticMap).toBeVisible();
+  await semanticMap.click();
+
+  await expect(semanticMap).toBeChecked();
+  await expect(page.getByRole("complementary", { name: "Semantic map details" })).toContainText(
+    "Distance approximates semantic similarity."
+  );
+  await expect(page.getByText("I love the color indigo.", { exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Memories 1" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Explain New Memories" })).toHaveCount(0);
+
+  await page.getByRole("radio", { name: "Brain model" }).click();
+  await expect(page.getByRole("radio", { name: "Brain model" })).toBeChecked();
+  await expect(page.getByRole("button", { name: "Explain New Memories" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Memories 1" })).toBeVisible();
+});
+
 test("opens and dismisses Dream Mode after enough memories", async ({ page }) => {
   test.setTimeout(60_000);
   await page.setViewportSize({ width: 390, height: 700 });

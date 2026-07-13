@@ -12,6 +12,7 @@ import { useChat } from "@/hooks/useChat";
 import { useEventQueue } from "@/hooks/useEventQueue";
 import { useMemoryExplanations } from "@/hooks/useMemoryExplanations";
 import { useMemoryStore } from "@/hooks/useMemoryStore";
+import { useSemanticLayout } from "@/hooks/useSemanticLayout";
 import { Brain3D } from "@/components/Brain/Brain3D";
 import { ActiveContextPanel } from "@/components/UI/ActiveContextPanel";
 import { CurrentEventBanner } from "@/components/UI/CurrentEventBanner";
@@ -21,7 +22,9 @@ import { MemoryLibraryPanel } from "@/components/UI/MemoryLibraryPanel";
 import { HowItWorksPanel } from "@/components/UI/HowItWorksPanel";
 import { MemoryTimelinePanel } from "@/components/UI/MemoryTimelinePanel";
 import { MemoryInspector } from "@/components/UI/MemoryInspector";
+import { RealityModeControl } from "@/components/UI/RealityModeControl";
 import { RegionInspector } from "@/components/UI/RegionInspector";
+import { SemanticModeHUD } from "@/components/UI/SemanticModeHUD";
 import { SecondaryDock, type SecondaryPanel } from "@/components/UI/SecondaryDock";
 import {
   appendTimelineAssistantText,
@@ -35,6 +38,7 @@ import {
   timelineDemoPrompts,
   type MemoryTimelineEntry
 } from "@/lib/timeline";
+import type { EngramViewMode } from "@/lib/semantic/types";
 import type { BrainRegion, DreamProposal, EngramEvent, EngramMemory, StreamChunk } from "@/types";
 
 const regionShortcuts: Array<{ label: string; region: BrainRegion }> = [
@@ -63,6 +67,7 @@ export function EngramApp({ recordingMode = false }: EngramAppProps) {
   const [dreamError, setDreamError] = useState<string | null>(null);
   const [timelineEntries, setTimelineEntries] = useState<MemoryTimelineEntry[]>([]);
   const [focusedTimelineId, setFocusedTimelineId] = useState<string | undefined>(undefined);
+  const [viewMode, setViewMode] = useState<EngramViewMode>("anatomical");
   const inputRef = useRef<HTMLInputElement>(null);
   const activeTimelineEntryId = useRef<string | undefined>(undefined);
   const turnInFlight = useRef(false);
@@ -99,6 +104,9 @@ export function EngramApp({ recordingMode = false }: EngramAppProps) {
     () => memories.filter((memory) => memory.status !== "superseded"),
     [memories]
   );
+  const semanticLayout = useSemanticLayout(activeMemories, {
+    enabled: viewMode === "semantic" && activeMemories.length > 0
+  });
   const dreamEligibleMemories = useMemo(
     () => getDreamEligibleMemories(eventHistory, activeMemories),
     [activeMemories, eventHistory]
@@ -338,6 +346,7 @@ export function EngramApp({ recordingMode = false }: EngramAppProps) {
     }
     setDemoStagedPrompt(null);
     setDemoPlaybackActive(false);
+    setViewMode("anatomical");
   }, [demoStagedPrompt, message]);
 
   useEffect(() => {
@@ -397,6 +406,7 @@ export function EngramApp({ recordingMode = false }: EngramAppProps) {
     setFocusedTimelineId(undefined);
     setDemoStagedPrompt(null);
     setDemoPlaybackActive(false);
+    setViewMode("anatomical");
     setProvenancePulseKey((current) => current + 1);
   }, [clearEvents, resetSession]);
 
@@ -468,6 +478,10 @@ export function EngramApp({ recordingMode = false }: EngramAppProps) {
       <Brain3D
         events={events}
         memories={activeMemories}
+        loadedMemoryIds={loadedMemoryIds}
+        retrievedMemoryIds={latestRetrieve?.ids ?? []}
+        semanticLayout={semanticLayout.layout}
+        viewMode={viewMode}
         recordingMode={cleanDemoMode}
         onActiveContextSelect={openActiveContext}
         onHelpSelect={openHowItWorks}
@@ -489,6 +503,18 @@ export function EngramApp({ recordingMode = false }: EngramAppProps) {
       </header>
 
       {!cleanDemoMode ? (
+        <RealityModeControl
+          memoryCount={activeMemories.length}
+          mode={viewMode}
+          onModeChange={setViewMode}
+        />
+      ) : null}
+
+      {viewMode === "semantic" && semanticLayout.layout ? (
+        <SemanticModeHUD snapshot={semanticLayout.layout} />
+      ) : null}
+
+      {!cleanDemoMode && viewMode === "anatomical" ? (
         <nav className="mobile-region-shortcuts" aria-label="Brain region shortcuts">
           {regionShortcuts.map((item) => (
             <button

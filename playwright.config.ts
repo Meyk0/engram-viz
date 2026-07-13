@@ -3,6 +3,7 @@ import { defineConfig, devices } from "@playwright/test";
 export default defineConfig({
   testDir: "./src/test/smoke",
   fullyParallel: true,
+  workers: 3,
   reporter: "list",
   use: {
     baseURL: "http://127.0.0.1:3100",

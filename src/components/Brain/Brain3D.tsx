@@ -12,14 +12,21 @@ import { BrainMesh } from "@/components/Brain/BrainMesh";
 import { MemoryLifecycle } from "@/components/Brain/MemoryLifecycle";
 import { RegionHighlights } from "@/components/Brain/RegionHighlights";
 import { RegionLabels } from "@/components/Brain/RegionLabels";
+import { SemanticConstellation } from "@/components/Brain/SemanticConstellation";
+import { SemanticContextRibbon } from "@/components/Brain/SemanticContextRibbon";
 import { getBrainAnimationState } from "@/lib/animations";
 import { brainCameraProfiles, getBrainCameraProfile } from "@/lib/brainCamera";
 import { regionBounds } from "@/lib/regions";
+import type { EngramViewMode, SemanticLayoutSnapshot } from "@/lib/semantic/types";
 import type { BrainRegion, EngramEvent, EngramMemory } from "@/types";
 
 type Brain3DProps = {
   events: EngramEvent[];
   memories: EngramMemory[];
+  loadedMemoryIds?: string[];
+  retrievedMemoryIds?: string[];
+  semanticLayout?: SemanticLayoutSnapshot | null;
+  viewMode?: EngramViewMode;
   dreamReviewActive?: boolean;
   focusedMemoryIds?: string[];
   focusedRegions?: BrainRegion[];
@@ -38,6 +45,10 @@ type Brain3DProps = {
 export function Brain3D({
   events,
   memories,
+  loadedMemoryIds = [],
+  retrievedMemoryIds = [],
+  semanticLayout,
+  viewMode = "anatomical",
   dreamReviewActive = false,
   focusedMemoryIds = [],
   focusedRegions = [],
@@ -79,6 +90,10 @@ export function Brain3D({
           <BrainRig
             events={events}
             memories={memories}
+            loadedMemoryIds={loadedMemoryIds}
+            retrievedMemoryIds={retrievedMemoryIds}
+            semanticLayout={semanticLayout}
+            viewMode={viewMode}
             dreamReviewActive={dreamReviewActive}
             focusedMemoryIds={focusedMemoryIds}
             focusedRegions={focusedRegions}
@@ -227,6 +242,10 @@ function ResponsiveOrbitControls({
 function BrainRig({
   events,
   memories,
+  loadedMemoryIds = [],
+  retrievedMemoryIds = [],
+  semanticLayout,
+  viewMode = "anatomical",
   dreamReviewActive = false,
   focusedMemoryIds = [],
   focusedRegions = [],
@@ -240,6 +259,7 @@ function BrainRig({
 }: Brain3DProps & { labelsVisible: boolean }) {
   const group = useRef<THREE.Group>(null);
   const animation = withDreamReviewHold(getBrainAnimationState(events), dreamReviewActive);
+  const semantic = viewMode === "semantic";
 
   useFrame(({ clock }) => {
     if (!group.current) return;
@@ -252,27 +272,49 @@ function BrainRig({
 
   return (
     <group ref={group} scale={1.58} rotation={[0.02, -1.05, 0]}>
-      <BrainMesh />
-      <RegionHighlights animation={animation} focusedRegions={focusedRegions} focusPulseKey={focusPulseKey} />
-      <Axons animation={animation} />
-      <MemoryLifecycle
-        events={events}
-        memories={memories}
-        dream={animation.dream}
-        focusedMemoryIds={focusedMemoryIds}
-        focusPulseKey={focusPulseKey}
-        onActiveContextSelect={onActiveContextSelect}
-        onMemorySelect={onMemorySelect}
-        responseActive={responseActive}
-        selectedMemoryId={selectedMemoryId}
-      />
-      <DreamQuietField prefrontalQuiet={animation.dream.prefrontalQuiet} sleepDimming={animation.dream.sleepDimming} />
-      <HippocampusMarker
-        pulse={animation.hippocampusMarker}
-        reviewPulse={animation.dream.reviewPulse}
-        decayDimming={animation.decayDimming}
-      />
-      <RegionLabels animation={animation} onRegionSelect={onRegionSelect} visible={labelsVisible} />
+      <BrainMesh semantic={semantic} />
+      {semantic ? (
+        <group position={[0, 0.08, 0]}>
+          <SemanticConstellation
+            activeMemoryIds={loadedMemoryIds}
+            layout={semanticLayout}
+            memories={memories}
+            onMemorySelect={onMemorySelect}
+            retrievedMemoryIds={retrievedMemoryIds}
+            selectedMemoryId={selectedMemoryId}
+          />
+          <SemanticContextRibbon
+            layout={semanticLayout}
+            loadedMemoryIds={loadedMemoryIds}
+            memories={memories}
+            onMemorySelect={onMemorySelect}
+            selectedMemoryId={selectedMemoryId}
+          />
+        </group>
+      ) : (
+        <>
+          <RegionHighlights animation={animation} focusedRegions={focusedRegions} focusPulseKey={focusPulseKey} />
+          <Axons animation={animation} />
+          <MemoryLifecycle
+            events={events}
+            memories={memories}
+            dream={animation.dream}
+            focusedMemoryIds={focusedMemoryIds}
+            focusPulseKey={focusPulseKey}
+            onActiveContextSelect={onActiveContextSelect}
+            onMemorySelect={onMemorySelect}
+            responseActive={responseActive}
+            selectedMemoryId={selectedMemoryId}
+          />
+          <DreamQuietField prefrontalQuiet={animation.dream.prefrontalQuiet} sleepDimming={animation.dream.sleepDimming} />
+          <HippocampusMarker
+            pulse={animation.hippocampusMarker}
+            reviewPulse={animation.dream.reviewPulse}
+            decayDimming={animation.decayDimming}
+          />
+          <RegionLabels animation={animation} onRegionSelect={onRegionSelect} visible={labelsVisible} />
+        </>
+      )}
     </group>
   );
 }
