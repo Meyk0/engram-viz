@@ -590,7 +590,7 @@ export function EngramApp({ recordingMode = false }: EngramAppProps) {
         <p className="tagline">Shows what the AI stores, recalls, and uses to answer.</p>
       </header>
 
-      {!cleanDemoMode ? (
+      {!cleanDemoMode && !activePanel ? (
         <RealityModeControl
           memoryCount={activeMemories.length}
           mode={viewMode}
@@ -619,7 +619,7 @@ export function EngramApp({ recordingMode = false }: EngramAppProps) {
         </nav>
       ) : null}
 
-      {!cleanDemoMode && !showInitialState ? (
+      {!cleanDemoMode && !showInitialState && !activePanel ? (
         <CurrentEventBanner
           compact={Boolean(activePanel)}
           draftAssistant={draftTurn?.assistant}
@@ -630,13 +630,15 @@ export function EngramApp({ recordingMode = false }: EngramAppProps) {
         />
       ) : null}
 
-      <DemoPromptGuide
-        currentPrompt={demoStagedPrompt ?? (demoPlaybackActive ? draftTurn?.user : undefined)}
-        onRunDemo={runDemoPlayback}
-        onStopDemo={stopDemoPlayback}
-        remainingCount={remainingDemoSteps}
-        running={demoPlaybackActive}
-      />
+      {!activePanel ? (
+        <DemoPromptGuide
+          currentPrompt={demoStagedPrompt ?? (demoPlaybackActive ? draftTurn?.user : undefined)}
+          onRunDemo={runDemoPlayback}
+          onStopDemo={stopDemoPlayback}
+          remainingCount={remainingDemoSteps}
+          running={demoPlaybackActive}
+        />
+      ) : null}
 
       <MemoryLibraryPanel
         loadedMemoryIds={loadedMemoryIds}
