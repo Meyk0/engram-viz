@@ -127,14 +127,20 @@ export const causalAblationRequestSchema = z.object({
 });
 
 export const causalAblationResultSchema = z.object({
-  version: z.literal(1),
+  version: z.literal(2),
   recordId: z.string().min(1),
   excludedMemoryIds: z.array(z.string().min(1)),
   originalAnswer: z.string(),
   baselineAnswer: z.string(),
   counterfactualAnswer: z.string(),
-  estimatedInfluence: z.number().min(0).max(1),
   changed: z.boolean(),
+  comparison: z.object({
+    outcome: z.enum(["changed", "stable"]),
+    normalizedTextDistance: z.number().min(0).max(1),
+    answerLengthDelta: z.number().int(),
+    baselineRuns: z.literal(1),
+    counterfactualRuns: z.literal(1)
+  }),
   caveat: z.string().min(1),
   provider: z.object({
     id: z.enum(["demo", "openai"]),

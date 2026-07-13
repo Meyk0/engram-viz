@@ -3,7 +3,7 @@ import {
   CAUSAL_ABLATION_CAVEAT,
   CausalAblationProviderError,
   CausalAblationValidationError,
-  estimateAnswerInfluence,
+  compareReplayAnswers,
   runCausalAblation
 } from "@/lib/evidence/ablation";
 import type { ChatProviderClient, ChatTurnInput } from "@/lib/chat/providers/types";
@@ -39,18 +39,23 @@ describe("runCausalAblation", () => {
     });
     expect(inputs[1]?.retrievedMemories.map((memory) => memory.id)).toEqual(["mem-location"]);
     expect(result).toMatchObject({
-      version: 1,
+      version: 2,
       recordId: record.id,
       excludedMemoryIds: ["mem-color"],
       originalAnswer: record.originalAnswer,
       baselineAnswer: "Your favorite color is indigo.",
       counterfactualAnswer: "I do not know your favorite color.",
       changed: true,
+      comparison: {
+        outcome: "changed",
+        baselineRuns: 1,
+        counterfactualRuns: 1
+      },
       caveat: CAUSAL_ABLATION_CAVEAT,
       provider: { id: "demo", model: "test-model" }
     });
-    expect(result.estimatedInfluence).toBeGreaterThan(0);
-    expect(result.estimatedInfluence).toBeLessThanOrEqual(1);
+    expect(result.comparison.normalizedTextDistance).toBeGreaterThan(0);
+    expect(result.comparison.normalizedTextDistance).toBeLessThanOrEqual(1);
     expect(record).toEqual(originalRecord);
   });
 
@@ -102,13 +107,16 @@ describe("runCausalAblation", () => {
   });
 });
 
-describe("estimateAnswerInfluence", () => {
-  it("is deterministic and bounded for identical, empty, and unrelated answers", () => {
-    expect(estimateAnswerInfluence("same answer", "same   answer")).toBe(0);
-    expect(estimateAnswerInfluence("", "")).toBe(0);
-    expect(estimateAnswerInfluence("abc", "xyz")).toBe(1);
-    expect(estimateAnswerInfluence("indigo", "blue")).toBe(
-      estimateAnswerInfluence("indigo", "blue")
+describe("compareReplayAnswers", () => {
+  it("reports transparent, deterministic comparison measurements", () => {
+    expect(compareReplayAnswers("same answer", "same   answer")).toMatchObject({
+      outcome: "stable",
+      normalizedTextDistance: 0
+    });
+    expect(compareReplayAnswers("", "").normalizedTextDistance).toBe(0);
+    expect(compareReplayAnswers("abc", "xyz").normalizedTextDistance).toBe(1);
+    expect(compareReplayAnswers("indigo", "blue")).toEqual(
+      compareReplayAnswers("indigo", "blue")
     );
   });
 });

@@ -5,7 +5,7 @@ import type { CausalAblationRequest, CausalAblationResult } from "@/lib/evidence
 export const MAX_CAUSAL_ABLATION_REQUEST_BYTES = 256_000;
 export const MAX_CAUSAL_ABLATION_EXCLUDED_MEMORIES = 10;
 export const CAUSAL_ABLATION_CAVEAT =
-  "This is an estimated counterfactual, not proof of causality. Model sampling and other factors can also change the answer.";
+  "This replay shows what changed in two controlled reruns. It does not prove hidden model causality; sampling and other runtime factors can also change an answer.";
 
 export class CausalAblationValidationError extends Error {
   constructor(message: string) {
@@ -40,17 +40,17 @@ export async function runCausalAblation(
       request.record.retrievedMemories.filter((memory) => !excludedIds.has(memory.id))
     )
   });
-  const estimatedInfluence = estimateAnswerInfluence(baselineAnswer, counterfactualAnswer);
+  const comparison = compareReplayAnswers(baselineAnswer, counterfactualAnswer);
 
   return {
-    version: 1,
+    version: 2,
     recordId: request.record.id,
     excludedMemoryIds: [...request.excludedMemoryIds],
     originalAnswer: request.record.originalAnswer,
     baselineAnswer,
     counterfactualAnswer,
-    estimatedInfluence,
-    changed: normalizeAnswer(baselineAnswer) !== normalizeAnswer(counterfactualAnswer),
+    changed: comparison.outcome === "changed",
+    comparison,
     caveat: CAUSAL_ABLATION_CAVEAT,
     provider: {
       id: provider.id,
@@ -82,15 +82,26 @@ export function validateExcludedMemoryIds(request: CausalAblationRequest): void 
   }
 }
 
-export function estimateAnswerInfluence(baselineAnswer: string, counterfactualAnswer: string): number {
+export function compareReplayAnswers(
+  baselineAnswer: string,
+  counterfactualAnswer: string
+): CausalAblationResult["comparison"] {
+  const normalizedBaseline = normalizeAnswer(baselineAnswer);
+  const normalizedCounterfactual = normalizeAnswer(counterfactualAnswer);
   const baseline = Array.from(normalizeAnswer(baselineAnswer));
   const counterfactual = Array.from(normalizeAnswer(counterfactualAnswer));
   const longestLength = Math.max(baseline.length, counterfactual.length);
+  const normalizedTextDistance = longestLength === 0
+    ? 0
+    : Math.round((levenshteinDistance(baseline, counterfactual) / longestLength) * 1_000_000) / 1_000_000;
 
-  if (longestLength === 0) return 0;
-
-  const distance = levenshteinDistance(baseline, counterfactual);
-  return Math.round((distance / longestLength) * 1_000_000) / 1_000_000;
+  return {
+    outcome: normalizedBaseline === normalizedCounterfactual ? "stable" : "changed",
+    normalizedTextDistance,
+    answerLengthDelta: counterfactual.length - baseline.length,
+    baselineRuns: 1,
+    counterfactualRuns: 1
+  };
 }
 
 async function replayTurn(provider: ChatProviderClient, input: ChatTurnInput): Promise<string> {

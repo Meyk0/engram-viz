@@ -30,14 +30,20 @@ export type CausalAblationRequest = {
 };
 
 export type CausalAblationResult = {
-  version: 1;
+  version: 2;
   recordId: string;
   excludedMemoryIds: string[];
   originalAnswer: string;
   baselineAnswer: string;
   counterfactualAnswer: string;
-  estimatedInfluence: number;
   changed: boolean;
+  comparison: {
+    outcome: "changed" | "stable";
+    normalizedTextDistance: number;
+    answerLengthDelta: number;
+    baselineRuns: 1;
+    counterfactualRuns: 1;
+  };
   caveat: string;
   provider: TurnRecord["provider"];
 };

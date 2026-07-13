@@ -198,24 +198,52 @@
 
 .causal-xray-influence-heading strong {
   color: rgba(0, 212, 255, 0.9);
-  font-size: 20px;
-  font-variant-numeric: tabular-nums;
+  font-size: 12px;
   font-weight: 620;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
-.causal-xray-meter {
-  height: 6px;
-  margin-top: 10px;
-  overflow: hidden;
-  border-radius: 3px;
-  background: rgba(196, 218, 242, 0.1);
+.causal-xray-influence-heading strong[data-outcome="changed"] {
+  color: rgba(251, 191, 36, 0.9);
 }
 
-.causal-xray-meter span {
-  display: block;
-  height: 100%;
-  border-radius: inherit;
-  background: linear-gradient(90deg, rgba(0, 212, 255, 0.72), rgba(249, 115, 22, 0.88));
+.causal-xray-evidence {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 7px;
+  margin: 12px 0 0;
+}
+
+.causal-xray-evidence div {
+  min-width: 0;
+  padding: 8px;
+  border: 1px solid rgba(0, 212, 255, 0.08);
+  border-radius: 4px;
+  background: rgba(4, 8, 24, 0.34);
+}
+
+.causal-xray-evidence dt {
+  color: rgba(210, 228, 255, 0.38);
+  font-size: 7px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.causal-xray-evidence dd {
+  margin: 5px 0 0;
+  overflow-wrap: anywhere;
+  color: rgba(228, 241, 255, 0.82);
+  font-size: 9px;
+  line-height: 1.35;
+}
+
+@media (max-width: 640px) {
+  .causal-xray-comparison,
+  .causal-xray-evidence {
+    grid-template-columns: 1fr;
+  }
 }
 
 .causal-xray-caveat {

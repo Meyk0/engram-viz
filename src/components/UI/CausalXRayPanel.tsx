@@ -22,9 +22,6 @@ export function CausalXRayPanel({
   onRun,
   onClose
 }: CausalXRayPanelProps) {
-  const influence = result ? clampInfluence(result.estimatedInfluence) : 0;
-  const influencePercent = Math.round(influence * 100);
-
   return (
     <aside
       className="secondary-panel secondary-panel-right causal-xray-panel"
@@ -37,7 +34,7 @@ export function CausalXRayPanel({
             <FlaskConical aria-hidden="true" size={12} />
             Causal X-Ray
           </div>
-          <h2 id="causal-xray-title">Estimated influence</h2>
+          <h2 id="causal-xray-title">Counterfactual replay</h2>
         </div>
         <button className="causal-xray-close" type="button" onClick={onClose} aria-label="Close Causal X-Ray">
           <X aria-hidden="true" size={14} />
@@ -77,25 +74,34 @@ export function CausalXRayPanel({
               />
             </div>
 
-            <section className="causal-xray-influence" aria-labelledby="causal-xray-meter-label">
+            <section className="causal-xray-influence" aria-labelledby="causal-xray-outcome-label">
               <div className="causal-xray-influence-heading">
                 <div>
-                  <h3 id="causal-xray-meter-label">Estimated influence</h3>
-                  <span>{result.changed ? "Answer changed" : "No material change detected"}</span>
+                  <h3 id="causal-xray-outcome-label">Observed replay outcome</h3>
+                  <span>{result.changed ? "Answer changed when this memory was omitted" : "Answer stayed the same in this replay"}</span>
                 </div>
-                <strong>{influencePercent}%</strong>
+                <strong data-outcome={result.comparison.outcome}>
+                  {result.changed ? "Changed" : "Stable"}
+                </strong>
               </div>
-              <div
-                className="causal-xray-meter"
-                role="meter"
-                aria-label="Estimated influence"
-                aria-valuemin={0}
-                aria-valuemax={100}
-                aria-valuenow={influencePercent}
-                aria-valuetext={`${influencePercent} percent`}
-              >
-                <span style={{ width: `${influencePercent}%` }} />
-              </div>
+              <dl className="causal-xray-evidence" aria-label="Replay evidence">
+                <div>
+                  <dt>Runs</dt>
+                  <dd>{result.comparison.baselineRuns + result.comparison.counterfactualRuns}</dd>
+                </div>
+                <div>
+                  <dt>Baseline context</dt>
+                  <dd>{record.retrievedMemories.length} memories</dd>
+                </div>
+                <div>
+                  <dt>Replay context</dt>
+                  <dd>{Math.max(0, record.retrievedMemories.length - result.excludedMemoryIds.length)} memories</dd>
+                </div>
+                <div>
+                  <dt>Text difference</dt>
+                  <dd>{differenceLabel(result.comparison.normalizedTextDistance)}</dd>
+                </div>
+              </dl>
             </section>
 
             <p className="causal-xray-caveat">
@@ -139,9 +145,11 @@ function AnswerSample({
   );
 }
 
-function clampInfluence(value: number) {
-  if (!Number.isFinite(value)) return 0;
-  return Math.min(1, Math.max(0, value));
+function differenceLabel(distance: number) {
+  if (distance === 0) return "None";
+  if (distance < 0.2) return "Small";
+  if (distance < 0.55) return "Material";
+  return "Substantial";
 }
 
 function formatRegion(region: EngramMemory["region"]) {

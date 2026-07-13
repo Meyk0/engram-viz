@@ -20,7 +20,7 @@ describe("CausalXRayPanel", () => {
     );
 
     expect(screen.getByLabelText("Causal X-Ray")).toBeVisible();
-    expect(screen.getByRole("heading", { name: "Estimated influence" })).toBeVisible();
+    expect(screen.getByRole("heading", { name: "Counterfactual replay" })).toBeVisible();
     expect(screen.getByText("Memory being removed")).toBeVisible();
     expect(screen.getByText(memory.text)).toBeVisible();
     expect(screen.getByText(record.originalAnswer)).toBeVisible();
@@ -31,7 +31,7 @@ describe("CausalXRayPanel", () => {
     expect(onRun).toHaveBeenCalledTimes(1);
   });
 
-  it("compares the baseline and counterfactual answers with an accessible influence meter", () => {
+  it("compares the baseline and counterfactual answers with explicit replay evidence", () => {
     render(
       <CausalXRayPanel
         record={record}
@@ -44,9 +44,9 @@ describe("CausalXRayPanel", () => {
 
     expect(screen.getByLabelText("Baseline rerun")).toHaveTextContent(result.baselineAnswer);
     expect(screen.getByLabelText("Answer without memory")).toHaveTextContent(result.counterfactualAnswer);
-    expect(screen.getByRole("meter", { name: "Estimated influence" })).toHaveAttribute("aria-valuenow", "72");
-    expect(screen.getByText("72%")).toBeVisible();
-    expect(screen.getByText("Answer changed")).toBeVisible();
+    expect(screen.getByLabelText("Replay evidence")).toHaveTextContent("Baseline context1 memories");
+    expect(screen.getByText("Changed")).toBeVisible();
+    expect(screen.getByText("Answer changed when this memory was omitted")).toBeVisible();
     expect(screen.getByText(result.caveat)).toBeVisible();
     expect(screen.queryByRole("button", { name: "Run without this memory" })).not.toBeInTheDocument();
   });
@@ -115,14 +115,20 @@ const record: TurnRecord = {
 };
 
 const result: CausalAblationResult = {
-  version: 1,
+  version: 2,
   recordId: record.id,
   excludedMemoryIds: [memory.id],
   originalAnswer: record.originalAnswer,
   baselineAnswer: "Use an indigo-led palette with restrained cyan accents.",
   counterfactualAnswer: "Use a neutral palette with one high-contrast accent.",
-  estimatedInfluence: 0.72,
   changed: true,
+  comparison: {
+    outcome: "changed",
+    normalizedTextDistance: 0.72,
+    answerLengthDelta: -8,
+    baselineRuns: 1,
+    counterfactualRuns: 1
+  },
   caveat: "This is an estimated effect from reruns, not proof of deterministic causation.",
   provider: { id: "demo" }
 };

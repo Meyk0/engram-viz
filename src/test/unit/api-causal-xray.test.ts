@@ -21,8 +21,9 @@ describe("POST /api/causal-xray", () => {
     expect(result.baselineAnswer).toContain("2 prior memory traces");
     expect(result.counterfactualAnswer).toContain("1 prior memory trace");
     expect(result.changed).toBe(true);
-    expect(result.estimatedInfluence).toBeGreaterThan(0);
-    expect(result.caveat).toContain("estimated counterfactual, not proof of causality");
+    expect(result.comparison.outcome).toBe("changed");
+    expect(result.comparison.normalizedTextDistance).toBeGreaterThan(0);
+    expect(result.caveat).toContain("does not prove hidden model causality");
   });
 
   it("rejects invalid exclusions and request size violations", async () => {
