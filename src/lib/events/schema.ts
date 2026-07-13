@@ -13,6 +13,7 @@ export const engramMemorySchema = z.object({
   sourceText: z.string().min(1).optional(),
   cluster: z.string().min(1).optional(),
   status: z.enum(["active", "superseded"]).optional(),
+  retiredReason: z.enum(["corrected", "consolidated", "dream_merge"]).optional(),
   supersedes: z.array(z.string().min(1)).optional(),
   sourceMemoryIds: z.array(z.string().min(1)).optional(),
   region: brainRegionSchema,

@@ -3,6 +3,7 @@ export type MemoryDecisionTraceProvider = "deterministic" | "llm" | "fallback";
 export type MemoryRetrievalProvider = "lexical" | "semantic" | "fallback";
 export type MemoryRetrievalBasis = "semantic" | "lexical" | "guardrail";
 export type MemoryStatus = "active" | "superseded";
+export type MemoryRetiredReason = "corrected" | "consolidated" | "dream_merge";
 
 export type MemoryDecisionTrace = {
   stage: "memory" | "consolidation";
@@ -59,6 +60,7 @@ export type EngramMemory = {
   sourceText?: string;
   cluster?: string;
   status?: MemoryStatus;
+  retiredReason?: MemoryRetiredReason;
   supersedes?: string[];
   sourceMemoryIds?: string[];
   region: BrainRegion;

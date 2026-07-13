@@ -17,7 +17,7 @@ export function useMemoryStore(events: EngramEvent[]) {
         if (event.type === "store") {
           event.memory.supersedes?.forEach((id) => {
             const memory = memories.get(id);
-            if (memory) memories.set(id, { ...memory, status: "superseded" });
+            if (memory) memories.set(id, { ...memory, status: "superseded", retiredReason: "corrected" });
           });
           memories.set(event.memory.id, event.memory);
         }
@@ -25,7 +25,10 @@ export function useMemoryStore(events: EngramEvent[]) {
           event.accessed?.forEach((memory) => memories.set(memory.id, memory));
         }
         if (event.type === "consolidate") {
-          event.removed.forEach((id) => memories.delete(id));
+          event.removed.forEach((id) => {
+            const memory = memories.get(id);
+            if (memory) memories.set(id, { ...memory, status: "superseded", retiredReason: "consolidated" });
+          });
           memories.set(event.added.id, event.added);
         }
         if (event.type === "dream_apply") {
@@ -35,11 +38,14 @@ export function useMemoryStore(events: EngramEvent[]) {
               : operation.supersedeIds ?? [];
             supersededIds.forEach((id) => {
               const memory = memories.get(id);
-              if (memory) memories.set(id, { ...memory, status: "superseded" });
+              if (memory) memories.set(id, { ...memory, status: "superseded", retiredReason: "corrected" });
             });
 
             if (operation.type === "merge") {
-              operation.sourceIds.forEach((id) => memories.delete(id));
+              operation.sourceIds.forEach((id) => {
+                const memory = memories.get(id);
+                if (memory) memories.set(id, { ...memory, status: "superseded", retiredReason: "dream_merge" });
+              });
             }
 
             if (operation.result) memories.set(operation.result.id, operation.result);

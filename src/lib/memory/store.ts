@@ -58,7 +58,8 @@ export function createMemory(session: MemorySession, input: MemoryInput): Engram
 
 export function markSuperseded(
   session: MemorySession,
-  ids: string[]
+  ids: string[],
+  retiredReason: EngramMemory["retiredReason"] = "corrected"
 ): EngramMemory[] {
   return ids.flatMap((id) => {
     const memory = session.memories.get(id);
@@ -66,7 +67,8 @@ export function markSuperseded(
 
     const updated: EngramMemory = {
       ...memory,
-      status: "superseded"
+      status: "superseded",
+      retiredReason
     };
     session.memories.set(id, updated);
     return [updated];
@@ -106,7 +108,7 @@ export function replaceMemories(
   removed: string[],
   added: EngramMemory
 ): EngramMemory {
-  removed.forEach((id) => session.memories.delete(id));
+  markSuperseded(session, removed, "consolidated");
   session.memories.set(added.id, added);
   return added;
 }
