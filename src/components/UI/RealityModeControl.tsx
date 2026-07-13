@@ -12,15 +12,15 @@ const modes: Array<{
   label: string;
   value: EngramViewMode;
 }> = [
-  { icon: Brain, label: "Brain model", value: "anatomical" },
-  { icon: Network, label: "Semantic map", value: "semantic" }
+  { icon: Brain, label: "Brain", value: "anatomical" },
+  { icon: Network, label: "Retrieval space", value: "semantic" }
 ];
 
 export function RealityModeControl({ memoryCount, mode, onModeChange }: RealityModeControlProps) {
   if (memoryCount <= 0) return null;
 
   return (
-    <div className="reality-mode-control" role="radiogroup" aria-label="Reality mode">
+    <div className="reality-mode-control" role="radiogroup" aria-label="Visualization view">
       {modes.map(({ icon: Icon, label, value }) => {
         const active = mode === value;
 

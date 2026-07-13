@@ -7,6 +7,27 @@ test("loads the Engram shell", async ({ page }) => {
   await expect(page.getByLabel("Secondary views")).toBeVisible();
   await expect(page.getByLabel("Demo controls")).toBeVisible();
   await expect(page.getByLabel("Chat message")).toBeVisible();
+  await expect(page.getByLabel("Engram mode")).toBeVisible();
+});
+
+test("switches into a docked investigation workbench without covering the stage", async ({ page }) => {
+  await page.goto("/");
+
+  await page.getByRole("button", { name: "Investigate: Test memory history" }).click();
+
+  const shell = page.locator(".engram-shell");
+  const stage = page.getByRole("region", { name: "Engram 3D brain scene" });
+  const workbench = page.getByRole("complementary", { name: "Memory story" });
+  await expect(shell).toHaveAttribute("data-product-mode", "investigate");
+  await expect(shell).toHaveAttribute("data-workbench-open", "true");
+  await expect(workbench).toBeVisible();
+
+  await expect.poll(async () => {
+    const stageBox = await stage.boundingBox();
+    const workbenchBox = await workbench.boundingBox();
+    if (!stageBox || !workbenchBox) return Number.POSITIVE_INFINITY;
+    return stageBox.x + stageBox.width - workbenchBox.x;
+  }).toBeLessThanOrEqual(8);
 });
 
 test("starts directly without an onboarding gate", async ({ page }) => {

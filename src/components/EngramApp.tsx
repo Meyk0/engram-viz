@@ -26,6 +26,7 @@ import { MemoryLineagePanel } from "@/components/UI/MemoryLineagePanel";
 import { HowItWorksPanel } from "@/components/UI/HowItWorksPanel";
 import { MemoryTimelinePanel } from "@/components/UI/MemoryTimelinePanel";
 import { MemoryInspector } from "@/components/UI/MemoryInspector";
+import { ProductModeControl } from "@/components/UI/ProductModeControl";
 import { RealityModeControl } from "@/components/UI/RealityModeControl";
 import { RegionInspector } from "@/components/UI/RegionInspector";
 import { SemanticModeHUD } from "@/components/UI/SemanticModeHUD";
@@ -47,6 +48,7 @@ import {
 } from "@/lib/timeline";
 import type { EngramViewMode } from "@/lib/semantic/types";
 import type { TurnRecord } from "@/lib/evidence/types";
+import type { EngramProductMode } from "@/lib/lab/types";
 import { buildMemoryLineage } from "@/lib/lineage/build";
 import { importAgentTrace } from "@/lib/traces/import";
 import { sampleAgentTrace } from "@/lib/traces/sample";
@@ -58,6 +60,10 @@ const regionShortcuts: Array<{ label: string; region: BrainRegion }> = [
   { label: "Working", region: "prefrontal" },
   { label: "Stable", region: "temporal" }
 ];
+
+const DEMO_FIRST_LINE_DELAY_MS = 1_100;
+const DEMO_INTER_TURN_HOLD_MS = 4_200;
+const DEMO_STAGED_LINE_HOLD_MS = 3_000;
 
 type EngramAppProps = {
   recordingMode?: boolean;
@@ -80,6 +86,7 @@ export function EngramApp({ recordingMode = false }: EngramAppProps) {
   const [timelineEntries, setTimelineEntries] = useState<MemoryTimelineEntry[]>([]);
   const [focusedTimelineId, setFocusedTimelineId] = useState<string | undefined>(undefined);
   const [viewMode, setViewMode] = useState<EngramViewMode>("anatomical");
+  const [productMode, setProductMode] = useState<EngramProductMode>("learn");
   const [turnRecordsByTimelineId, setTurnRecordsByTimelineId] = useState<Record<string, TurnRecord>>({});
   const [causalMemoryId, setCausalMemoryId] = useState<string | undefined>(undefined);
   const [lineageMemoryId, setLineageMemoryId] = useState<string | undefined>(undefined);
@@ -267,7 +274,8 @@ export function EngramApp({ recordingMode = false }: EngramAppProps) {
     setCausalMemoryId(undefined);
     setLineageMemoryId(undefined);
     resetCausalXRay();
-  }, [resetCausalXRay]);
+    if (productMode === "investigate") setProductMode("learn");
+  }, [productMode, resetCausalXRay]);
 
   const openCausalXRay = useCallback(
     (memoryId: string) => {
@@ -443,6 +451,7 @@ export function EngramApp({ recordingMode = false }: EngramAppProps) {
   );
 
   const runDemoPlayback = useCallback(() => {
+    setProductMode("learn");
     setActivePanel(null);
     setSelectedMemoryId(undefined);
     setSelectedRegion(undefined);
@@ -477,11 +486,13 @@ export function EngramApp({ recordingMode = false }: EngramAppProps) {
       const sendTimer = window.setTimeout(() => {
         setDemoStagedPrompt(null);
         void sendTurn(prompt);
-      }, 2200);
+      }, DEMO_STAGED_LINE_HOLD_MS);
       return () => window.clearTimeout(sendTimer);
     }
 
-    const delay = conversationTimelineCount === 0 ? 700 : 2600;
+    const delay = conversationTimelineCount === 0
+      ? DEMO_FIRST_LINE_DELAY_MS
+      : DEMO_INTER_TURN_HOLD_MS;
     const timer = window.setTimeout(() => {
       setMessage(prompt);
       setDemoStagedPrompt(prompt);
@@ -515,6 +526,7 @@ export function EngramApp({ recordingMode = false }: EngramAppProps) {
     setDemoStagedPrompt(null);
     setDemoPlaybackActive(false);
     setViewMode("anatomical");
+    setProductMode("learn");
     setTurnRecordsByTimelineId({});
     setCausalMemoryId(undefined);
     setLineageMemoryId(undefined);
@@ -540,8 +552,10 @@ export function EngramApp({ recordingMode = false }: EngramAppProps) {
         if (isStreaming) cancel();
         clearConversationState();
         tracePlayback.restart();
-        setImportedTrace(result.trace);
-        setTraceImportError(null);
+      setImportedTrace(result.trace);
+      setProductMode("observe");
+      setActivePanel("trace");
+      setTraceImportError(null);
         setTraceImportOpen(false);
         setTraceSceneEpoch((current) => current + 1);
       } catch (error) {
@@ -557,9 +571,15 @@ export function EngramApp({ recordingMode = false }: EngramAppProps) {
     clearConversationState();
     tracePlayback.restart();
     setImportedTrace(undefined);
+    setProductMode("learn");
     setTraceImportError(null);
     setTraceSceneEpoch((current) => current + 1);
   }, [clearConversationState, tracePlayback]);
+
+  const closeTraceImport = useCallback(() => {
+    setTraceImportOpen(false);
+    if (productMode === "observe" && !importedTrace) setProductMode("learn");
+  }, [importedTrace, productMode]);
 
   const onDockSelect = useCallback(
     (panel: SecondaryPanel) => {
@@ -616,6 +636,33 @@ export function EngramApp({ recordingMode = false }: EngramAppProps) {
     setTraceImportOpen(true);
   }, []);
 
+  const changeProductMode = useCallback(
+    (mode: EngramProductMode) => {
+      setProductMode(mode);
+      setFocusedTimelineId(undefined);
+      setSelectedMemoryId(undefined);
+      setSelectedRegion(undefined);
+
+      if (mode === "learn") {
+        setActivePanel(null);
+        return;
+      }
+
+      if (mode === "observe") {
+        if (importedTrace) {
+          setActivePanel("trace");
+        } else {
+          setTraceImportError(null);
+          setTraceImportOpen(true);
+        }
+        return;
+      }
+
+      setActivePanel("timeline");
+    },
+    [importedTrace]
+  );
+
   const openTraceInspector = useCallback(() => {
     setSelectedMemoryId(undefined);
     setSelectedRegion(undefined);
@@ -665,7 +712,12 @@ export function EngramApp({ recordingMode = false }: EngramAppProps) {
       : "READY";
 
   return (
-    <main className="engram-shell" data-recording={cleanDemoMode}>
+    <main
+      className="engram-shell"
+      data-product-mode={productMode}
+      data-recording={cleanDemoMode}
+      data-workbench-open={Boolean(activePanel)}
+    >
       <Brain3D
         events={events}
         memories={activeMemories}
@@ -694,6 +746,10 @@ export function EngramApp({ recordingMode = false }: EngramAppProps) {
         <h1 className="title">ENGRAM</h1>
         <p className="tagline">Shows what the AI stores, recalls, and uses to answer.</p>
       </header>
+
+      {!cleanDemoMode ? (
+        <ProductModeControl mode={productMode} onModeChange={changeProductMode} />
+      ) : null}
 
       {!cleanDemoMode && !activePanel ? (
         <RealityModeControl
@@ -824,7 +880,7 @@ export function EngramApp({ recordingMode = false }: EngramAppProps) {
       {traceImportOpen ? (
         <TraceImportDialog
           error={traceImportError}
-          onCancel={() => setTraceImportOpen(false)}
+          onCancel={closeTraceImport}
           onImport={importTrace}
           onLoadSample={() => importTrace(sampleAgentTrace)}
           open

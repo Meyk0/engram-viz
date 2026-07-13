@@ -2,6 +2,7 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { RealityModeControl } from "@/components/UI/RealityModeControl";
+import { ProductModeControl } from "@/components/UI/ProductModeControl";
 import { SemanticModeHUD } from "@/components/UI/SemanticModeHUD";
 import type { SemanticLayoutSnapshot } from "@/lib/semantic/types";
 
@@ -9,7 +10,7 @@ describe("RealityModeControl", () => {
   it("does not render before a memory exists", () => {
     render(<RealityModeControl memoryCount={0} mode="anatomical" onModeChange={vi.fn()} />);
 
-    expect(screen.queryByRole("radiogroup", { name: "Reality mode" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("radiogroup", { name: "Visualization view" })).not.toBeInTheDocument();
   });
 
   it("exposes both reality modes as an accessible segmented control", async () => {
@@ -18,12 +19,28 @@ describe("RealityModeControl", () => {
 
     render(<RealityModeControl memoryCount={3} mode="anatomical" onModeChange={onModeChange} />);
 
-    expect(screen.getByRole("radio", { name: "Brain model" })).toBeChecked();
-    expect(screen.getByRole("radio", { name: "Semantic map" })).not.toBeChecked();
+    expect(screen.getByRole("radio", { name: "Brain" })).toBeChecked();
+    expect(screen.getByRole("radio", { name: "Retrieval space" })).not.toBeChecked();
 
-    await user.click(screen.getByRole("radio", { name: "Semantic map" }));
+    await user.click(screen.getByRole("radio", { name: "Retrieval space" }));
 
     expect(onModeChange).toHaveBeenCalledWith("semantic");
+  });
+});
+
+describe("ProductModeControl", () => {
+  it("switches between learning, observation, and investigation intents", async () => {
+    const onModeChange = vi.fn();
+    const user = userEvent.setup();
+
+    render(<ProductModeControl mode="learn" onModeChange={onModeChange} />);
+
+    expect(screen.getByRole("button", { name: /Learn:/ })).toHaveAttribute("aria-current", "page");
+    await user.click(screen.getByRole("button", { name: /Observe:/ }));
+    await user.click(screen.getByRole("button", { name: /Investigate:/ }));
+
+    expect(onModeChange).toHaveBeenNthCalledWith(1, "observe");
+    expect(onModeChange).toHaveBeenNthCalledWith(2, "investigate");
   });
 });
 
