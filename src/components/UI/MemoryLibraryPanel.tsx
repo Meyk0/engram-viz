@@ -94,11 +94,24 @@ function MemoryLibraryRow({
       <span className="memory-library-copy">
         <strong>{memory.text}</strong>
         <small>
-          {region.label}
-          {memory.topic ? ` · ${memory.topic}` : ""}
+          {memory.status === "superseded"
+            ? retiredReasonLabel(memory)
+            : `${region.label}${memory.topic ? ` · ${memory.topic}` : ""}`}
         </small>
       </span>
       {active ? <span className="memory-library-used">Used now</span> : <BrainCircuit size={13} aria-hidden="true" />}
     </button>
   );
+}
+
+function retiredReasonLabel(memory: EngramMemory) {
+  switch (memory.retiredReason) {
+    case "consolidated":
+      return "Merged into stable knowledge";
+    case "dream_merge":
+      return "Merged during Dream Mode";
+    case "corrected":
+    default:
+      return "Replaced by a newer memory";
+  }
 }

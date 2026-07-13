@@ -904,6 +904,37 @@ input {
   color: rgba(220, 245, 255, 0.92);
 }
 
+.memory-inspector-status[data-retired="true"] {
+  border-color: rgba(251, 191, 36, 0.24);
+  border-left-color: #fbbf24;
+  background: rgba(251, 191, 36, 0.07);
+  color: #f5c86a;
+}
+
+.memory-lineage-open {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: calc(100% - 24px);
+  min-height: 40px;
+  margin: 0 12px 10px;
+  border: 1px solid rgba(0, 212, 255, 0.28);
+  background: rgba(0, 212, 255, 0.07);
+  color: #8fe8ff;
+  font: 700 11px/1.2 var(--font-mono);
+  letter-spacing: 0;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.memory-lineage-open:hover,
+.memory-lineage-open:focus-visible {
+  border-color: rgba(0, 212, 255, 0.58);
+  background: rgba(0, 212, 255, 0.12);
+  outline: none;
+}
+
 .memory-inspector-metrics {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

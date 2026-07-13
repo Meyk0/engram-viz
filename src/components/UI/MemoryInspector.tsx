@@ -1,4 +1,4 @@
-import { X } from "lucide-react";
+import { GitBranch, X } from "lucide-react";
 import { regionExplanations } from "@/lib/explanations";
 import type { EngramMemory } from "@/types";
 
@@ -7,6 +7,7 @@ type MemoryInspectorProps = {
   latestQuery?: string;
   memory: EngramMemory | undefined;
   onClose: () => void;
+  onOpenLineage?: (memoryId: string) => void;
   open: boolean;
 };
 
@@ -15,6 +16,7 @@ export function MemoryInspector({
   latestQuery,
   memory,
   onClose,
+  onOpenLineage,
   open
 }: MemoryInspectorProps) {
   if (!open || !memory) return null;
@@ -34,8 +36,16 @@ export function MemoryInspector({
           <X size={13} />
         </button>
       </div>
-      <div className="memory-inspector-status" data-active={active}>
-        {active ? "Used in the latest answer" : "Stored, not currently in working memory"}
+      <div
+        className="memory-inspector-status"
+        data-active={active}
+        data-retired={memory.status === "superseded"}
+      >
+        {memory.status === "superseded"
+          ? getRetiredLabel(memory)
+          : active
+            ? "Used in the latest answer"
+            : "Stored, not currently in working memory"}
       </div>
       <div className="memory-inspector-text">{memory.text}</div>
       {latestQuery ? <div className="memory-inspector-query">LATEST QUESTION: {latestQuery}</div> : null}
@@ -45,6 +55,16 @@ export function MemoryInspector({
       <div className="memory-inspector-note">
         <strong>What to watch:</strong> {locationExplanation.whatToWatch}
       </div>
+      {onOpenLineage ? (
+        <button
+          className="memory-lineage-open"
+          type="button"
+          onClick={() => onOpenLineage(memory.id)}
+        >
+          <GitBranch size={14} aria-hidden="true" />
+          Trace where this memory came from
+        </button>
+      ) : null}
       <details className="memory-inspector-details">
         <summary>Details</summary>
         <dl className="memory-inspector-metrics">
@@ -72,6 +92,18 @@ export function MemoryInspector({
       </details>
     </aside>
   );
+}
+
+function getRetiredLabel(memory: EngramMemory) {
+  switch (memory.retiredReason) {
+    case "consolidated":
+      return "Retired after consolidation into stable knowledge";
+    case "dream_merge":
+      return "Retired after an applied Dream merge";
+    case "corrected":
+    default:
+      return "Retired after a newer memory replaced it";
+  }
 }
 
 function formatTimestamp(value: string) {

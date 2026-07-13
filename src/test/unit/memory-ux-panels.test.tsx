@@ -67,6 +67,28 @@ describe("memory UX panels", () => {
     expect(screen.getByText(/Moved to stable knowledge after being retrieved 3 times/)).toBeVisible();
   });
 
+  it("explains retired memory history and opens lineage", async () => {
+    const onOpenLineage = vi.fn();
+    const user = userEvent.setup();
+
+    render(
+      <MemoryInspector
+        memory={{
+          ...makeMemory(),
+          status: "superseded",
+          retiredReason: "consolidated"
+        }}
+        onClose={vi.fn()}
+        onOpenLineage={onOpenLineage}
+        open
+      />
+    );
+
+    expect(screen.getByText("Retired after consolidation into stable knowledge")).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "Trace where this memory came from" }));
+    expect(onOpenLineage).toHaveBeenCalledWith("mem-indigo");
+  });
+
   it("rewrites low-level events as a user-facing memory story", () => {
     const events: EngramEvent[] = [
       {
@@ -195,7 +217,13 @@ describe("memory UX panels", () => {
     const onSelectMemory = vi.fn();
     const user = userEvent.setup();
     const active = makeMemory();
-    const retired = { ...makeMemory(), id: "mem-old", text: "User loved blue.", status: "superseded" as const };
+    const retired = {
+      ...makeMemory(),
+      id: "mem-old",
+      text: "User loved blue.",
+      status: "superseded" as const,
+      retiredReason: "corrected" as const
+    };
 
     render(
       <MemoryLibraryPanel
@@ -211,6 +239,7 @@ describe("memory UX panels", () => {
     expect(screen.getByText("1 active")).toBeVisible();
     expect(screen.getByText("Used now")).toBeVisible();
     expect(screen.getByText("Retired memories")).toBeVisible();
+    expect(screen.getByText("Replaced by a newer memory")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: /User loves indigo/i }));
 
     expect(onSelectMemory).toHaveBeenCalledWith(active.id);
