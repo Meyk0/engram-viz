@@ -1289,21 +1289,22 @@ function assertScenarioFinalExpectation(
   const failures: string[] = [];
   const expected = fixture.expectedFinal;
   if (!expected) return failures;
+  const activeMemories = memories.filter((memory) => memory.status !== "superseded");
 
   expected.memoryTextIncludes?.forEach((text) => {
-    if (!memoriesContainText(memories, text)) {
-      failures.push(`${fixture.name}: expected final memories to include "${text}", got ${formatMemoryTexts(memories)}`);
+    if (!memoriesContainText(activeMemories, text)) {
+      failures.push(`${fixture.name}: expected final memories to include "${text}", got ${formatMemoryTexts(activeMemories)}`);
     }
   });
 
   expected.missingMemoryTextIncludes?.forEach((text) => {
-    if (memoriesContainText(memories, text)) {
-      failures.push(`${fixture.name}: expected final memories to omit "${text}", got ${formatMemoryTexts(memories)}`);
+    if (memoriesContainText(activeMemories, text)) {
+      failures.push(`${fixture.name}: expected final memories to omit "${text}", got ${formatMemoryTexts(activeMemories)}`);
     }
   });
 
   expected.missingHippocampusTextIncludes?.forEach((text) => {
-    const hippocampusMemories = memories.filter((memory) => memory.region === "hippocampus");
+    const hippocampusMemories = activeMemories.filter((memory) => memory.region === "hippocampus");
     if (memoriesContainText(hippocampusMemories, text)) {
       failures.push(
         `${fixture.name}: expected hippocampus memories to omit "${text}", got ${formatMemoryTexts(hippocampusMemories)}`
@@ -1312,14 +1313,14 @@ function assertScenarioFinalExpectation(
   });
 
   expected.temporalTextIncludes?.forEach((text) => {
-    if (!memoriesContainText(memories.filter((memory) => memory.region === "temporal"), text)) {
-      failures.push(`${fixture.name}: expected temporal memory to include "${text}", got ${formatMemoryTexts(memories)}`);
+    if (!memoriesContainText(activeMemories.filter((memory) => memory.region === "temporal"), text)) {
+      failures.push(`${fixture.name}: expected temporal memory to include "${text}", got ${formatMemoryTexts(activeMemories)}`);
     }
   });
 
   expected.hippocampusTextIncludes?.forEach((text) => {
-    if (!memoriesContainText(memories.filter((memory) => memory.region === "hippocampus"), text)) {
-      failures.push(`${fixture.name}: expected hippocampus memory to include "${text}", got ${formatMemoryTexts(memories)}`);
+    if (!memoriesContainText(activeMemories.filter((memory) => memory.region === "hippocampus"), text)) {
+      failures.push(`${fixture.name}: expected hippocampus memory to include "${text}", got ${formatMemoryTexts(activeMemories)}`);
     }
   });
 

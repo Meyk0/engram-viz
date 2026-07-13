@@ -21,6 +21,7 @@ import { CurrentEventBanner } from "@/components/UI/CurrentEventBanner";
 import { DemoPromptGuide } from "@/components/UI/DemoPromptGuide";
 import { DreamReviewPanel } from "@/components/UI/DreamReviewPanel";
 import { MemoryLibraryPanel } from "@/components/UI/MemoryLibraryPanel";
+import { MemoryLineagePanel } from "@/components/UI/MemoryLineagePanel";
 import { HowItWorksPanel } from "@/components/UI/HowItWorksPanel";
 import { MemoryTimelinePanel } from "@/components/UI/MemoryTimelinePanel";
 import { MemoryInspector } from "@/components/UI/MemoryInspector";
@@ -42,6 +43,7 @@ import {
 } from "@/lib/timeline";
 import type { EngramViewMode } from "@/lib/semantic/types";
 import type { TurnRecord } from "@/lib/evidence/types";
+import { buildMemoryLineage } from "@/lib/lineage/build";
 import type { BrainRegion, DreamProposal, EngramEvent, EngramMemory, StreamChunk } from "@/types";
 
 const regionShortcuts: Array<{ label: string; region: BrainRegion }> = [
@@ -73,6 +75,7 @@ export function EngramApp({ recordingMode = false }: EngramAppProps) {
   const [viewMode, setViewMode] = useState<EngramViewMode>("anatomical");
   const [turnRecordsByTimelineId, setTurnRecordsByTimelineId] = useState<Record<string, TurnRecord>>({});
   const [causalMemoryId, setCausalMemoryId] = useState<string | undefined>(undefined);
+  const [lineageMemoryId, setLineageMemoryId] = useState<string | undefined>(undefined);
   const inputRef = useRef<HTMLInputElement>(null);
   const activeTimelineEntryId = useRef<string | undefined>(undefined);
   const turnInFlight = useRef(false);
@@ -131,6 +134,19 @@ export function EngramApp({ recordingMode = false }: EngramAppProps) {
     () => latestEvidence?.retrievedMemories.find((memory) => memory.id === causalMemoryId),
     [causalMemoryId, latestEvidence]
   );
+  const turnRecords = useMemo(() => Object.values(turnRecordsByTimelineId), [turnRecordsByTimelineId]);
+  const lineageGraph = useMemo(
+    () =>
+      lineageMemoryId
+        ? buildMemoryLineage({
+            focusMemoryId: lineageMemoryId,
+            memories,
+            turnRecords,
+            events: eventHistory
+          })
+        : undefined,
+    [eventHistory, lineageMemoryId, memories, turnRecords]
+  );
   const dreamEligibleMemories = useMemo(
     () => getDreamEligibleMemories(eventHistory, activeMemories),
     [activeMemories, eventHistory]
@@ -185,6 +201,8 @@ export function EngramApp({ recordingMode = false }: EngramAppProps) {
   const effectiveTimelineFocus = focusedTimelineEntry ? timelineFocus : undefined;
   const brainFocusMemoryIds = effectiveTimelineFocus
     ? effectiveTimelineFocus.memoryIds
+    : activePanel === "lineage" && lineageGraph
+      ? lineageGraph.relatedMemoryIds
     : activePanel === "xray" && causalMemoryId
       ? [causalMemoryId]
     : activePanel === "context"
@@ -192,6 +210,8 @@ export function EngramApp({ recordingMode = false }: EngramAppProps) {
       : [];
   const brainFocusRegions = effectiveTimelineFocus
     ? effectiveTimelineFocus.regions
+    : activePanel === "lineage" && lineageGraph
+      ? [...new Set(lineageGraph.nodes.flatMap((node) => node.region ?? []))]
     : activePanel === "xray"
       ? (["prefrontal"] satisfies BrainRegion[])
     : activePanel === "context" && loadedMemoryIds.length > 0
@@ -199,6 +219,8 @@ export function EngramApp({ recordingMode = false }: EngramAppProps) {
       : [];
   const brainFocusPulseKey = effectiveTimelineFocus
     ? timelineFocusPulseKey
+    : activePanel === "lineage" && lineageMemoryId
+      ? `lineage-${lineageMemoryId}`
     : activePanel === "xray" && causalMemoryId
       ? `xray-${causalMemoryId}`
     : activePanel === "context" && loadedMemoryIds.length > 0
@@ -216,6 +238,7 @@ export function EngramApp({ recordingMode = false }: EngramAppProps) {
     setSelectedMemoryId(undefined);
     setActivePanel(null);
     setCausalMemoryId(undefined);
+    setLineageMemoryId(undefined);
     resetCausalXRay();
   }, [resetCausalXRay]);
 
@@ -230,6 +253,14 @@ export function EngramApp({ recordingMode = false }: EngramAppProps) {
     },
     [latestEvidence, resetCausalXRay]
   );
+
+  const openMemoryLineage = useCallback((memoryId: string) => {
+    setLineageMemoryId(memoryId);
+    setSelectedMemoryId(undefined);
+    setSelectedRegion(undefined);
+    setFocusedTimelineId(undefined);
+    setActivePanel("lineage");
+  }, []);
 
   const closeMemoryPanel = useCallback(() => {
     setSelectedMemoryId(undefined);
@@ -462,6 +493,7 @@ export function EngramApp({ recordingMode = false }: EngramAppProps) {
     setViewMode("anatomical");
     setTurnRecordsByTimelineId({});
     setCausalMemoryId(undefined);
+    setLineageMemoryId(undefined);
     resetCausalXRay();
     setProvenancePulseKey((current) => current + 1);
   }, [clearEvents, resetCausalXRay, resetSession]);
@@ -640,7 +672,14 @@ export function EngramApp({ recordingMode = false }: EngramAppProps) {
         }
         memory={selectedMemory}
         onClose={closeMemoryPanel}
+        onOpenLineage={openMemoryLineage}
         open={activePanel === "memory"}
+      />
+      <MemoryLineagePanel
+        graph={lineageGraph}
+        onClose={closeSecondaryPanel}
+        onSelectMemory={setLineageMemoryId}
+        open={activePanel === "lineage"}
       />
       <RegionInspector
         onClose={closeRegionPanel}
