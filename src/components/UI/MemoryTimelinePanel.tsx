@@ -108,7 +108,7 @@ function TimelineEntryCard({
           {entry.assistantText ? (
             <div className="timeline-turn-copy" data-role="assistant">
               <span>AI</span>
-              {preview(entry.assistantText, 180)}
+              {entry.assistantText}
             </div>
           ) : null}
           <div className="timeline-region-row">

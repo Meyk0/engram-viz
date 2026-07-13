@@ -280,8 +280,10 @@ function eventToTimelineStep(event: EngramEvent): Omit<MemoryTimelineStep, "id">
       };
     case "dream_complete":
       return {
-        label: "Dream ready",
-        body: `${pluralize(event.proposal.operations.length, "dream change")} is ready to review.`,
+        label: event.proposal.operations.length > 0 ? "Dream ready" : "Dream complete",
+        body: event.proposal.operations.length > 0
+          ? `${pluralize(event.proposal.operations.length, "dream change")} is ready to review.`
+          : "No safe memory changes were found, so current memories stayed unchanged.",
         eventType: event.type,
         memoryIds: dreamProposalMemoryIds(event.proposal),
         regions: ["hippocampus"]

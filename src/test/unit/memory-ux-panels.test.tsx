@@ -1,14 +1,13 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
-import { AnswerProvenancePill } from "@/components/UI/AnswerProvenancePill";
-import { BrainActionCaption } from "@/components/UI/BrainActionCaption";
 import { DemoPromptGuide } from "@/components/UI/DemoPromptGuide";
 import { DreamReviewPanel } from "@/components/UI/DreamReviewPanel";
 import { EventFeed } from "@/components/UI/EventFeed";
 import { HowItWorksPanel } from "@/components/UI/HowItWorksPanel";
 import { MemoryTimelinePanel } from "@/components/UI/MemoryTimelinePanel";
 import { MemoryInspector } from "@/components/UI/MemoryInspector";
+import { MemoryLibraryPanel } from "@/components/UI/MemoryLibraryPanel";
 import { RegionInspector } from "@/components/UI/RegionInspector";
 import { SecondaryDock } from "@/components/UI/SecondaryDock";
 import { createConversationTimelineEntry } from "@/lib/timeline";
@@ -113,11 +112,10 @@ describe("memory UX panels", () => {
         onSelect={onSelect}
         regionCount={0}
         timelineCount={0}
-        transcriptCount={1}
       />
     );
 
-    await user.click(screen.getByRole("button", { name: /Dream 3/i }));
+    await user.click(screen.getByRole("button", { name: /Dream Ready/i }));
 
     expect(onSelect).toHaveBeenCalledWith("dream");
   });
@@ -137,7 +135,6 @@ describe("memory UX panels", () => {
         onSelect={onSelect}
         regionCount={0}
         timelineCount={0}
-        transcriptCount={0}
       />
     );
 
@@ -194,23 +191,29 @@ describe("memory UX panels", () => {
     expect(screen.getByText("I love the color indigo.")).toBeVisible();
   });
 
-  it("summarizes the current brain action for demo captions", () => {
-    render(<BrainActionCaption events={[{ type: "store", memory: makeMemory() }]} />);
-
-    expect(screen.getByLabelText("Brain action caption")).toBeVisible();
-    expect(screen.getByText("Store")).toBeVisible();
-    expect(screen.getByText(/hippocampus/i)).toBeVisible();
-  });
-
-  it("opens latest-answer provenance from a compact indicator", async () => {
-    const onSelect = vi.fn();
+  it("browses active and retired memories from a truthful memory library", async () => {
+    const onSelectMemory = vi.fn();
     const user = userEvent.setup();
+    const active = makeMemory();
+    const retired = { ...makeMemory(), id: "mem-old", text: "User loved blue.", status: "superseded" as const };
 
-    render(<AnswerProvenancePill count={2} onSelect={onSelect} />);
+    render(
+      <MemoryLibraryPanel
+        loadedMemoryIds={[active.id]}
+        memories={[active, retired]}
+        onClose={vi.fn()}
+        onSelectMemory={onSelectMemory}
+        open
+      />
+    );
 
-    await user.click(screen.getByRole("button", { name: /used 2 memories/i }));
+    expect(screen.getByLabelText("Memory library")).toBeVisible();
+    expect(screen.getByText("1 active")).toBeVisible();
+    expect(screen.getByText("Used now")).toBeVisible();
+    expect(screen.getByText("Retired memories")).toBeVisible();
+    await user.click(screen.getByRole("button", { name: /User loves indigo/i }));
 
-    expect(onSelect).toHaveBeenCalledTimes(1);
+    expect(onSelectMemory).toHaveBeenCalledWith(active.id);
   });
 
   it("selects timeline entries for brain focus", async () => {

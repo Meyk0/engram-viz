@@ -33,6 +33,20 @@ describe("memory visual lifecycle", () => {
     expect(getMemoryPosition(memory)).toEqual(getMemoryPosition(memory));
   });
 
+  it("uses retrieval access snapshots to keep brain memory state current", () => {
+    const memory = makeMemory("mem-style", "hippocampus");
+    const accessed = { ...memory, region: "temporal" as const, access_count: 3 };
+    const events: EngramEvent[] = [
+      { type: "retrieve", query: "style", ids: [memory.id], accessed: [accessed] },
+      { type: "store", memory }
+    ];
+
+    expect(getMemoryVisuals(events)[0]).toMatchObject({
+      memory: accessed,
+      color: memoryColors.temporal
+    });
+  });
+
   it("applies consolidation by replacing source memories with the semantic memory", () => {
     const rawA = makeMemory("mem-a", "hippocampus");
     const rawB = makeMemory("mem-b", "hippocampus");

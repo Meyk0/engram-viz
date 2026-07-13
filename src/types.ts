@@ -65,7 +65,13 @@ export type EngramMemory = {
 export type EngramEvent =
   | { type: "plan"; decision: MemoryDecisionTrace }
   | { type: "store"; memory: EngramMemory; decision?: MemoryDecisionTrace }
-  | { type: "retrieve"; query: string; ids: string[]; retrieval?: MemoryRetrievalTrace }
+  | {
+      type: "retrieve";
+      query: string;
+      ids: string[];
+      accessed?: EngramMemory[];
+      retrieval?: MemoryRetrievalTrace;
+    }
   | { type: "fire"; ids: string[]; region: BrainRegion }
   | { type: "consolidate"; removed: string[]; added: EngramMemory; decision?: MemoryDecisionTrace }
   | { type: "load"; ids: string[] }

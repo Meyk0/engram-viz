@@ -14,13 +14,10 @@ import { useMemoryExplanations } from "@/hooks/useMemoryExplanations";
 import { useMemoryStore } from "@/hooks/useMemoryStore";
 import { Brain3D } from "@/components/Brain/Brain3D";
 import { ActiveContextPanel } from "@/components/UI/ActiveContextPanel";
-import { AnswerProvenancePill } from "@/components/UI/AnswerProvenancePill";
-import { BrainActionCaption } from "@/components/UI/BrainActionCaption";
-import { ChatTranscript } from "@/components/UI/ChatTranscript";
 import { CurrentEventBanner } from "@/components/UI/CurrentEventBanner";
 import { DemoPromptGuide } from "@/components/UI/DemoPromptGuide";
 import { DreamReviewPanel } from "@/components/UI/DreamReviewPanel";
-import { ExplainabilityPanel } from "@/components/UI/ExplainabilityPanel";
+import { MemoryLibraryPanel } from "@/components/UI/MemoryLibraryPanel";
 import { HowItWorksPanel } from "@/components/UI/HowItWorksPanel";
 import { MemoryTimelinePanel } from "@/components/UI/MemoryTimelinePanel";
 import { MemoryInspector } from "@/components/UI/MemoryInspector";
@@ -69,8 +66,8 @@ export function EngramApp({ recordingMode = false }: EngramAppProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const activeTimelineEntryId = useRef<string | undefined>(undefined);
   const turnInFlight = useRef(false);
-  const { events, pushEvent, clearEvents } = useEventQueue();
-  const memories = useMemoryStore(events);
+  const { events, eventHistory, pushEvent, clearEvents } = useEventQueue();
+  const memories = useMemoryStore(eventHistory);
   const explanations = useMemoryExplanations(events);
   const loadedMemoryIds = useMemo(() => getLoadedMemoryIds(events), [events]);
   const latestRetrieve = useMemo(() => getLatestRetrieveEvent(events), [events]);
@@ -103,10 +100,9 @@ export function EngramApp({ recordingMode = false }: EngramAppProps) {
     [memories]
   );
   const dreamEligibleMemories = useMemo(
-    () => getDreamEligibleMemories(events, activeMemories),
-    [activeMemories, events]
+    () => getDreamEligibleMemories(eventHistory, activeMemories),
+    [activeMemories, eventHistory]
   );
-  const dreamReviewReady = Boolean(dreamProposal && dreamProposal.status === "proposed");
 
   const onChunk = useCallback(
     (chunk: StreamChunk) => {
@@ -134,12 +130,8 @@ export function EngramApp({ recordingMode = false }: EngramAppProps) {
     [pushEvent]
   );
 
-  const { history, isStreaming, error, sendMessage, cancel, resetSession } = useChat(
+  const { isStreaming, sendMessage, cancel, resetSession } = useChat(
     useMemo(() => ({ clientMemories: memories, onChunk }), [memories, onChunk])
-  );
-  const transcriptCount = useMemo(
-    () => history.filter((turn) => turn.role === "user").length + (draftTurn ? 1 : 0),
-    [draftTurn, history]
   );
   const conversationTimelineCount = useMemo(
     () => timelineEntries.filter((entry) => entry.kind === "conversation").length,
@@ -147,9 +139,8 @@ export function EngramApp({ recordingMode = false }: EngramAppProps) {
   );
   const remainingDemoSteps = Math.max(0, timelineDemoPrompts.length - conversationTimelineCount);
   const showInitialState = events.length === 0;
-  const memoryDetailCount = selectedMemory ? 1 : explanations.length;
+  const memoryDetailCount = activeMemories.length;
   const regionDetailCount = selectedRegion ? 1 : 0;
-  const shouldShowProvenance = loadedMemoryIds.length > 0 && !activePanel;
   const effectiveTimelineFocus = focusedTimelineEntry ? timelineFocus : undefined;
   const brainFocusMemoryIds = effectiveTimelineFocus
     ? effectiveTimelineFocus.memoryIds
@@ -476,6 +467,7 @@ export function EngramApp({ recordingMode = false }: EngramAppProps) {
     <main className="engram-shell" data-recording={cleanDemoMode}>
       <Brain3D
         events={events}
+        memories={activeMemories}
         recordingMode={cleanDemoMode}
         onActiveContextSelect={openActiveContext}
         onHelpSelect={openHowItWorks}
@@ -518,14 +510,10 @@ export function EngramApp({ recordingMode = false }: EngramAppProps) {
           compact={Boolean(activePanel)}
           draftAssistant={draftTurn?.assistant}
           events={events}
+          onInspectUsedMemories={openAnswerProvenance}
           streaming={isStreaming}
+          usedMemoryCount={loadedMemoryIds.length}
         />
-      ) : null}
-
-      <BrainActionCaption demoPlaying={demoPlaybackActive} events={events} streaming={isStreaming} />
-
-      {shouldShowProvenance ? (
-        <AnswerProvenancePill count={loadedMemoryIds.length} onSelect={openAnswerProvenance} />
       ) : null}
 
       <DemoPromptGuide
@@ -536,9 +524,11 @@ export function EngramApp({ recordingMode = false }: EngramAppProps) {
         running={demoPlaybackActive}
       />
 
-      <ExplainabilityPanel
-        explanations={explanations}
+      <MemoryLibraryPanel
+        loadedMemoryIds={loadedMemoryIds}
+        memories={memories}
         onClose={closeSecondaryPanel}
+        onSelectMemory={onMemorySelect}
         open={activePanel === "memory" && !selectedMemory}
       />
       <ActiveContextPanel
@@ -563,13 +553,6 @@ export function EngramApp({ recordingMode = false }: EngramAppProps) {
         open={activePanel === "region"}
         region={selectedRegion}
       />
-      <ChatTranscript
-        draftTurn={draftTurn}
-        error={error}
-        history={history}
-        onClose={closeSecondaryPanel}
-        open={activePanel === "transcript"}
-      />
       <MemoryTimelinePanel
         activeEntryId={focusedTimelineId}
         entries={timelineEntries}
@@ -593,17 +576,16 @@ export function EngramApp({ recordingMode = false }: EngramAppProps) {
         <SecondaryDock
           activePanel={activePanel}
           hasActiveContext={activeContextFill.used > 0}
-          dreamCount={dreamReviewReady ? dreamProposal?.operations.length ?? 0 : dreamEligibleMemories.length}
-          dreamReady={dreamEligibleMemories.length >= 3 && !isStreaming}
-          hasDreamReview={dreamReviewReady || dreamPending}
-          hasMemoryDetails={memoryDetailCount > 0}
+          dreamCount={dreamProposal?.operations.length ?? 0}
+          dreamReady={dreamEligibleMemories.length >= 3 && !isStreaming && !dreamProposal}
+          hasDreamReview={Boolean(dreamProposal) || dreamPending}
+          hasMemoryDetails={memories.length > 0}
           activeContextCount={activeContextFill.used}
           timelineCount={timelineEntries.length}
           memoryCount={memoryDetailCount}
           onSelect={onDockSelect}
           hasRegionDetails={regionDetailCount > 0}
           regionCount={regionDetailCount}
-          transcriptCount={transcriptCount}
         />
       ) : null}
 

@@ -21,6 +21,9 @@ export function useMemoryStore(events: EngramEvent[]) {
           });
           memories.set(event.memory.id, event.memory);
         }
+        if (event.type === "retrieve") {
+          event.accessed?.forEach((memory) => memories.set(memory.id, memory));
+        }
         if (event.type === "consolidate") {
           event.removed.forEach((id) => memories.delete(id));
           memories.set(event.added.id, event.added);

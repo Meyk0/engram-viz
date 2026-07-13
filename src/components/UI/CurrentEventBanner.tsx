@@ -1,20 +1,24 @@
 import { getCurrentEventNarrative } from "@/lib/eventNarrative";
 import { getLoadedMemoryIds } from "@/lib/memoryVisuals";
-import { MemoryLifecycleStrip } from "@/components/UI/MemoryLifecycleStrip";
+import { Activity } from "lucide-react";
 import type { EngramEvent } from "@/types";
 
 type CurrentEventBannerProps = {
   compact?: boolean;
   draftAssistant?: string;
   events: EngramEvent[];
+  onInspectUsedMemories?: () => void;
   streaming?: boolean;
+  usedMemoryCount?: number;
 };
 
 export function CurrentEventBanner({
   compact = false,
   draftAssistant = "",
   events,
-  streaming = false
+  onInspectUsedMemories,
+  streaming = false,
+  usedMemoryCount = 0
 }: CurrentEventBannerProps) {
   const narrative = getLiveNarrative({ draftAssistant, events, streaming });
 
@@ -37,7 +41,17 @@ export function CurrentEventBanner({
         ) : null}
       </div>
       <div className="current-event-body">{narrative.body}</div>
-      {!compact ? <MemoryLifecycleStrip events={events} streaming={streaming} /> : null}
+      {!streaming && usedMemoryCount > 0 && onInspectUsedMemories ? (
+        <button
+          aria-label={`Inspect ${usedMemoryCount} used ${usedMemoryCount === 1 ? "memory" : "memories"}`}
+          className="current-event-inspect"
+          onClick={onInspectUsedMemories}
+          type="button"
+        >
+          <Activity size={12} aria-hidden="true" />
+          Inspect {usedMemoryCount} used {usedMemoryCount === 1 ? "memory" : "memories"}
+        </button>
+      ) : null}
     </aside>
   );
 }

@@ -1,7 +1,7 @@
-import { Activity, BrainCircuit, History, MapPin, MessageSquareText, MoonStar } from "lucide-react";
+import { Activity, BrainCircuit, History, MapPin, MoonStar } from "lucide-react";
 import type { ReactNode } from "react";
 
-export type SecondaryPanel = "timeline" | "transcript" | "memory" | "context" | "region" | "dream" | "help";
+export type SecondaryPanel = "timeline" | "memory" | "context" | "region" | "dream" | "help";
 
 type SecondaryDockProps = {
   activeContextCount: number;
@@ -16,7 +16,6 @@ type SecondaryDockProps = {
   onSelect: (panel: SecondaryPanel) => void;
   regionCount: number;
   timelineCount: number;
-  transcriptCount: number;
 };
 
 export function SecondaryDock({
@@ -31,12 +30,12 @@ export function SecondaryDock({
   memoryCount,
   onSelect,
   regionCount,
-  timelineCount,
-  transcriptCount
+  timelineCount
 }: SecondaryDockProps) {
   const shouldShowDream = hasDreamReview || dreamReady || dreamCount >= 3;
   const items: Array<{
     count: number;
+    badge?: string;
     icon: ReactNode;
     id: SecondaryPanel;
     label: string;
@@ -47,16 +46,11 @@ export function SecondaryDock({
       id: "timeline",
       label: "Story"
     },
-    {
-      count: transcriptCount,
-      icon: <MessageSquareText size={14} />,
-      id: "transcript",
-      label: "Chat"
-    },
     ...(shouldShowDream
       ? [
           {
-            count: dreamCount || activeContextCount,
+            count: hasDreamReview ? dreamCount : 0,
+            badge: hasDreamReview ? undefined : "Ready",
             icon: <MoonStar size={14} />,
             id: "dream" as const,
             label: "Dream"
@@ -99,7 +93,7 @@ export function SecondaryDock({
     <nav className="secondary-dock" aria-label="Secondary views">
       {items.map((item) => (
         <button
-          aria-label={item.count > 0 ? `${item.label} ${item.count}` : item.label}
+          aria-label={item.badge ? `${item.label} ${item.badge}` : item.count > 0 ? `${item.label} ${item.count}` : item.label}
           aria-pressed={activePanel === item.id}
           className="secondary-dock-btn"
           data-active={activePanel === item.id}
@@ -110,6 +104,7 @@ export function SecondaryDock({
           {item.icon}
           <span>{item.label}</span>
           {item.count > 0 ? <b>{item.count}</b> : null}
+          {item.badge ? <b>{item.badge}</b> : null}
         </button>
       ))}
     </nav>

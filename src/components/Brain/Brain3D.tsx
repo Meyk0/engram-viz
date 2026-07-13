@@ -3,7 +3,7 @@
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { OrbitControls, Stars } from "@react-three/drei";
 import { Bloom, EffectComposer } from "@react-three/postprocessing";
-import { Clapperboard, Info, MapPin, RotateCcw, Trash2 } from "lucide-react";
+import { Clapperboard, Ellipsis, Info, MapPin, RotateCcw, Trash2 } from "lucide-react";
 import { Suspense, useCallback, useEffect, useRef, useState, type RefObject } from "react";
 import * as THREE from "three";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
@@ -15,10 +15,11 @@ import { RegionLabels } from "@/components/Brain/RegionLabels";
 import { getBrainAnimationState } from "@/lib/animations";
 import { brainCameraProfiles, getBrainCameraProfile } from "@/lib/brainCamera";
 import { regionBounds } from "@/lib/regions";
-import type { BrainRegion, EngramEvent } from "@/types";
+import type { BrainRegion, EngramEvent, EngramMemory } from "@/types";
 
 type Brain3DProps = {
   events: EngramEvent[];
+  memories: EngramMemory[];
   dreamReviewActive?: boolean;
   focusedMemoryIds?: string[];
   focusedRegions?: BrainRegion[];
@@ -36,6 +37,7 @@ type Brain3DProps = {
 
 export function Brain3D({
   events,
+  memories,
   dreamReviewActive = false,
   focusedMemoryIds = [],
   focusedRegions = [],
@@ -52,6 +54,7 @@ export function Brain3D({
 }: Brain3DProps) {
   const controls = useRef<OrbitControlsImpl>(null);
   const [labelsVisible, setLabelsVisible] = useState(true);
+  const [mobileToolsOpen, setMobileToolsOpen] = useState(false);
   const resetView = useCallback(() => {
     controls.current?.reset();
   }, []);
@@ -75,6 +78,7 @@ export function Brain3D({
         <Suspense fallback={<FallbackBrain />}>
           <BrainRig
             events={events}
+            memories={memories}
             dreamReviewActive={dreamReviewActive}
             focusedMemoryIds={focusedMemoryIds}
             focusedRegions={focusedRegions}
@@ -93,7 +97,22 @@ export function Brain3D({
           <Bloom intensity={0.045} luminanceThreshold={0.92} luminanceSmoothing={0.58} mipmapBlur />
         </EffectComposer>
       </Canvas>
-      <div className="brain-scene-tools" data-recording={recordingMode} aria-label="Brain view controls">
+      <div
+        className="brain-scene-tools"
+        data-mobile-open={mobileToolsOpen}
+        data-recording={recordingMode}
+        aria-label="Brain view controls"
+      >
+        <button
+          aria-expanded={mobileToolsOpen}
+          aria-label={mobileToolsOpen ? "Close brain controls" : "Open brain controls"}
+          className="brain-tool-btn brain-tools-toggle"
+          onClick={() => setMobileToolsOpen((current) => !current)}
+          title="Brain controls"
+          type="button"
+        >
+          <Ellipsis size={15} />
+        </button>
         <button
           aria-label={recordingMode ? "Exit recording mode" : "Enter recording mode"}
           aria-pressed={recordingMode}
@@ -151,12 +170,6 @@ export function Brain3D({
           </>
         )}
       </div>
-      {dreamReviewActive ? (
-        <div className="dream-state-badge" aria-live="polite">
-          <span>Dream Mode</span>
-          <strong>Offline memory cleanup</strong>
-        </div>
-      ) : null}
     </section>
   );
 }
@@ -213,6 +226,7 @@ function ResponsiveOrbitControls({
 
 function BrainRig({
   events,
+  memories,
   dreamReviewActive = false,
   focusedMemoryIds = [],
   focusedRegions = [],
@@ -243,6 +257,7 @@ function BrainRig({
       <Axons animation={animation} />
       <MemoryLifecycle
         events={events}
+        memories={memories}
         dream={animation.dream}
         focusedMemoryIds={focusedMemoryIds}
         focusPulseKey={focusPulseKey}

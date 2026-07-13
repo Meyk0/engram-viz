@@ -66,6 +66,7 @@ export const engramEventSchema = z.discriminatedUnion("type", [
     type: z.literal("retrieve"),
     query: z.string(),
     ids: z.array(z.string()),
+    accessed: z.array(engramMemorySchema).optional(),
     retrieval: memoryRetrievalTraceSchema.optional()
   }),
   z.object({ type: z.literal("fire"), ids: z.array(z.string()), region: brainRegionSchema }),

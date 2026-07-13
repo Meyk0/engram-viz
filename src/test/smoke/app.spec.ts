@@ -6,7 +6,6 @@ test("loads the Engram shell", async ({ page }) => {
   await expect(page.getByRole("complementary", { name: "How Engram works" })).toHaveCount(0);
   await expect(page.getByLabel("Secondary views")).toBeVisible();
   await expect(page.getByLabel("Demo controls")).toBeVisible();
-  await expect(page.getByLabel("Chat transcript")).toBeHidden();
   await expect(page.getByLabel("Chat message")).toBeVisible();
 });
 
@@ -52,10 +51,10 @@ test("exposes brain thumbnail metadata", async ({ page }) => {
     .toContain("G-DQX8CR91QK");
 });
 
-test("opens transcript only from the dock", async ({ page }) => {
+test("opens the combined conversation and memory story from the dock", async ({ page }) => {
   await page.goto("/");
-  await page.getByRole("button", { name: "Chat" }).click();
-  await expect(page.getByLabel("Chat transcript")).toBeVisible();
+  await page.getByRole("button", { name: "Story" }).click();
+  await expect(page.getByRole("complementary", { name: "Memory story" })).toBeVisible();
 });
 
 test("runs the demo and focuses completed memory story turns", async ({ page }) => {
@@ -69,7 +68,7 @@ test("runs the demo and focuses completed memory story turns", async ({ page }) 
   await expect(page.getByLabel("Demo controls")).toContainText("I love the color indigo.");
   await expect(page.locator(".chat-status")).toContainText("READY", { timeout: 20_000 });
   await page.getByRole("button", { name: "Stop demo" }).click();
-  await expect(page.getByLabel("Brain action caption")).toContainText("Store", { timeout: 12_000 });
+  await expect(page.getByLabel("Current memory receipt")).toContainText(/Stored|Preparing memory/i, { timeout: 12_000 });
   await page.getByRole("button", { name: "Story" }).click({ force: true });
   const timeline = page.getByRole("complementary", { name: "Memory story" });
   await expect(timeline).toBeVisible();
@@ -81,9 +80,7 @@ test("runs the demo and focuses completed memory story turns", async ({ page }) 
   await page.getByLabel("Close memory story").click();
 
   await page.getByRole("button", { name: "Run demo" }).click();
-  await expect(page.locator(".chat-status")).toContainText("DEMO LINE", { timeout: 8_000 });
-  await expect(page.getByLabel("Chat message")).toHaveValue("What color do I love?");
-  await expect(page.locator(".chat-status")).toContainText("READY", { timeout: 20_000 });
+  await expect(page.getByRole("button", { name: "Story 2" })).toBeVisible({ timeout: 20_000 });
   await page.getByRole("button", { name: "Stop demo" }).click();
   await page.getByRole("button", { name: "Story" }).click({ force: true });
   await expect(page.getByLabel("Timeline turn 2")).toBeVisible({ timeout: 12_000 });
@@ -120,6 +117,26 @@ test("resets the demo session from the brain controls", async ({ page }) => {
   await expect(page.getByLabel("Chat message")).toHaveValue("");
 });
 
+test("counts and browses the complete active memory library", async ({ page }) => {
+  test.setTimeout(45_000);
+  await page.goto("/");
+
+  for (const [index, message] of ["I love the color indigo.", "I spend weekends climbing."].entries()) {
+    await page.getByLabel("Chat message").fill(message);
+    await page.getByLabel("Send").click();
+    await expect(page.getByRole("button", { name: `Memories ${index + 1}` })).toBeVisible({ timeout: 12_000 });
+    await expect(page.locator(".chat-status")).toContainText("READY", { timeout: 12_000 });
+  }
+
+  const memories = page.getByRole("button", { name: "Memories 2" });
+  await expect(memories).toBeVisible();
+  await memories.click();
+  const library = page.getByRole("complementary", { name: "Memory library" });
+  await expect(library).toContainText("2 active");
+  await expect(library).toContainText("indigo");
+  await expect(library).toContainText("climbing");
+});
+
 test("opens region explanations from mobile shortcuts", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/");
@@ -147,6 +164,17 @@ test("keeps mobile memory controls visually separated", async ({ page }) => {
   expect(guide!.height).toBeLessThan(54);
 });
 
+test("collapses secondary brain controls on mobile", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/");
+
+  await expect(page.getByLabel("Open brain controls")).toBeVisible();
+  await expect(page.getByLabel("Reset demo session")).toBeHidden();
+  await page.getByLabel("Open brain controls").click();
+  await expect(page.getByLabel("Reset demo session")).toBeVisible();
+  await expect(page.getByLabel("Close brain controls")).toBeVisible();
+});
+
 test("opens working memory details after retrieval", async ({ page }) => {
   test.setTimeout(60_000);
   await page.goto("/");
@@ -163,8 +191,8 @@ test("opens working memory details after retrieval", async ({ page }) => {
     name: /Open working memory details: ([1-9]|10) of 10 loaded/i
   });
   await expect(workingMemory).toBeVisible({ timeout: 20_000 });
-  await expect(page.getByRole("button", { name: /Show answer provenance: used [1-9]/i })).toBeVisible();
-  await page.getByRole("button", { name: /Show answer provenance: used [1-9]/i }).click();
+  await expect(page.getByRole("button", { name: /Inspect [1-9] used memor/i })).toBeVisible();
+  await page.getByRole("button", { name: /Inspect [1-9] used memor/i }).click();
   await expect(page.getByLabel("Active context panel")).toContainText("loaded into active context");
   await page.getByLabel("Close active context").click();
   await page.getByRole("button", { name: /^Working [1-9]/ }).click({ force: true });
@@ -187,13 +215,13 @@ test("opens and dismisses Dream Mode after enough memories", async ({ page }) =>
     await expect(page.locator(".chat-status")).toContainText("READY", { timeout: 12_000 });
   }
 
-  const dream = page.getByRole("button", { name: /Dream [3-9]/i });
+  const dream = page.getByRole("button", { name: /Dream Ready/i });
   await expect(dream).toBeVisible({ timeout: 12_000 });
   await dream.click();
 
   const dreamPanel = page.getByRole("complementary", { name: "Dream review" });
   await expect(dreamPanel).toBeVisible({ timeout: 12_000 });
-  await expect(page.getByText("Offline memory cleanup")).toBeVisible();
+  await expect(page.getByText(/Dream review complete|Model-reviewed memories/)).toBeVisible();
   await expect(dreamPanel).toContainText("Nothing changes until you apply it");
   await expect(page.getByLabel("Current memory receipt")).toContainText(/Dream|Review/i);
   await expect(page.getByRole("button", { name: "Apply dream" })).toBeVisible();

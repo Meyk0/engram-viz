@@ -57,12 +57,13 @@ export class MemoryEngine {
       limit: input.limit
     });
     const ids = retrieval.results.map((result) => result.memory.id);
-    markAccessed(session, ids, input.now);
+    const accessed = markAccessed(session, ids, input.now);
 
     return {
       type: "retrieve",
       query: input.query,
       ids,
+      accessed,
       retrieval: {
         provider: retrieval.provider,
         reason: retrieval.reason

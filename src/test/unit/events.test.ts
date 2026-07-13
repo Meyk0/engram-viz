@@ -46,6 +46,17 @@ describe("event schema", () => {
         type: "retrieve",
         query: "What color do I like?",
         ids: ["mem-blue"],
+        accessed: [
+          {
+            id: "mem-blue",
+            text: "User likes blue.",
+            importance: 0.8,
+            region: "hippocampus",
+            created_at: "2026-04-29T17:00:00.000Z",
+            last_accessed: "2026-04-29T17:01:00.000Z",
+            access_count: 1
+          }
+        ],
         retrieval: {
           provider: "semantic",
           reason: "OpenAI embeddings ranked stored memory traces by semantic similarity."

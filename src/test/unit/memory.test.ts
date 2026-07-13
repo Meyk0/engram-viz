@@ -303,6 +303,10 @@ describe("memory engine", () => {
     expect(retrieve.type).toBe("retrieve");
     if (retrieve.type !== "retrieve") throw new Error("expected retrieve event");
     expect(retrieve.ids).toHaveLength(1);
+    expect(retrieve.accessed?.[0]).toMatchObject({
+      id: retrieve.ids[0],
+      access_count: 1
+    });
     expect(engine.fire("prefrontal", retrieve.ids)).toEqual({
       type: "fire",
       region: "prefrontal",

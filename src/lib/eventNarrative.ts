@@ -155,6 +155,14 @@ export function getCurrentEventNarrative(events: EngramEvent[]): EventNarrative 
         region: "temporal"
       };
     case "dream_complete":
+      if (event.proposal.operations.length === 0) {
+        return {
+          title: "Dream complete",
+          body: "No safe memory changes were found, so everything stayed as it is.",
+          type: event.type,
+          region: "hippocampus"
+        };
+      }
       return {
         title: "Dream ready",
         body: `${pluralize(event.proposal.operations.length, "proposed change")} is waiting for review.`,

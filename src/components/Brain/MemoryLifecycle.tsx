@@ -16,7 +16,7 @@ import {
   getLoadedMemoryIds,
   getMemoryPosition,
   getMemoryPositionById,
-  getMemoryVisuals,
+  getMemoryVisualsForMemories,
   memoryColors,
   type MemoryVisual
 } from "@/lib/memoryVisuals";
@@ -38,6 +38,7 @@ const activeContextSlotRadiusY = 0.03;
 type MemoryLifecycleProps = {
   dream?: BrainAnimationState["dream"];
   events: EngramEvent[];
+  memories: EngramMemory[];
   focusedMemoryIds?: string[];
   focusPulseKey?: string;
   onActiveContextSelect?: () => void;
@@ -49,6 +50,7 @@ type MemoryLifecycleProps = {
 export function MemoryLifecycle({
   dream,
   events,
+  memories: memoryState,
   focusedMemoryIds = [],
   focusPulseKey,
   onActiveContextSelect,
@@ -56,7 +58,7 @@ export function MemoryLifecycle({
   responseActive = false,
   selectedMemoryId
 }: MemoryLifecycleProps) {
-  const memories = useMemo(() => getMemoryVisuals(events), [events]);
+  const memories = useMemo(() => getMemoryVisualsForMemories(memoryState), [memoryState]);
   const activeIds = useMemo(() => new Set(getActiveMemoryIds(events)), [events]);
   const focusedIds = useMemo(() => new Set(focusedMemoryIds), [focusedMemoryIds]);
   const loadedIds = useMemo(() => getLoadedMemoryIds(events), [events]);

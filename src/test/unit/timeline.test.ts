@@ -97,6 +97,25 @@ describe("memory timeline", () => {
     });
   });
 
+  it("describes a zero-change dream without broken pluralization", () => {
+    const proposal: DreamProposal = {
+      ...makeDreamProposal(),
+      status: "skipped",
+      operations: []
+    };
+    const entry = createDreamTimelineEntry({
+      events: buildDreamTimelineEvents(proposal),
+      proposal,
+      startedAt: "2026-05-26T00:00:00.000Z"
+    });
+
+    const complete = buildTimelineSteps(entry).find((step) => step.eventType === "dream_complete");
+    expect(complete).toMatchObject({
+      label: "Dream complete",
+      body: "No safe memory changes were found, so current memories stayed unchanged."
+    });
+  });
+
   it("keeps timeline entries independent from the capped visual event queue", () => {
     const entries = Array.from({ length: 60 }, (_, index) =>
       createTurn({ id: `turn-${index}`, userText: `Turn ${index}` })

@@ -29,5 +29,20 @@ describe("useEventQueue", () => {
 
     expect(result.current.events.filter((event) => event.type === "init")).toEqual([secondInit]);
     expect(result.current.events).toHaveLength(2);
+    expect(result.current.eventHistory).toHaveLength(2);
+  });
+
+  it("keeps complete session history while capping animation events", () => {
+    const { result } = renderHook(() => useEventQueue());
+
+    act(() => {
+      for (let index = 0; index < 60; index += 1) {
+        result.current.pushEvent({ type: "retrieve", query: `query-${index}`, ids: [] });
+      }
+    });
+
+    expect(result.current.events).toHaveLength(50);
+    expect(result.current.eventHistory).toHaveLength(60);
+    expect(result.current.eventHistory.at(-1)).toMatchObject({ query: "query-0" });
   });
 });

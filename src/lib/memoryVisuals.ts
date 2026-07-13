@@ -19,12 +19,18 @@ export const memoryColors: Record<BrainRegion | "importance" | "store", string> 
 };
 
 export function getMemoryVisuals(events: EngramEvent[]): MemoryVisual[] {
-  return getVisibleMemories(events).map((memory) => ({
+  return getMemoryVisualsForMemories(getVisibleMemories(events));
+}
+
+export function getMemoryVisualsForMemories(memories: EngramMemory[]): MemoryVisual[] {
+  return memories
+    .filter((memory) => memory.status !== "superseded")
+    .map((memory) => ({
     memory,
     position: getMemoryPosition(memory),
     color: memoryColors[memory.region],
     isHighImportance: memory.importance >= 0.8
-  }));
+    }));
 }
 
 export function getVisibleMemories(events: EngramEvent[]): EngramMemory[] {
@@ -43,6 +49,9 @@ export function getVisibleMemories(events: EngramEvent[]): EngramMemory[] {
           if (memory) memories.set(id, { ...memory, status: "superseded" });
         });
         memories.set(event.memory.id, event.memory);
+      }
+      if (event.type === "retrieve") {
+        event.accessed?.forEach((memory) => memories.set(memory.id, memory));
       }
       if (event.type === "consolidate") {
         event.removed.forEach((id) => memories.delete(id));
