@@ -226,6 +226,35 @@ test("switches between the anatomical brain and semantic memory map without chan
   await expect(page.getByRole("button", { name: "Memories 1" })).toBeVisible();
 });
 
+test("runs a Causal X-Ray without mutating the memory session", async ({ page }) => {
+  test.setTimeout(45_000);
+  await page.goto("/");
+
+  await page.getByLabel("Chat message").fill("I love the color indigo.");
+  await page.getByLabel("Send").click();
+  await expect(page.getByRole("button", { name: "Memories 1" })).toBeVisible({ timeout: 12_000 });
+  await expect(page.locator(".chat-status")).toContainText("READY", { timeout: 12_000 });
+
+  await page.getByLabel("Chat message").fill("What color do I love?");
+  await page.getByLabel("Send").click();
+  await expect(page.getByRole("button", { name: "Working 1" })).toBeVisible({ timeout: 12_000 });
+  await expect(page.locator(".chat-status")).toContainText("READY", { timeout: 12_000 });
+
+  await page.getByRole("button", { name: "Inspect 1 used memory" }).click();
+  await page.getByRole("button", { name: "Test without this memory" }).click();
+  const xray = page.getByRole("complementary", { name: "Causal X-Ray" });
+  await expect(xray).toContainText("Memory being removed");
+  await expect(xray).toContainText("Original answer");
+
+  await page.getByRole("button", { name: "Run without this memory" }).click();
+  await expect(page.getByRole("region", { name: "Baseline rerun" })).toBeVisible({ timeout: 12_000 });
+  await expect(page.getByRole("region", { name: "Answer without memory" })).toBeVisible();
+  await expect(page.getByRole("meter", { name: "Estimated influence" })).toBeVisible();
+  await expect(xray).toContainText("not proof of causality");
+  await expect(page.getByRole("button", { name: "Memories 1" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Story 2" })).toBeVisible();
+});
+
 test("opens and dismisses Dream Mode after enough memories", async ({ page }) => {
   test.setTimeout(60_000);
   await page.setViewportSize({ width: 390, height: 700 });

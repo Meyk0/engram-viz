@@ -1,4 +1,4 @@
-import { X } from "lucide-react";
+import { FlaskConical, X } from "lucide-react";
 import { regionExplanations, type MemoryExplanation } from "@/lib/explanations";
 import { getRegionColor } from "@/lib/regions";
 import type { EngramMemory } from "@/types";
@@ -8,6 +8,7 @@ type ActiveContextPanelProps = {
   explanations: Map<string, MemoryExplanation>;
   memories: EngramMemory[];
   onClose: () => void;
+  onTestWithoutMemory?: (memoryId: string) => void;
   open: boolean;
   used: number;
 };
@@ -17,6 +18,7 @@ export function ActiveContextPanel({
   explanations,
   memories,
   onClose,
+  onTestWithoutMemory,
   open,
   used
 }: ActiveContextPanelProps) {
@@ -79,6 +81,16 @@ export function ActiveContextPanel({
                       <span key={word}>{word}</span>
                     ))}
                   </div>
+                ) : null}
+                {onTestWithoutMemory ? (
+                  <button
+                    className="active-context-xray"
+                    onClick={() => onTestWithoutMemory(memory.id)}
+                    type="button"
+                  >
+                    <FlaskConical aria-hidden="true" size={12} />
+                    Test without this memory
+                  </button>
                 ) : null}
               </article>
             );

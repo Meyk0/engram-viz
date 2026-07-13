@@ -1,0 +1,302 @@
+.causal-xray-panel {
+  display: flex;
+  flex-direction: column;
+  width: min(680px, calc(100vw - 48px));
+  max-height: min(76vh, 720px);
+  color: rgba(226, 238, 255, 0.9);
+}
+
+.active-context-xray {
+  display: inline-flex;
+  min-height: 30px;
+  align-items: center;
+  gap: 6px;
+  margin-top: 10px;
+  padding: 0 9px;
+  border: 1px solid rgba(0, 212, 255, 0.2);
+  border-radius: 5px;
+  background: rgba(0, 212, 255, 0.06);
+  color: rgba(194, 234, 248, 0.76);
+  cursor: pointer;
+  font: inherit;
+  font-size: 8px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.active-context-xray:hover,
+.active-context-xray:focus-visible {
+  border-color: rgba(0, 212, 255, 0.5);
+  color: rgba(232, 249, 255, 0.96);
+  outline: none;
+}
+
+.causal-xray-header {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 14px 12px;
+  border-bottom: 1px solid rgba(0, 212, 255, 0.1);
+}
+
+.causal-xray-eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: rgba(0, 212, 255, 0.62);
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.causal-xray-header h2 {
+  margin: 5px 0 0;
+  color: rgba(235, 245, 255, 0.94);
+  font-size: 14px;
+  font-weight: 620;
+  letter-spacing: 0;
+}
+
+.causal-xray-close {
+  display: grid;
+  width: 28px;
+  height: 28px;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 1px solid rgba(0, 212, 255, 0.16);
+  border-radius: 6px;
+  background: rgba(0, 212, 255, 0.05);
+  color: rgba(0, 212, 255, 0.72);
+  cursor: pointer;
+}
+
+.causal-xray-close:hover,
+.causal-xray-close:focus-visible {
+  border-color: rgba(0, 212, 255, 0.38);
+  color: rgba(225, 248, 255, 0.94);
+  outline: none;
+}
+
+.causal-xray-body {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.causal-xray-memory {
+  margin: 14px;
+  padding: 11px 12px;
+  border: 1px solid rgba(249, 115, 22, 0.18);
+  border-left: 2px solid rgba(249, 115, 22, 0.72);
+  border-radius: 0 6px 6px 0;
+  background: rgba(249, 115, 22, 0.045);
+}
+
+.causal-xray-section-label,
+.causal-xray-original h3,
+.causal-xray-answer h3,
+.causal-xray-influence h3 {
+  margin: 0;
+  color: rgba(210, 228, 255, 0.48);
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.causal-xray-memory blockquote {
+  margin: 8px 0;
+  color: rgba(239, 244, 255, 0.9);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.causal-xray-memory-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  color: rgba(249, 164, 102, 0.68);
+  font-size: 8px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.causal-xray-original {
+  padding: 0 14px 14px;
+  border-bottom: 1px solid rgba(0, 212, 255, 0.08);
+}
+
+.causal-xray-original p,
+.causal-xray-answer p {
+  margin: 7px 0 0;
+  overflow-wrap: anywhere;
+  color: rgba(225, 236, 250, 0.83);
+  font-size: 11px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+}
+
+.causal-xray-results {
+  padding: 14px;
+}
+
+.causal-xray-comparison {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.causal-xray-answer {
+  min-width: 0;
+  padding: 11px;
+  border: 1px solid rgba(0, 212, 255, 0.1);
+  border-radius: 6px;
+  background: rgba(5, 8, 25, 0.52);
+}
+
+.causal-xray-answer[data-counterfactual="true"] {
+  border-color: rgba(249, 115, 22, 0.2);
+  background: rgba(249, 115, 22, 0.035);
+}
+
+.causal-xray-answer[data-counterfactual="true"] h3 {
+  color: rgba(249, 164, 102, 0.78);
+}
+
+.causal-xray-answer-heading span {
+  display: block;
+  margin-top: 4px;
+  color: rgba(210, 228, 255, 0.34);
+  font-size: 8px;
+  letter-spacing: 0;
+}
+
+.causal-xray-influence {
+  margin-top: 12px;
+  padding: 12px;
+  border: 1px solid rgba(0, 212, 255, 0.12);
+  border-radius: 6px;
+  background: rgba(0, 212, 255, 0.035);
+}
+
+.causal-xray-influence-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.causal-xray-influence-heading span {
+  display: block;
+  margin-top: 4px;
+  color: rgba(210, 228, 255, 0.46);
+  font-size: 9px;
+}
+
+.causal-xray-influence-heading strong {
+  color: rgba(0, 212, 255, 0.9);
+  font-size: 20px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 620;
+}
+
+.causal-xray-meter {
+  height: 6px;
+  margin-top: 10px;
+  overflow: hidden;
+  border-radius: 3px;
+  background: rgba(196, 218, 242, 0.1);
+}
+
+.causal-xray-meter span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, rgba(0, 212, 255, 0.72), rgba(249, 115, 22, 0.88));
+}
+
+.causal-xray-caveat {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 8px;
+  margin: 10px 0 0;
+  color: rgba(210, 228, 255, 0.46);
+  font-size: 9px;
+  line-height: 1.5;
+}
+
+.causal-xray-caveat strong {
+  color: rgba(251, 191, 36, 0.72);
+  font-size: 8px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.causal-xray-run-state {
+  padding: 14px;
+}
+
+.causal-xray-run {
+  display: flex;
+  width: 100%;
+  min-height: 38px;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  border: 1px solid rgba(0, 212, 255, 0.38);
+  border-radius: 6px;
+  background: rgba(0, 212, 255, 0.12);
+  color: rgba(230, 249, 255, 0.94);
+  cursor: pointer;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.causal-xray-run:hover:not(:disabled),
+.causal-xray-run:focus-visible {
+  border-color: rgba(0, 212, 255, 0.7);
+  background: rgba(0, 212, 255, 0.18);
+  outline: none;
+}
+
+.causal-xray-run:disabled {
+  cursor: wait;
+  opacity: 0.58;
+}
+
+.causal-xray-error {
+  margin: 0 0 10px;
+  padding: 9px 10px;
+  border-left: 2px solid rgba(248, 113, 113, 0.8);
+  background: rgba(248, 113, 113, 0.06);
+  color: rgba(254, 202, 202, 0.86);
+  font-size: 10px;
+  line-height: 1.45;
+}
+
+@media (max-width: 720px) {
+  .causal-xray-panel {
+    width: auto;
+    max-height: calc(100dvh - 198px);
+  }
+
+  .causal-xray-comparison {
+    grid-template-columns: 1fr;
+  }
+
+  .causal-xray-caveat {
+    grid-template-columns: 1fr;
+    gap: 4px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .causal-xray-panel * {
+    scroll-behavior: auto;
+  }
+}

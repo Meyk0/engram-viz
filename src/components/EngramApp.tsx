@@ -9,12 +9,14 @@ import {
   getLoadedMemoryIds
 } from "@/lib/memoryVisuals";
 import { useChat } from "@/hooks/useChat";
+import { useCausalXRay } from "@/hooks/useCausalXRay";
 import { useEventQueue } from "@/hooks/useEventQueue";
 import { useMemoryExplanations } from "@/hooks/useMemoryExplanations";
 import { useMemoryStore } from "@/hooks/useMemoryStore";
 import { useSemanticLayout } from "@/hooks/useSemanticLayout";
 import { Brain3D } from "@/components/Brain/Brain3D";
 import { ActiveContextPanel } from "@/components/UI/ActiveContextPanel";
+import { CausalXRayPanel } from "@/components/UI/CausalXRayPanel";
 import { CurrentEventBanner } from "@/components/UI/CurrentEventBanner";
 import { DemoPromptGuide } from "@/components/UI/DemoPromptGuide";
 import { DreamReviewPanel } from "@/components/UI/DreamReviewPanel";
@@ -39,6 +41,7 @@ import {
   type MemoryTimelineEntry
 } from "@/lib/timeline";
 import type { EngramViewMode } from "@/lib/semantic/types";
+import type { TurnRecord } from "@/lib/evidence/types";
 import type { BrainRegion, DreamProposal, EngramEvent, EngramMemory, StreamChunk } from "@/types";
 
 const regionShortcuts: Array<{ label: string; region: BrainRegion }> = [
@@ -68,9 +71,18 @@ export function EngramApp({ recordingMode = false }: EngramAppProps) {
   const [timelineEntries, setTimelineEntries] = useState<MemoryTimelineEntry[]>([]);
   const [focusedTimelineId, setFocusedTimelineId] = useState<string | undefined>(undefined);
   const [viewMode, setViewMode] = useState<EngramViewMode>("anatomical");
+  const [turnRecordsByTimelineId, setTurnRecordsByTimelineId] = useState<Record<string, TurnRecord>>({});
+  const [causalMemoryId, setCausalMemoryId] = useState<string | undefined>(undefined);
   const inputRef = useRef<HTMLInputElement>(null);
   const activeTimelineEntryId = useRef<string | undefined>(undefined);
   const turnInFlight = useRef(false);
+  const {
+    error: causalError,
+    pending: causalPending,
+    reset: resetCausalXRay,
+    result: causalResult,
+    run: runCausalXRay
+  } = useCausalXRay();
   const { events, eventHistory, pushEvent, clearEvents } = useEventQueue();
   const memories = useMemoryStore(eventHistory);
   const explanations = useMemoryExplanations(events);
@@ -107,6 +119,18 @@ export function EngramApp({ recordingMode = false }: EngramAppProps) {
   const semanticLayout = useSemanticLayout(activeMemories, {
     enabled: viewMode === "semantic" && activeMemories.length > 0
   });
+  const latestEvidence = useMemo(
+    () =>
+      [...timelineEntries]
+        .reverse()
+        .map((entry) => turnRecordsByTimelineId[entry.id])
+        .find((record): record is TurnRecord => Boolean(record?.retrievedMemories.length)),
+    [timelineEntries, turnRecordsByTimelineId]
+  );
+  const causalMemory = useMemo(
+    () => latestEvidence?.retrievedMemories.find((memory) => memory.id === causalMemoryId),
+    [causalMemoryId, latestEvidence]
+  );
   const dreamEligibleMemories = useMemo(
     () => getDreamEligibleMemories(eventHistory, activeMemories),
     [activeMemories, eventHistory]
@@ -134,6 +158,15 @@ export function EngramApp({ recordingMode = false }: EngramAppProps) {
           );
         }
       }
+      if (chunk.kind === "turn_record") {
+        const timelineEntryId = activeTimelineEntryId.current;
+        if (timelineEntryId) {
+          setTurnRecordsByTimelineId((current) => ({
+            ...current,
+            [timelineEntryId]: chunk.record
+          }));
+        }
+      }
     },
     [pushEvent]
   );
@@ -152,16 +185,22 @@ export function EngramApp({ recordingMode = false }: EngramAppProps) {
   const effectiveTimelineFocus = focusedTimelineEntry ? timelineFocus : undefined;
   const brainFocusMemoryIds = effectiveTimelineFocus
     ? effectiveTimelineFocus.memoryIds
+    : activePanel === "xray" && causalMemoryId
+      ? [causalMemoryId]
     : activePanel === "context"
       ? loadedMemoryIds
       : [];
   const brainFocusRegions = effectiveTimelineFocus
     ? effectiveTimelineFocus.regions
+    : activePanel === "xray"
+      ? (["prefrontal"] satisfies BrainRegion[])
     : activePanel === "context" && loadedMemoryIds.length > 0
       ? (["prefrontal"] satisfies BrainRegion[])
       : [];
   const brainFocusPulseKey = effectiveTimelineFocus
     ? timelineFocusPulseKey
+    : activePanel === "xray" && causalMemoryId
+      ? `xray-${causalMemoryId}`
     : activePanel === "context" && loadedMemoryIds.length > 0
       ? `context-${provenancePulseKey}-${loadedMemoryIds.join(".")}`
       : undefined;
@@ -176,7 +215,21 @@ export function EngramApp({ recordingMode = false }: EngramAppProps) {
     setSelectedRegion(undefined);
     setSelectedMemoryId(undefined);
     setActivePanel(null);
-  }, []);
+    setCausalMemoryId(undefined);
+    resetCausalXRay();
+  }, [resetCausalXRay]);
+
+  const openCausalXRay = useCallback(
+    (memoryId: string) => {
+      if (!latestEvidence?.retrievedMemories.some((memory) => memory.id === memoryId)) return;
+      setCausalMemoryId(memoryId);
+      setSelectedMemoryId(undefined);
+      setSelectedRegion(undefined);
+      resetCausalXRay();
+      setActivePanel("xray");
+    },
+    [latestEvidence, resetCausalXRay]
+  );
 
   const closeMemoryPanel = useCallback(() => {
     setSelectedMemoryId(undefined);
@@ -407,8 +460,11 @@ export function EngramApp({ recordingMode = false }: EngramAppProps) {
     setDemoStagedPrompt(null);
     setDemoPlaybackActive(false);
     setViewMode("anatomical");
+    setTurnRecordsByTimelineId({});
+    setCausalMemoryId(undefined);
+    resetCausalXRay();
     setProvenancePulseKey((current) => current + 1);
-  }, [clearEvents, resetSession]);
+  }, [clearEvents, resetCausalXRay, resetSession]);
 
   const onDockSelect = useCallback(
     (panel: SecondaryPanel) => {
@@ -562,9 +618,21 @@ export function EngramApp({ recordingMode = false }: EngramAppProps) {
         explanations={activeContextExplanations}
         memories={activeContextMemories}
         onClose={closeSecondaryPanel}
+        onTestWithoutMemory={latestEvidence ? openCausalXRay : undefined}
         open={activePanel === "context"}
         used={activeContextFill.used}
       />
+      {activePanel === "xray" && latestEvidence && causalMemory ? (
+        <CausalXRayPanel
+          error={causalError}
+          memory={causalMemory}
+          onClose={closeSecondaryPanel}
+          onRun={() => void runCausalXRay(latestEvidence, causalMemory.id)}
+          pending={causalPending}
+          record={latestEvidence}
+          result={causalResult ?? undefined}
+        />
+      ) : null}
       <MemoryInspector
         active={Boolean(selectedMemory && loadedMemoryIds.includes(selectedMemory.id))}
         latestQuery={

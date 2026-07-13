@@ -1,0 +1,128 @@
+import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { describe, expect, it, vi } from "vitest";
+import { CausalXRayPanel } from "@/components/UI/CausalXRayPanel";
+import type { CausalAblationResult, TurnRecord } from "@/lib/evidence/types";
+import type { EngramMemory } from "@/types";
+
+describe("CausalXRayPanel", () => {
+  it("shows the excluded memory, original answer, and one run action", async () => {
+    const onRun = vi.fn();
+    const user = userEvent.setup();
+
+    render(
+      <CausalXRayPanel
+        record={record}
+        memory={memory}
+        onRun={onRun}
+        onClose={vi.fn()}
+      />
+    );
+
+    expect(screen.getByLabelText("Causal X-Ray")).toBeVisible();
+    expect(screen.getByRole("heading", { name: "Estimated influence" })).toBeVisible();
+    expect(screen.getByText("Memory being removed")).toBeVisible();
+    expect(screen.getByText(memory.text)).toBeVisible();
+    expect(screen.getByText(record.originalAnswer)).toBeVisible();
+    expect(screen.getAllByRole("button")).toHaveLength(2);
+    expect(screen.queryByLabelText("Baseline rerun")).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Run without this memory" }));
+    expect(onRun).toHaveBeenCalledTimes(1);
+  });
+
+  it("compares the baseline and counterfactual answers with an accessible influence meter", () => {
+    render(
+      <CausalXRayPanel
+        record={record}
+        memory={memory}
+        result={result}
+        onRun={vi.fn()}
+        onClose={vi.fn()}
+      />
+    );
+
+    expect(screen.getByLabelText("Baseline rerun")).toHaveTextContent(result.baselineAnswer);
+    expect(screen.getByLabelText("Answer without memory")).toHaveTextContent(result.counterfactualAnswer);
+    expect(screen.getByRole("meter", { name: "Estimated influence" })).toHaveAttribute("aria-valuenow", "72");
+    expect(screen.getByText("72%")).toBeVisible();
+    expect(screen.getByText("Answer changed")).toBeVisible();
+    expect(screen.getByText(result.caveat)).toBeVisible();
+    expect(screen.queryByRole("button", { name: "Run without this memory" })).not.toBeInTheDocument();
+  });
+
+  it("disables the run action and announces work while pending", () => {
+    render(
+      <CausalXRayPanel
+        record={record}
+        memory={memory}
+        pending
+        onRun={vi.fn()}
+        onClose={vi.fn()}
+      />
+    );
+
+    expect(screen.getByRole("complementary")).toHaveAttribute("aria-busy", "true");
+    expect(screen.getByRole("button", { name: "Running without memory..." })).toBeDisabled();
+  });
+
+  it("announces errors, allows retry, and closes from the icon control", async () => {
+    const onClose = vi.fn();
+    const onRun = vi.fn();
+    const user = userEvent.setup();
+
+    render(
+      <CausalXRayPanel
+        record={record}
+        memory={memory}
+        error="The comparison could not be completed."
+        onRun={onRun}
+        onClose={onClose}
+      />
+    );
+
+    expect(screen.getByRole("alert")).toHaveTextContent("The comparison could not be completed.");
+    await user.click(screen.getByRole("button", { name: "Run without this memory" }));
+    await user.click(screen.getByRole("button", { name: "Close Causal X-Ray" }));
+
+    expect(onRun).toHaveBeenCalledTimes(1);
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+});
+
+const memory: EngramMemory = {
+  id: "mem-indigo",
+  text: "The user prefers indigo interfaces.",
+  importance: 0.9,
+  topic: "interface preference",
+  region: "hippocampus",
+  created_at: "2026-07-13T10:00:00.000Z",
+  access_count: 3
+};
+
+const record: TurnRecord = {
+  version: 1,
+  id: "turn-7",
+  sessionId: "session-1",
+  startedAt: "2026-07-13T10:01:00.000Z",
+  completedAt: "2026-07-13T10:01:01.000Z",
+  userMessage: "What palette should I use?",
+  history: [],
+  retrievedMemories: [memory],
+  events: [],
+  originalAnswer: "Use an indigo-led palette with restrained cyan accents.",
+  provider: { id: "demo" }
+};
+
+const result: CausalAblationResult = {
+  version: 1,
+  recordId: record.id,
+  excludedMemoryIds: [memory.id],
+  originalAnswer: record.originalAnswer,
+  baselineAnswer: "Use an indigo-led palette with restrained cyan accents.",
+  counterfactualAnswer: "Use a neutral palette with one high-contrast accent.",
+  estimatedInfluence: 0.72,
+  changed: true,
+  caveat: "This is an estimated effect from reruns, not proof of deterministic causation.",
+  provider: { id: "demo" }
+};
