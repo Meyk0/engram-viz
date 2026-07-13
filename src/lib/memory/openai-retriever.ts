@@ -168,7 +168,9 @@ function rankSemanticResults(
 
       return {
         memory,
-        score: semanticScore + importanceBoost + accessBoost
+        score: semanticScore + importanceBoost + accessBoost,
+        similarity: semanticScore,
+        basis: "semantic" as const
       };
     })
     .filter((result) => result.score >= minScore)

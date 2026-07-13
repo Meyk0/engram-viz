@@ -307,6 +307,12 @@ describe("memory engine", () => {
       id: retrieve.ids[0],
       access_count: 1
     });
+    expect(retrieve.retrieval?.matches?.[0]).toMatchObject({
+      id: retrieve.ids[0],
+      rank: 1,
+      basis: "lexical",
+      selected: true
+    });
     expect(engine.fire("prefrontal", retrieve.ids)).toEqual({
       type: "fire",
       region: "prefrontal",

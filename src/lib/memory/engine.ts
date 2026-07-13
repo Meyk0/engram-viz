@@ -66,7 +66,15 @@ export class MemoryEngine {
       accessed,
       retrieval: {
         provider: retrieval.provider,
-        reason: retrieval.reason
+        reason: retrieval.reason,
+        matches: retrieval.results.map((result, index) => ({
+          id: result.memory.id,
+          rank: index + 1,
+          score: result.score,
+          ...(result.similarity !== undefined ? { similarity: result.similarity } : {}),
+          basis: result.basis ?? (retrieval.provider === "semantic" ? "semantic" : "lexical"),
+          selected: true
+        }))
       }
     };
   }

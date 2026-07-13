@@ -37,7 +37,15 @@ export const memoryDecisionTraceSchema = z.object({
 
 export const memoryRetrievalTraceSchema = z.object({
   provider: z.enum(["lexical", "semantic", "fallback"]),
-  reason: z.string().min(1).optional()
+  reason: z.string().min(1).optional(),
+  matches: z.array(z.object({
+    id: z.string().min(1),
+    rank: z.number().int().min(1),
+    score: z.number(),
+    similarity: z.number().min(-1).max(1).optional(),
+    basis: z.enum(["semantic", "lexical", "guardrail"]),
+    selected: z.boolean()
+  })).optional()
 });
 
 export const dreamOperationSchema = z.object({

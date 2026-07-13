@@ -1,6 +1,7 @@
 export type BrainRegion = "prefrontal" | "hippocampus" | "temporal";
 export type MemoryDecisionTraceProvider = "deterministic" | "llm" | "fallback";
 export type MemoryRetrievalProvider = "lexical" | "semantic" | "fallback";
+export type MemoryRetrievalBasis = "semantic" | "lexical" | "guardrail";
 export type MemoryStatus = "active" | "superseded";
 
 export type MemoryDecisionTrace = {
@@ -16,6 +17,14 @@ export type MemoryDecisionTrace = {
 export type MemoryRetrievalTrace = {
   provider: MemoryRetrievalProvider;
   reason?: string;
+  matches?: Array<{
+    id: string;
+    rank: number;
+    score: number;
+    similarity?: number;
+    basis: MemoryRetrievalBasis;
+    selected: boolean;
+  }>;
 };
 
 export type DreamOperationType = "merge" | "supersede" | "insight";

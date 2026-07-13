@@ -3,6 +3,8 @@ import type { EngramMemory } from "@/types";
 export type RetrievalResult = {
   memory: EngramMemory;
   score: number;
+  similarity?: number;
+  basis?: "semantic" | "lexical" | "guardrail";
 };
 
 export type MemoryRetrievalInput = {
@@ -99,7 +101,8 @@ export function retrieveMemories(
     .filter((memory) => memory.status !== "superseded")
     .map((memory) => ({
       memory,
-      score: scoreMemory(memory, queryTokens)
+      score: scoreMemory(memory, queryTokens),
+      basis: "lexical" as const
     }))
     .filter((result) => result.score > 0)
     .sort((a, b) => b.score - a.score)
