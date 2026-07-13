@@ -319,4 +319,52 @@ describe("memory engine", () => {
       ids: retrieve.ids
     });
   });
+
+  it("records selected, losing, and filtered candidates for Retrieval MRI", async () => {
+    const engine = new MemoryEngine(new InMemoryMemoryStore());
+    const design = await engine.storeMemory({
+      sessionId: "engine-mri",
+      text: "User prefers restrained cyberpunk interfaces",
+      topic: "design"
+    });
+    const food = await engine.storeMemory({
+      sessionId: "engine-mri",
+      text: "User likes ramen",
+      topic: "food"
+    });
+    const oldDesign = await engine.storeMemory({
+      sessionId: "engine-mri",
+      text: "User preferred maximalist interfaces",
+      topic: "design"
+    });
+    if (design.type !== "store" || food.type !== "store" || oldDesign.type !== "store") {
+      throw new Error("expected store events");
+    }
+    await engine.supersede("engine-mri", [oldDesign.memory.id]);
+
+    const retrieve = await engine.retrieve({
+      sessionId: "engine-mri",
+      query: "What cyberpunk interface design do I prefer?",
+      limit: 1
+    });
+    if (retrieve.type !== "retrieve") throw new Error("expected retrieve event");
+
+    expect(retrieve.ids).toEqual([design.memory.id]);
+    expect(retrieve.retrieval).toMatchObject({
+      candidateCount: 3,
+      eligibleCount: 2,
+      selectedCount: 1,
+      limit: 1
+    });
+    expect(retrieve.retrieval?.matches).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: design.memory.id, selected: true, eligible: true }),
+      expect.objectContaining({ id: food.memory.id, selected: false, eligible: true }),
+      expect.objectContaining({
+        id: oldDesign.memory.id,
+        selected: false,
+        eligible: false,
+        filterReason: "Superseded memory"
+      })
+    ]));
+  });
 });

@@ -1,0 +1,315 @@
+.retrieval-mri-panel {
+  display: flex;
+  flex-direction: column;
+  color: rgba(226, 238, 255, 0.9);
+}
+
+.retrieval-mri-header {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 14px;
+  border-bottom: 1px solid rgba(0, 212, 255, 0.1);
+}
+
+.retrieval-mri-eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: rgba(0, 212, 255, 0.62);
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.retrieval-mri-header h2 {
+  margin: 5px 0 0;
+  color: rgba(235, 245, 255, 0.94);
+  font-size: 14px;
+  font-weight: 620;
+  letter-spacing: 0;
+}
+
+.retrieval-mri-header button {
+  display: grid;
+  width: 28px;
+  height: 28px;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 1px solid rgba(0, 212, 255, 0.16);
+  border-radius: 6px;
+  background: rgba(0, 212, 255, 0.05);
+  color: rgba(0, 212, 255, 0.72);
+  cursor: pointer;
+}
+
+.retrieval-mri-scroll {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.retrieval-mri-query {
+  padding: 14px;
+  border-bottom: 1px solid rgba(0, 212, 255, 0.07);
+}
+
+.retrieval-mri-query span,
+.retrieval-mri-method span,
+.retrieval-mri-section-heading h3,
+.retrieval-mri-components dt {
+  color: rgba(210, 228, 255, 0.4);
+  font-size: 7px;
+  font-weight: 700;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+}
+
+.retrieval-mri-query p {
+  margin: 7px 0 0;
+  color: rgba(236, 245, 255, 0.9);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.retrieval-mri-pipeline {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin: 0;
+  padding: 12px 14px;
+  list-style: none;
+}
+
+.retrieval-mri-pipeline li {
+  position: relative;
+  min-width: 0;
+  padding: 8px 9px;
+  border-top: 1px solid rgba(0, 212, 255, 0.13);
+  border-bottom: 1px solid rgba(0, 212, 255, 0.08);
+  background: rgba(0, 212, 255, 0.025);
+}
+
+.retrieval-mri-pipeline li:first-child {
+  border-left: 1px solid rgba(0, 212, 255, 0.1);
+  border-radius: 5px 0 0 5px;
+}
+
+.retrieval-mri-pipeline li:last-child {
+  border-right: 1px solid rgba(0, 212, 255, 0.1);
+  border-radius: 0 5px 5px 0;
+}
+
+.retrieval-mri-pipeline li > span {
+  display: block;
+  overflow: hidden;
+  color: rgba(210, 228, 255, 0.42);
+  font-size: 6px;
+  letter-spacing: 0.08em;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.retrieval-mri-pipeline strong {
+  display: block;
+  margin-top: 4px;
+  color: rgba(232, 247, 255, 0.9);
+  font-size: 15px;
+  font-weight: 620;
+  font-variant-numeric: tabular-nums;
+}
+
+.retrieval-mri-pipeline svg {
+  position: absolute;
+  top: 50%;
+  right: -5px;
+  z-index: 1;
+  color: rgba(0, 212, 255, 0.42);
+  transform: translateY(-50%);
+}
+
+.retrieval-mri-method {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px 16px;
+  margin: 0 14px 14px;
+  padding: 10px 11px;
+  border-left: 2px solid rgba(0, 212, 255, 0.5);
+  background: rgba(0, 212, 255, 0.035);
+}
+
+.retrieval-mri-method strong {
+  display: block;
+  margin-top: 4px;
+  color: rgba(221, 240, 255, 0.84);
+  font-size: 9px;
+}
+
+.retrieval-mri-method p {
+  grid-column: 1 / -1;
+  margin: 1px 0 0;
+  color: rgba(210, 228, 255, 0.46);
+  font-size: 8px;
+  line-height: 1.45;
+}
+
+.retrieval-mri-candidates {
+  padding: 0 14px 16px;
+}
+
+.retrieval-mri-section-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.retrieval-mri-section-heading h3 {
+  margin: 0;
+}
+
+.retrieval-mri-section-heading span {
+  color: rgba(20, 241, 149, 0.54);
+  font-size: 7px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.retrieval-mri-candidates > ol {
+  display: grid;
+  gap: 7px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.retrieval-mri-candidates > ol > li {
+  padding: 10px;
+  border: 1px solid rgba(0, 212, 255, 0.09);
+  border-left: 2px solid rgba(114, 140, 180, 0.28);
+  border-radius: 0 5px 5px 0;
+  background: rgba(4, 8, 24, 0.42);
+}
+
+.retrieval-mri-candidates > ol > li[data-status="loaded"] {
+  border-left-color: rgba(0, 212, 255, 0.85);
+  background: rgba(0, 212, 255, 0.045);
+}
+
+.retrieval-mri-candidates > ol > li[data-status="selected"] {
+  border-left-color: rgba(168, 85, 247, 0.72);
+}
+
+.retrieval-mri-candidates > ol > li[data-status="filtered"] {
+  opacity: 0.58;
+}
+
+.retrieval-mri-candidate-heading {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: start;
+}
+
+.retrieval-mri-rank {
+  display: grid;
+  width: 20px;
+  height: 20px;
+  place-items: center;
+  border: 1px solid rgba(0, 212, 255, 0.14);
+  border-radius: 4px;
+  color: rgba(0, 212, 255, 0.62);
+  font-size: 8px;
+  font-variant-numeric: tabular-nums;
+}
+
+.retrieval-mri-candidate-heading strong {
+  display: -webkit-box;
+  overflow: hidden;
+  color: rgba(230, 241, 255, 0.84);
+  font-size: 9px;
+  font-weight: 560;
+  line-height: 1.4;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.retrieval-mri-candidate-heading div > span {
+  display: block;
+  margin-top: 3px;
+  color: rgba(210, 228, 255, 0.34);
+  font-size: 7px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.retrieval-mri-candidate-heading output {
+  color: rgba(0, 212, 255, 0.76);
+  font-size: 9px;
+  font-variant-numeric: tabular-nums;
+}
+
+.retrieval-mri-score-track {
+  height: 2px;
+  margin: 8px 0 0 30px;
+  overflow: hidden;
+  background: rgba(200, 216, 255, 0.07);
+}
+
+.retrieval-mri-score-track span {
+  display: block;
+  height: 100%;
+  background: rgba(0, 212, 255, 0.68);
+  box-shadow: 0 0 8px rgba(0, 212, 255, 0.5);
+}
+
+.retrieval-mri-components {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin: 8px 0 0 30px;
+}
+
+.retrieval-mri-components div {
+  padding: 4px 6px;
+  border: 1px solid rgba(0, 212, 255, 0.07);
+  border-radius: 4px;
+  background: rgba(0, 212, 255, 0.025);
+}
+
+.retrieval-mri-components dt {
+  font-size: 6px;
+  letter-spacing: 0.07em;
+}
+
+.retrieval-mri-components dd {
+  margin: 2px 0 0;
+  color: rgba(221, 239, 255, 0.72);
+  font-size: 7px;
+  font-variant-numeric: tabular-nums;
+}
+
+.retrieval-mri-filter-reason,
+.retrieval-mri-empty {
+  margin: 8px 0 0 30px;
+  color: rgba(249, 164, 102, 0.65);
+  font-size: 8px;
+  line-height: 1.4;
+}
+
+@media (max-width: 760px) {
+  .retrieval-mri-pipeline {
+    padding-right: 12px;
+    padding-left: 12px;
+  }
+
+  .retrieval-mri-candidates,
+  .retrieval-mri-query {
+    padding-right: 12px;
+    padding-left: 12px;
+  }
+}

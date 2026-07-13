@@ -39,13 +39,26 @@ export const memoryDecisionTraceSchema = z.object({
 export const memoryRetrievalTraceSchema = z.object({
   provider: z.enum(["lexical", "semantic", "fallback"]),
   reason: z.string().min(1).optional(),
+  candidateCount: z.number().int().min(0).optional(),
+  eligibleCount: z.number().int().min(0).optional(),
+  selectedCount: z.number().int().min(0).optional(),
+  limit: z.number().int().min(1).optional(),
   matches: z.array(z.object({
     id: z.string().min(1),
     rank: z.number().int().min(1),
     score: z.number(),
     similarity: z.number().min(-1).max(1).optional(),
     basis: z.enum(["semantic", "lexical", "guardrail"]),
-    selected: z.boolean()
+    eligible: z.boolean().optional(),
+    selected: z.boolean(),
+    filterReason: z.string().min(1).optional(),
+    components: z.object({
+      semantic: z.number().optional(),
+      lexical: z.number().optional(),
+      importance: z.number().optional(),
+      access: z.number().optional(),
+      guardrail: z.number().optional()
+    }).optional()
   })).optional()
 });
 

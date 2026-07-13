@@ -52,7 +52,7 @@ export class MemoryEngine {
   async retrieve(input: RetrieveMemoryInput): Promise<EngramEvent> {
     const session = await this.store.getSession(input.sessionId);
     const retrieval = await (input.retriever ?? this.retriever).retrieve({
-      memories: listMemories(session).filter((memory) => memory.status !== "superseded"),
+      memories: listMemories(session),
       query: input.query,
       limit: input.limit
     });
@@ -67,13 +67,25 @@ export class MemoryEngine {
       retrieval: {
         provider: retrieval.provider,
         reason: retrieval.reason,
-        matches: retrieval.results.map((result, index) => ({
-          id: result.memory.id,
+        candidateCount: retrieval.candidates?.length ?? retrieval.results.length,
+        eligibleCount: retrieval.candidates?.filter((candidate) => candidate.eligible).length ?? retrieval.results.length,
+        selectedCount: retrieval.results.length,
+        limit: input.limit ?? 5,
+        matches: (retrieval.candidates ?? retrieval.results.map((result) => ({
+          ...result,
+          eligible: true,
+          selected: true,
+          filterReason: undefined
+        }))).map((candidate, index) => ({
+          id: candidate.memory.id,
           rank: index + 1,
-          score: result.score,
-          ...(result.similarity !== undefined ? { similarity: result.similarity } : {}),
-          basis: result.basis ?? (retrieval.provider === "semantic" ? "semantic" : "lexical"),
-          selected: true
+          score: candidate.score,
+          ...(candidate.similarity !== undefined ? { similarity: candidate.similarity } : {}),
+          basis: candidate.basis ?? (retrieval.provider === "semantic" ? "semantic" : "lexical"),
+          eligible: candidate.eligible,
+          selected: candidate.selected,
+          ...(candidate.filterReason ? { filterReason: candidate.filterReason } : {}),
+          ...(candidate.components ? { components: candidate.components } : {})
         }))
       }
     };

@@ -169,6 +169,30 @@ describe("memory UX panels", () => {
     expect(onSelect).toHaveBeenCalledWith("timeline");
   });
 
+  it("opens Retrieval MRI when candidate evidence exists", async () => {
+    const onSelect = vi.fn();
+    const user = userEvent.setup();
+
+    render(
+      <SecondaryDock
+        activeContextCount={1}
+        activePanel={null}
+        hasActiveContext
+        hasMemoryDetails
+        hasRegionDetails={false}
+        hasRetrieval
+        memoryCount={2}
+        onSelect={onSelect}
+        regionCount={0}
+        retrievalCount={2}
+        timelineCount={1}
+      />
+    );
+
+    await user.click(screen.getByRole("button", { name: "Retrieval MRI 2" }));
+    expect(onSelect).toHaveBeenCalledWith("retrieval");
+  });
+
   it("runs or stops the demo from a single compact guide", async () => {
     const onRunDemo = vi.fn();
     const onStopDemo = vi.fn();

@@ -3,6 +3,7 @@ import {
   type MemoryRetrievalInput,
   type MemoryRetrievalOutput,
   type MemoryRetriever,
+  type RetrievalCandidate,
   type RetrievalResult
 } from "@/lib/memory/retrieve";
 import type { EngramMemory } from "@/types";
@@ -52,12 +53,22 @@ export class OpenAISemanticMemoryRetriever implements MemoryRetriever {
       };
     }
 
+    const eligibleMemories = input.memories.filter((memory) => memory.status !== "superseded");
+    const lexicalPreflight = await this.fallbackRetriever.retrieve(input);
+
+    if (eligibleMemories.length === 0) {
+      return {
+        provider: this.provider,
+        reason: "All available memories were filtered before semantic retrieval.",
+        results: [],
+        candidates: retrievalCandidates(lexicalPreflight)
+      };
+    }
+
     if (!this.apiKey) {
-      const lexicalPreflight = await this.fallbackRetriever.retrieve(input);
       return this.fallback(lexicalPreflight, "OpenAI semantic retrieval is enabled but OPENAI_API_KEY is missing.");
     }
 
-    const lexicalPreflight = await this.fallbackRetriever.retrieve(input);
     if (hasStrongLexicalMatch(lexicalPreflight.results, this.lexicalPreflightScore)) {
       return {
         provider: this.provider,
@@ -76,7 +87,7 @@ export class OpenAISemanticMemoryRetriever implements MemoryRetriever {
         },
         body: JSON.stringify({
           model: this.model,
-          input: [input.query, ...input.memories.map(memoryEmbeddingText)]
+          input: [input.query, ...eligibleMemories.map(memoryEmbeddingText)]
         })
       });
     } catch (error) {
@@ -95,24 +106,31 @@ export class OpenAISemanticMemoryRetriever implements MemoryRetriever {
     }
 
     try {
-      const vectors = parseEmbeddings(payload, input.memories.length + 1);
+      const vectors = parseEmbeddings(payload, eligibleMemories.length + 1);
       const [queryVector, ...memoryVectors] = vectors;
-      const semanticResults = rankSemanticResults(
-        input.memories,
+      const semanticCandidates = rankSemanticCandidates(
+        eligibleMemories,
         queryVector,
         memoryVectors,
         this.minScore,
         input.limit
       );
-      const results = mergeRetrievalResults(semanticResults, lexicalPreflight.results, input.limit);
+      const candidates = mergeRetrievalCandidates(
+        semanticCandidates,
+        retrievalCandidates(lexicalPreflight),
+        input.limit
+      );
+      const results = candidates.filter((candidate) => candidate.selected);
+      const guardrailCount = results.filter((result) => result.basis === "guardrail").length;
 
       return {
         provider: this.provider,
         reason:
-          results.length > semanticResults.length
+          guardrailCount > 0
             ? "OpenAI embeddings ranked stored memories, with direct lexical matches added as guardrails."
             : "OpenAI embeddings ranked stored memory traces by semantic similarity.",
-        results
+        results,
+        candidates
       };
     } catch (error) {
       return this.fallback(lexicalPreflight, `OpenAI semantic retrieval output failed validation: ${formatError(error)}.`);
@@ -132,34 +150,72 @@ function hasStrongLexicalMatch(results: RetrievalResult[], threshold: number) {
   return (results[0]?.score ?? 0) >= threshold;
 }
 
-function mergeRetrievalResults(
-  semanticResults: RetrievalResult[],
-  lexicalResults: RetrievalResult[],
+function mergeRetrievalCandidates(
+  semanticCandidates: RetrievalCandidate[],
+  lexicalCandidates: RetrievalCandidate[],
   limit = 5
-): RetrievalResult[] {
-  const byId = new Map<string, RetrievalResult>();
+): RetrievalCandidate[] {
+  const byId = new Map<string, RetrievalCandidate>();
 
-  semanticResults.forEach((result) => {
-    byId.set(result.memory.id, result);
+  semanticCandidates.forEach((candidate) => {
+    byId.set(candidate.memory.id, candidate);
   });
 
-  lexicalResults.forEach((result) => {
-    const existing = byId.get(result.memory.id);
-    if (!existing || result.score > existing.score) {
-      byId.set(result.memory.id, result);
+  lexicalCandidates.forEach((candidate) => {
+    const existing = byId.get(candidate.memory.id);
+    if (!existing) {
+      byId.set(candidate.memory.id, candidate);
+      return;
     }
+
+    if (!existing.selected && candidate.selected) {
+      byId.set(candidate.memory.id, {
+        ...candidate,
+        basis: "guardrail",
+        components: {
+          ...candidate.components,
+          guardrail: candidate.score
+        }
+      });
+      return;
+    }
+
+    byId.set(existing.memory.id, {
+      ...existing,
+      components: {
+        ...existing.components,
+        ...(candidate.components?.lexical !== undefined
+          ? { lexical: candidate.components.lexical }
+          : {})
+      }
+    });
   });
 
-  return [...byId.values()].sort((a, b) => b.score - a.score).slice(0, limit);
+  const ordered = [...byId.values()].sort((left, right) => {
+    if (left.eligible !== right.eligible) return left.eligible ? -1 : 1;
+    if (left.selected !== right.selected) return left.selected ? -1 : 1;
+    return right.score - left.score;
+  });
+  const selectedIds = new Set(
+    ordered
+      .filter((candidate) => candidate.eligible && candidate.selected)
+      .slice(0, limit)
+      .map((candidate) => candidate.memory.id)
+  );
+
+  return ordered.map((candidate) => ({
+    ...candidate,
+    selected: selectedIds.has(candidate.memory.id)
+  }));
 }
 
-function rankSemanticResults(
+function rankSemanticCandidates(
   memories: EngramMemory[],
   queryVector: number[],
   memoryVectors: number[][],
   minScore: number,
   limit = 5
-): RetrievalResult[] {
+): RetrievalCandidate[] {
   return memories
     .map((memory, index) => {
       const semanticScore = cosineSimilarity(queryVector, memoryVectors[index] ?? []);
@@ -170,12 +226,29 @@ function rankSemanticResults(
         memory,
         score: semanticScore + importanceBoost + accessBoost,
         similarity: semanticScore,
-        basis: "semantic" as const
+        basis: "semantic" as const,
+        components: {
+          semantic: semanticScore,
+          importance: importanceBoost,
+          access: accessBoost
+        },
+        eligible: true,
+        selected: semanticScore + importanceBoost + accessBoost >= minScore
       };
     })
-    .filter((result) => result.score >= minScore)
     .sort((a, b) => b.score - a.score)
-    .slice(0, limit);
+    .map((candidate, index) => ({
+      ...candidate,
+      selected: candidate.selected && index < limit
+    }));
+}
+
+function retrievalCandidates(output: MemoryRetrievalOutput): RetrievalCandidate[] {
+  return output.candidates ?? output.results.map((result) => ({
+    ...result,
+    eligible: true,
+    selected: true
+  }));
 }
 
 function parseEmbeddings(payload: unknown, expectedCount: number): number[][] {

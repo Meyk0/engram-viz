@@ -1,10 +1,17 @@
-import type { EngramMemory } from "@/types";
+import type { EngramMemory, MemoryRetrievalBasis, MemoryRetrievalTrace } from "@/types";
 
 export type RetrievalResult = {
   memory: EngramMemory;
   score: number;
   similarity?: number;
-  basis?: "semantic" | "lexical" | "guardrail";
+  basis?: MemoryRetrievalBasis;
+  components?: NonNullable<NonNullable<MemoryRetrievalTrace["matches"]>[number]["components"]>;
+};
+
+export type RetrievalCandidate = RetrievalResult & {
+  eligible: boolean;
+  selected: boolean;
+  filterReason?: string;
 };
 
 export type MemoryRetrievalInput = {
@@ -17,6 +24,7 @@ export type MemoryRetrievalOutput = {
   provider: "lexical" | "semantic" | "fallback";
   reason?: string;
   results: RetrievalResult[];
+  candidates?: RetrievalCandidate[];
 };
 
 export interface MemoryRetriever {
@@ -95,27 +103,54 @@ export function retrieveMemories(
   query: string,
   limit = 5
 ): RetrievalResult[] {
-  const queryTokens = tokenize(query);
+  return inspectLexicalMemories(memories, query, limit).results;
+}
 
-  return memories
-    .filter((memory) => memory.status !== "superseded")
-    .map((memory) => ({
-      memory,
-      score: scoreMemory(memory, queryTokens),
-      basis: "lexical" as const
-    }))
-    .filter((result) => result.score > 0)
-    .sort((a, b) => b.score - a.score)
-    .slice(0, limit);
+export function inspectLexicalMemories(
+  memories: EngramMemory[],
+  query: string,
+  limit = 5
+): { candidates: RetrievalCandidate[]; results: RetrievalResult[] } {
+  const queryTokens = tokenize(query);
+  const candidates = memories
+    .map((memory, sourceIndex) => {
+      const eligible = memory.status !== "superseded";
+      const scored = scoreMemoryWithComponents(memory, queryTokens);
+      return {
+        memory,
+        score: eligible ? scored.score : 0,
+        basis: "lexical" as const,
+        components: scored.components,
+        eligible,
+        selected: false,
+        ...(eligible ? {} : { filterReason: "Superseded memory" }),
+        sourceIndex
+      };
+    })
+    .sort((left, right) => {
+      if (left.eligible !== right.eligible) return left.eligible ? -1 : 1;
+      return right.score - left.score || left.sourceIndex - right.sourceIndex;
+    })
+    .map(({ sourceIndex: _sourceIndex, ...candidate }, index) => ({
+      ...candidate,
+      selected: candidate.eligible && candidate.score > 0 && index < limit
+    }));
+
+  return {
+    candidates,
+    results: candidates.filter((candidate) => candidate.selected)
+  };
 }
 
 export class LexicalMemoryRetriever implements MemoryRetriever {
   readonly provider = "lexical" as const;
 
   retrieve(input: MemoryRetrievalInput): MemoryRetrievalOutput {
+    const inspection = inspectLexicalMemories(input.memories, input.query, input.limit);
     return {
       provider: this.provider,
-      results: retrieveMemories(input.memories, input.query, input.limit)
+      results: inspection.results,
+      candidates: inspection.candidates
     };
   }
 }
@@ -123,6 +158,16 @@ export class LexicalMemoryRetriever implements MemoryRetriever {
 export const lexicalMemoryRetriever = new LexicalMemoryRetriever();
 
 export function scoreMemory(memory: EngramMemory, queryTokens: Set<string>): number {
+  return scoreMemoryWithComponents(memory, queryTokens).score;
+}
+
+export function scoreMemoryWithComponents(
+  memory: EngramMemory,
+  queryTokens: Set<string>
+): {
+  score: number;
+  components: NonNullable<RetrievalResult["components"]>;
+} {
   const memoryTokens = tokenize([memory.text, memory.topic].filter(Boolean).join(" "));
   let overlap = 0;
 
@@ -130,7 +175,12 @@ export function scoreMemory(memory: EngramMemory, queryTokens: Set<string>): num
     if (memoryTokens.has(token)) overlap += 1;
   });
 
-  if (overlap === 0) return 0;
+  if (overlap === 0) {
+    return {
+      score: 0,
+      components: { lexical: 0, importance: 0, access: 0, guardrail: 0 }
+    };
+  }
 
   const lexicalScore = queryTokens.size === 0 ? 0 : overlap / queryTokens.size;
   const importanceBoost = memory.importance * 0.2;
@@ -138,7 +188,15 @@ export function scoreMemory(memory: EngramMemory, queryTokens: Set<string>): num
   const colorPreferenceBoost =
     queryTokens.has("color") && memory.topic === "preference" && memoryTokens.has("color") ? 0.2 : 0;
 
-  return lexicalScore + importanceBoost + accessBoost + colorPreferenceBoost;
+  return {
+    score: lexicalScore + importanceBoost + accessBoost + colorPreferenceBoost,
+    components: {
+      lexical: lexicalScore,
+      importance: importanceBoost,
+      access: accessBoost,
+      guardrail: colorPreferenceBoost
+    }
+  };
 }
 
 export function tokenize(text: string): Set<string> {

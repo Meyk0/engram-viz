@@ -78,6 +78,25 @@ test("opens the combined conversation and memory story from the dock", async ({ 
   await expect(page.getByRole("complementary", { name: "Memory story" })).toBeVisible();
 });
 
+test("opens Retrieval MRI after a memory recall", async ({ page }) => {
+  test.setTimeout(45_000);
+  await page.goto("/");
+
+  await page.getByLabel("Chat message").fill("I love the color indigo.");
+  await page.getByLabel("Send").click();
+  await expect(page.getByRole("button", { name: "Memories 1" })).toBeVisible({ timeout: 12_000 });
+  await page.getByLabel("Chat message").fill("What color do I love?");
+  await page.getByLabel("Send").click();
+  await expect(page.getByRole("button", { name: "Retrieval MRI 1" })).toBeVisible({ timeout: 12_000 });
+
+  await page.getByRole("button", { name: "Retrieval MRI 1" }).click();
+  const mri = page.getByRole("complementary", { name: "Retrieval MRI" });
+  await expect(mri).toBeVisible();
+  await expect(mri.getByLabel("Retrieval query")).toContainText("What color do I love?");
+  await expect(mri.getByLabel("Retrieval pipeline")).toContainText("Candidates1Eligible1Selected1Loaded1");
+  await expect(mri).toContainText(/color indigo/i);
+});
+
 test("runs the demo and focuses completed memory story turns", async ({ page }) => {
   test.setTimeout(60_000);
   await page.goto("/");

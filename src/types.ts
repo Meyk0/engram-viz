@@ -18,13 +18,26 @@ export type MemoryDecisionTrace = {
 export type MemoryRetrievalTrace = {
   provider: MemoryRetrievalProvider;
   reason?: string;
+  candidateCount?: number;
+  eligibleCount?: number;
+  selectedCount?: number;
+  limit?: number;
   matches?: Array<{
     id: string;
     rank: number;
     score: number;
     similarity?: number;
     basis: MemoryRetrievalBasis;
+    eligible?: boolean;
     selected: boolean;
+    filterReason?: string;
+    components?: {
+      semantic?: number;
+      lexical?: number;
+      importance?: number;
+      access?: number;
+      guardrail?: number;
+    };
   }>;
 };
 

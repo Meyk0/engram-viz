@@ -45,6 +45,17 @@ describe("OpenAISemanticMemoryRetriever", () => {
 
     expect(result.provider).toBe("semantic");
     expect(result.results.map((item) => item.memory.id)).toEqual(["style"]);
+    expect(result.candidates).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        memory: expect.objectContaining({ id: "style" }),
+        selected: true,
+        components: expect.objectContaining({ semantic: expect.any(Number) })
+      }),
+      expect.objectContaining({
+        memory: expect.objectContaining({ id: "food" }),
+        selected: false
+      })
+    ]));
     expect(fetcher).toHaveBeenCalledWith(
       "https://api.openai.com/v1/embeddings",
       expect.objectContaining({
@@ -122,6 +133,10 @@ describe("OpenAISemanticMemoryRetriever", () => {
     expect(result.provider).toBe("semantic");
     expect(result.reason).toContain("direct lexical matches");
     expect(result.results.map((item) => item.memory.id)).toEqual(["indigo"]);
+    expect(result.results[0]).toMatchObject({
+      basis: "guardrail",
+      components: { guardrail: expect.any(Number) }
+    });
   });
 
   it("falls back to lexical retrieval when no API key is configured", async () => {

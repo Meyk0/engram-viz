@@ -1,4 +1,4 @@
-import { Activity, BrainCircuit, History, MapPin, MoonStar } from "lucide-react";
+import { Activity, BrainCircuit, History, MapPin, MoonStar, ScanSearch } from "lucide-react";
 import type { ReactNode } from "react";
 
 export type SecondaryPanel =
@@ -10,7 +10,8 @@ export type SecondaryPanel =
   | "help"
   | "xray"
   | "lineage"
-  | "trace";
+  | "trace"
+  | "retrieval";
 
 type SecondaryDockProps = {
   activeContextCount: number;
@@ -21,9 +22,11 @@ type SecondaryDockProps = {
   hasDreamReview?: boolean;
   hasMemoryDetails: boolean;
   hasRegionDetails: boolean;
+  hasRetrieval?: boolean;
   memoryCount: number;
   onSelect: (panel: SecondaryPanel) => void;
   regionCount: number;
+  retrievalCount?: number;
   timelineCount: number;
 };
 
@@ -36,9 +39,11 @@ export function SecondaryDock({
   hasDreamReview = false,
   hasMemoryDetails,
   hasRegionDetails,
+  hasRetrieval = false,
   memoryCount,
   onSelect,
   regionCount,
+  retrievalCount = 0,
   timelineCount
 }: SecondaryDockProps) {
   const shouldShowDream = hasDreamReview || dreamReady || dreamCount >= 3;
@@ -55,6 +60,16 @@ export function SecondaryDock({
       id: "timeline",
       label: "Story"
     },
+    ...(hasRetrieval
+      ? [
+          {
+            count: retrievalCount,
+            icon: <ScanSearch size={14} />,
+            id: "retrieval" as const,
+            label: "Retrieval MRI"
+          }
+        ]
+      : []),
     ...(shouldShowDream
       ? [
           {

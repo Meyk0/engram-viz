@@ -29,6 +29,7 @@ import { MemoryInspector } from "@/components/UI/MemoryInspector";
 import { ProductModeControl } from "@/components/UI/ProductModeControl";
 import { RealityModeControl } from "@/components/UI/RealityModeControl";
 import { RegionInspector } from "@/components/UI/RegionInspector";
+import { RetrievalMRIPanel } from "@/components/UI/RetrievalMRIPanel";
 import { SemanticModeHUD } from "@/components/UI/SemanticModeHUD";
 import { SecondaryDock, type SecondaryPanel } from "@/components/UI/SecondaryDock";
 import { TraceImportDialog } from "@/components/UI/TraceImportDialog";
@@ -125,6 +126,12 @@ export function EngramApp({ recordingMode = false }: EngramAppProps) {
   const explanations = useMemoryExplanations(events);
   const loadedMemoryIds = useMemo(() => getLoadedMemoryIds(events), [events]);
   const latestRetrieve = useMemo(() => getLatestRetrieveEvent(events), [events]);
+  const retrievalCandidateIds = useMemo(
+    () => latestRetrieve?.retrieval?.matches
+      ?.filter((match) => match.selected)
+      .map((match) => match.id) ?? latestRetrieve?.ids ?? [],
+    [latestRetrieve]
+  );
   const activeContextFill = useMemo(() => getActiveContextFill(loadedMemoryIds), [loadedMemoryIds]);
   const activeContextMemories = useMemo(
     () =>
@@ -239,6 +246,8 @@ export function EngramApp({ recordingMode = false }: EngramAppProps) {
       ? lineageGraph.relatedMemoryIds
     : activePanel === "xray" && causalMemoryId
       ? [causalMemoryId]
+    : activePanel === "retrieval"
+      ? retrievalCandidateIds
     : activePanel === "context"
       ? loadedMemoryIds
       : [];
@@ -247,6 +256,8 @@ export function EngramApp({ recordingMode = false }: EngramAppProps) {
     : activePanel === "lineage" && lineageGraph
       ? [...new Set(lineageGraph.nodes.flatMap((node) => node.region ?? []))]
     : activePanel === "xray"
+      ? (["prefrontal"] satisfies BrainRegion[])
+    : activePanel === "retrieval" && retrievalCandidateIds.length > 0
       ? (["prefrontal"] satisfies BrainRegion[])
     : activePanel === "context" && loadedMemoryIds.length > 0
       ? (["prefrontal"] satisfies BrainRegion[])
@@ -257,6 +268,8 @@ export function EngramApp({ recordingMode = false }: EngramAppProps) {
       ? `lineage-${lineageMemoryId}`
     : activePanel === "xray" && causalMemoryId
       ? `xray-${causalMemoryId}`
+    : activePanel === "retrieval" && latestRetrieve
+      ? `retrieval-${latestRetrieve.query}-${retrievalCandidateIds.join(".")}`
     : activePanel === "context" && loadedMemoryIds.length > 0
       ? `context-${provenancePulseKey}-${loadedMemoryIds.join(".")}`
       : undefined;
@@ -658,9 +671,9 @@ export function EngramApp({ recordingMode = false }: EngramAppProps) {
         return;
       }
 
-      setActivePanel("timeline");
+      setActivePanel(latestRetrieve ? "retrieval" : "timeline");
     },
-    [importedTrace]
+    [importedTrace, latestRetrieve]
   );
 
   const openTraceInspector = useCallback(() => {
@@ -817,6 +830,14 @@ export function EngramApp({ recordingMode = false }: EngramAppProps) {
         open={activePanel === "context"}
         used={activeContextFill.used}
       />
+      {activePanel === "retrieval" && latestRetrieve ? (
+        <RetrievalMRIPanel
+          loadedMemoryIds={loadedMemoryIds}
+          memories={memories}
+          onClose={closeSecondaryPanel}
+          retrieve={latestRetrieve}
+        />
+      ) : null}
       {activePanel === "xray" && latestEvidence && causalMemory ? (
         <CausalXRayPanel
           error={causalError}
@@ -899,7 +920,9 @@ export function EngramApp({ recordingMode = false }: EngramAppProps) {
           memoryCount={memoryDetailCount}
           onSelect={onDockSelect}
           hasRegionDetails={regionDetailCount > 0}
+          hasRetrieval={Boolean(latestRetrieve)}
           regionCount={regionDetailCount}
+          retrievalCount={latestRetrieve?.retrieval?.candidateCount ?? latestRetrieve?.ids.length ?? 0}
         />
       ) : null}
 
