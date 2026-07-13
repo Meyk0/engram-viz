@@ -1,4 +1,6 @@
 import { createChatProvider, configuredChatProvider } from "@/lib/chat/providers";
+import type { ChatProviderClient } from "@/lib/chat/providers/types";
+import { createImmutableTurnRecord } from "@/lib/evidence/turn-record";
 import { MemoryEngine } from "@/lib/memory/engine";
 import type { MemoryConsolidationPlanner } from "@/lib/memory/consolidationPolicy";
 import type { ConsolidationDecision } from "@/lib/memory/consolidationPolicy";
@@ -11,7 +13,14 @@ import { configuredMemoryRetriever } from "@/lib/memory/retriever-config";
 import type { MemoryRetriever } from "@/lib/memory/retrieve";
 import { InMemoryMemoryStore } from "@/lib/memory/store-interface";
 import type { PlannedMemory, TurnMemoryPlan, TurnMemoryPlanner } from "@/lib/memory/turn-planner";
-import type { ChatMessage, EngramMemory, MemoryDecisionTrace, StreamChunk } from "@/types";
+import type {
+  ChatMessage,
+  EngramEvent,
+  EngramMemory,
+  MemoryDecisionTrace,
+  MemoryRetrievalTrace,
+  StreamChunk
+} from "@/types";
 
 const memoryStore = new InMemoryMemoryStore();
 const memoryEngine = new MemoryEngine(memoryStore);
@@ -25,6 +34,7 @@ export type LiveChatInput = {
   memoryDecisionPlanner?: MemoryDecisionPlanner;
   memoryRetriever?: MemoryRetriever;
   turnMemoryPlanner?: TurnMemoryPlanner;
+  chatProvider?: ChatProviderClient;
   now?: string;
 };
 
@@ -39,6 +49,52 @@ export async function createLiveMemoryStream(input: LiveChatInput): Promise<Stre
 }
 
 export async function* streamLiveMemoryChunks(input: LiveChatInput): AsyncIterable<StreamChunk> {
+  const startedAt = input.now ?? new Date().toISOString();
+  const events: EngramEvent[] = [];
+  let originalAnswer = "";
+  const iterator = orchestrateLiveMemoryChunks(input)[Symbol.asyncIterator]();
+  let result: OrchestrationResult;
+
+  while (true) {
+    const step = await iterator.next();
+    if (step.done) {
+      result = step.value;
+      break;
+    }
+
+    const chunk = step.value;
+    if (chunk.kind === "event") events.push(structuredClone(chunk.event));
+    if (chunk.kind === "text") originalAnswer += chunk.delta;
+    yield chunk;
+  }
+
+  yield {
+    kind: "turn_record",
+    record: createImmutableTurnRecord({
+      sessionId: input.sessionId,
+      startedAt,
+      completedAt: input.now ?? new Date().toISOString(),
+      userMessage: input.message,
+      history: structuredClone(input.history ?? []),
+      retrievedMemories: result.retrievedMemories,
+      retrieval: result.retrieval,
+      events,
+      originalAnswer,
+      provider: result.provider
+    })
+  };
+  yield { kind: "done" };
+}
+
+type OrchestrationResult = {
+  provider: ChatProviderClient;
+  retrievedMemories: EngramMemory[];
+  retrieval?: MemoryRetrievalTrace;
+};
+
+async function* orchestrateLiveMemoryChunks(
+  input: LiveChatInput
+): AsyncGenerator<StreamChunk, OrchestrationResult> {
   const history = input.history ?? [];
   const memoryConsolidationPlanner =
     input.memoryConsolidationPlanner ?? configuredMemoryConsolidationPlanner();
@@ -106,7 +162,7 @@ export async function* streamLiveMemoryChunks(input: LiveChatInput): AsyncIterab
     }
   }
 
-  const provider = createChatProvider(configuredChatProvider());
+  const provider = input.chatProvider ?? createChatProvider(configuredChatProvider());
   for await (const chunk of provider.streamTurn({
     message: input.message,
     history,
@@ -166,7 +222,13 @@ export async function* streamLiveMemoryChunks(input: LiveChatInput): AsyncIterab
     yield { kind: "event", event: decay };
   }
 
-  yield { kind: "done" };
+  return {
+    provider,
+    retrievedMemories: structuredClone(retrievedMemories),
+    ...(retrieve?.type === "retrieve" && retrieve.retrieval
+      ? { retrieval: structuredClone(retrieve.retrieval) }
+      : {})
+  };
 }
 
 function consolidationDecisionTrace(decision: ConsolidationDecision): MemoryDecisionTrace {

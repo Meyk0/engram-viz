@@ -107,5 +107,6 @@ export type ChatMessage = {
 export type StreamChunk =
   | { kind: "text"; delta: string }
   | { kind: "event"; event: EngramEvent }
+  | { kind: "turn_record"; record: import("@/lib/evidence/types").TurnRecord }
   | { kind: "done" }
   | { kind: "error"; message: string };

@@ -1,6 +1,8 @@
 import type { ChatProviderClient, ChatTurnInput, ProviderChunk } from "@/lib/chat/providers/types";
 
 export class DemoChatProvider implements ChatProviderClient {
+  readonly id = "demo" as const;
+
   async *streamTurn(input: ChatTurnInput): AsyncIterable<ProviderChunk> {
     const memoryPhrase =
       input.retrievedMemories.length > 0

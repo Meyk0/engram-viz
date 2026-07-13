@@ -97,9 +97,54 @@ export const engramEventSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("dream_dismiss"), proposal: dreamProposalSchema })
 ]);
 
+const chatMessageSchema = z.object({
+  role: z.enum(["user", "assistant"]),
+  content: z.string()
+});
+
+export const turnRecordSchema = z.object({
+  version: z.literal(1),
+  id: z.string().min(1),
+  sessionId: z.string().min(1),
+  startedAt: z.string().datetime(),
+  completedAt: z.string().datetime(),
+  userMessage: z.string(),
+  history: z.array(chatMessageSchema),
+  retrievedMemories: z.array(engramMemorySchema),
+  retrieval: memoryRetrievalTraceSchema.optional(),
+  events: z.array(engramEventSchema),
+  originalAnswer: z.string(),
+  provider: z.object({
+    id: z.enum(["demo", "openai"]),
+    model: z.string().min(1).optional()
+  })
+});
+
+export const causalAblationRequestSchema = z.object({
+  record: turnRecordSchema,
+  excludedMemoryIds: z.array(z.string().min(1)).min(1).max(10)
+});
+
+export const causalAblationResultSchema = z.object({
+  version: z.literal(1),
+  recordId: z.string().min(1),
+  excludedMemoryIds: z.array(z.string().min(1)),
+  originalAnswer: z.string(),
+  baselineAnswer: z.string(),
+  counterfactualAnswer: z.string(),
+  estimatedInfluence: z.number().min(0).max(1),
+  changed: z.boolean(),
+  caveat: z.string().min(1),
+  provider: z.object({
+    id: z.enum(["demo", "openai"]),
+    model: z.string().min(1).optional()
+  })
+});
+
 export const streamChunkSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("text"), delta: z.string() }),
   z.object({ kind: z.literal("event"), event: engramEventSchema }),
+  z.object({ kind: z.literal("turn_record"), record: turnRecordSchema }),
   z.object({ kind: z.literal("done") }),
   z.object({ kind: z.literal("error"), message: z.string() })
 ]);

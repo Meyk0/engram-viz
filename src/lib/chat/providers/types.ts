@@ -1,4 +1,4 @@
-import type { ChatMessage, EngramMemory } from "@/types";
+import type { ChatMessage, ChatProvider, EngramMemory } from "@/types";
 
 export type ChatTurnInput = {
   message: string;
@@ -12,5 +12,7 @@ export type ProviderChunk =
   | { kind: "error"; message: string };
 
 export type ChatProviderClient = {
+  readonly id: Exclude<ChatProvider, "anthropic">;
+  readonly model?: string;
   streamTurn(input: ChatTurnInput): AsyncIterable<ProviderChunk>;
 };
