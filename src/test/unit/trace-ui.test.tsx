@@ -43,7 +43,9 @@ describe("TraceImportDialog", () => {
     });
     await user.click(screen.getByRole("button", { name: "Import trace" }));
 
-    await waitFor(() => expect(onImport).toHaveBeenCalledWith({ object: "response", id: "resp-1" }));
+    await waitFor(() =>
+      expect(onImport).toHaveBeenCalledWith('{"object":"response","id":"resp-1"}')
+    );
 
     await user.click(screen.getByRole("button", { name: "Load sample trace" }));
     await user.click(screen.getByRole("button", { name: "Cancel" }));

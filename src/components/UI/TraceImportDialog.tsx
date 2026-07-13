@@ -43,8 +43,8 @@ export function TraceImportDialog({
     }
 
     try {
-      const parsed = JSON.parse(rawTrace) as unknown;
-      await onImport(parsed);
+      JSON.parse(rawTrace);
+      await onImport(rawTrace);
     } catch (caught) {
       setLocalError(
         caught instanceof SyntaxError
