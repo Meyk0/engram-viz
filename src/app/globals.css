@@ -575,6 +575,50 @@ input {
   font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 
+.advanced-model-list {
+  padding-top: 2px;
+  border-top: 1px solid rgba(0, 212, 255, 0.08);
+}
+
+.advanced-model-list h3 {
+  margin: 10px 0 4px;
+  color: rgba(0, 212, 255, 0.58);
+  font-size: 8px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.advanced-model-list dl {
+  margin: 0;
+}
+
+.advanced-model-list div {
+  display: grid;
+  grid-template-columns: 108px minmax(0, 1fr);
+  gap: 10px;
+  padding: 7px 0;
+  border-bottom: 1px solid rgba(0, 212, 255, 0.055);
+}
+
+.advanced-model-list dt,
+.advanced-model-list dd {
+  margin: 0;
+  font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.advanced-model-list dt {
+  color: rgba(220, 238, 255, 0.72);
+  font-size: 8px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.advanced-model-list dd {
+  color: rgba(220, 238, 255, 0.48);
+  font-size: 9px;
+  line-height: 1.4;
+}
+
 .memory-model-list dt {
   color: currentColor;
   font-size: 8px;

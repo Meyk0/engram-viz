@@ -45,6 +45,31 @@ export function HowItWorksPanel({ onClose, open }: HowItWorksPanelProps) {
         <p className="how-it-works-hint">
           Use Run demo for a short walkthrough, or open Story to follow the memory lifecycle turn by turn.
         </p>
+        <section className="advanced-model-list" aria-labelledby="advanced-model-title">
+          <h3 id="advanced-model-title">Explore deeper</h3>
+          <dl>
+            <div>
+              <dt>Reality map</dt>
+              <dd>Switch from anatomy to the semantic geometry used for memory retrieval.</dd>
+            </div>
+            <div>
+              <dt>Causal X-Ray</dt>
+              <dd>Rerun an answer without one retrieved memory to estimate its influence.</dd>
+            </div>
+            <div>
+              <dt>Lineage</dt>
+              <dd>Trace how a memory was created, corrected, consolidated, or supplied to an answer.</dd>
+            </div>
+            <div>
+              <dt>Dream Mode</dt>
+              <dd>Review proposed offline merges and corrections before applying any change.</dd>
+            </div>
+            <div>
+              <dt>Trace playback</dt>
+              <dd>Import recorded OpenAI agent or Responses JSON and replay explicit memory operations.</dd>
+            </div>
+          </dl>
+        </section>
       </div>
     </aside>
   );

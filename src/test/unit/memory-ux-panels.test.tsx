@@ -22,6 +22,10 @@ describe("memory UX panels", () => {
     expect(screen.getByText("How Engram works")).toBeVisible();
     expect(screen.getByText(/Durable facts become memory dots/i)).toBeVisible();
     expect(screen.getByText(/Hippocampus: durable facts land here first/i)).toBeVisible();
+    expect(screen.getByText("Reality map")).toBeVisible();
+    expect(screen.getByText("Causal X-Ray")).toBeVisible();
+    expect(screen.getByText("Lineage")).toBeVisible();
+    expect(screen.getByText("Trace playback")).toBeVisible();
     expect(screen.queryByRole("button", { name: "Start" })).not.toBeInTheDocument();
   });
 
