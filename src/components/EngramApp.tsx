@@ -14,6 +14,7 @@ import { useEventQueue } from "@/hooks/useEventQueue";
 import { useMemoryExplanations } from "@/hooks/useMemoryExplanations";
 import { useMemoryStore } from "@/hooks/useMemoryStore";
 import { useSemanticLayout } from "@/hooks/useSemanticLayout";
+import { useTracePlayback } from "@/hooks/useTracePlayback";
 import { Brain3D } from "@/components/Brain/Brain3D";
 import { ActiveContextPanel } from "@/components/UI/ActiveContextPanel";
 import { CausalXRayPanel } from "@/components/UI/CausalXRayPanel";
@@ -29,6 +30,9 @@ import { RealityModeControl } from "@/components/UI/RealityModeControl";
 import { RegionInspector } from "@/components/UI/RegionInspector";
 import { SemanticModeHUD } from "@/components/UI/SemanticModeHUD";
 import { SecondaryDock, type SecondaryPanel } from "@/components/UI/SecondaryDock";
+import { TraceImportDialog } from "@/components/UI/TraceImportDialog";
+import { TraceInspectorPanel } from "@/components/UI/TraceInspectorPanel";
+import { TracePlaybackBar } from "@/components/UI/TracePlaybackBar";
 import {
   appendTimelineAssistantText,
   appendTimelineEvent,
@@ -44,6 +48,9 @@ import {
 import type { EngramViewMode } from "@/lib/semantic/types";
 import type { TurnRecord } from "@/lib/evidence/types";
 import { buildMemoryLineage } from "@/lib/lineage/build";
+import { importAgentTrace } from "@/lib/traces/import";
+import { sampleAgentTrace } from "@/lib/traces/sample";
+import { traceEventsThrough, type NormalizedTrace } from "@/lib/traces/types";
 import type { BrainRegion, DreamProposal, EngramEvent, EngramMemory, StreamChunk } from "@/types";
 
 const regionShortcuts: Array<{ label: string; region: BrainRegion }> = [
@@ -76,6 +83,10 @@ export function EngramApp({ recordingMode = false }: EngramAppProps) {
   const [turnRecordsByTimelineId, setTurnRecordsByTimelineId] = useState<Record<string, TurnRecord>>({});
   const [causalMemoryId, setCausalMemoryId] = useState<string | undefined>(undefined);
   const [lineageMemoryId, setLineageMemoryId] = useState<string | undefined>(undefined);
+  const [importedTrace, setImportedTrace] = useState<NormalizedTrace | undefined>(undefined);
+  const [traceImportOpen, setTraceImportOpen] = useState(false);
+  const [traceImportError, setTraceImportError] = useState<string | null>(null);
+  const [traceSceneEpoch, setTraceSceneEpoch] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
   const activeTimelineEntryId = useRef<string | undefined>(undefined);
   const turnInFlight = useRef(false);
@@ -86,7 +97,23 @@ export function EngramApp({ recordingMode = false }: EngramAppProps) {
     result: causalResult,
     run: runCausalXRay
   } = useCausalXRay();
-  const { events, eventHistory, pushEvent, clearEvents } = useEventQueue();
+  const tracePlayback = useTracePlayback(importedTrace);
+  const {
+    events: queuedEvents,
+    eventHistory: queuedEventHistory,
+    pushEvent,
+    clearEvents
+  } = useEventQueue();
+  const traceChronologicalEvents = useMemo(
+    () => importedTrace ? traceEventsThrough(importedTrace, tracePlayback.stepIndex) : [],
+    [importedTrace, tracePlayback.stepIndex]
+  );
+  const traceNewestFirstEvents = useMemo(
+    () => traceChronologicalEvents.slice().reverse(),
+    [traceChronologicalEvents]
+  );
+  const events = importedTrace ? traceNewestFirstEvents.slice(0, 50) : queuedEvents;
+  const eventHistory = importedTrace ? traceNewestFirstEvents : queuedEventHistory;
   const memories = useMemoryStore(eventHistory);
   const explanations = useMemoryExplanations(events);
   const loadedMemoryIds = useMemo(() => getLoadedMemoryIds(events), [events]);
@@ -469,10 +496,7 @@ export function EngramApp({ recordingMode = false }: EngramAppProps) {
     setActivePanel("region");
   }, []);
 
-  const resetDemoSession = useCallback(() => {
-    const confirmed = window.confirm("Reset this demo session and clear all memories?");
-    if (!confirmed) return;
-
+  const clearConversationState = useCallback(() => {
     resetSession();
     turnInFlight.current = false;
     activeTimelineEntryId.current = undefined;
@@ -497,6 +521,45 @@ export function EngramApp({ recordingMode = false }: EngramAppProps) {
     resetCausalXRay();
     setProvenancePulseKey((current) => current + 1);
   }, [clearEvents, resetCausalXRay, resetSession]);
+
+  const resetDemoSession = useCallback(() => {
+    const confirmed = window.confirm("Reset this demo session and clear all memories?");
+    if (!confirmed) return;
+
+    clearConversationState();
+    tracePlayback.restart();
+    setImportedTrace(undefined);
+    setTraceImportError(null);
+    setTraceSceneEpoch((current) => current + 1);
+  }, [clearConversationState, tracePlayback]);
+
+  const importTrace = useCallback(
+    (raw: unknown | string) => {
+      try {
+        const result = importAgentTrace(raw);
+        if (isStreaming) cancel();
+        clearConversationState();
+        tracePlayback.restart();
+        setImportedTrace(result.trace);
+        setTraceImportError(null);
+        setTraceImportOpen(false);
+        setTraceSceneEpoch((current) => current + 1);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "The trace could not be imported.";
+        setTraceImportError(message);
+        throw error;
+      }
+    },
+    [cancel, clearConversationState, isStreaming, tracePlayback]
+  );
+
+  const exitTracePlayback = useCallback(() => {
+    clearConversationState();
+    tracePlayback.restart();
+    setImportedTrace(undefined);
+    setTraceImportError(null);
+    setTraceSceneEpoch((current) => current + 1);
+  }, [clearConversationState, tracePlayback]);
 
   const onDockSelect = useCallback(
     (panel: SecondaryPanel) => {
@@ -548,6 +611,46 @@ export function EngramApp({ recordingMode = false }: EngramAppProps) {
     setActivePanel("context");
   }, []);
 
+  const openTraceImport = useCallback(() => {
+    setTraceImportError(null);
+    setTraceImportOpen(true);
+  }, []);
+
+  const openTraceInspector = useCallback(() => {
+    setSelectedMemoryId(undefined);
+    setSelectedRegion(undefined);
+    setActivePanel("trace");
+  }, []);
+
+  const playOrPauseTrace = useCallback(() => {
+    if (tracePlayback.playing) {
+      tracePlayback.pause();
+      return;
+    }
+    if (tracePlayback.stepIndex >= tracePlayback.stepCount - 1) {
+      setTraceSceneEpoch((current) => current + 1);
+    }
+    tracePlayback.play();
+  }, [tracePlayback]);
+
+  const seekTrace = useCallback(
+    (index: number) => {
+      if (index <= tracePlayback.stepIndex) setTraceSceneEpoch((current) => current + 1);
+      tracePlayback.seek(index);
+    },
+    [tracePlayback]
+  );
+
+  const previousTraceStep = useCallback(() => {
+    setTraceSceneEpoch((current) => current + 1);
+    tracePlayback.previous();
+  }, [tracePlayback]);
+
+  const restartTrace = useCallback(() => {
+    setTraceSceneEpoch((current) => current + 1);
+    tracePlayback.restart();
+  }, [tracePlayback]);
+
   const toggleRecordingMode = useCallback(() => {
     setActivePanel(null);
     setCleanDemoMode((current) => !current);
@@ -577,7 +680,9 @@ export function EngramApp({ recordingMode = false }: EngramAppProps) {
         onRegionSelect={onRegionSelect}
         onResetSession={resetDemoSession}
         onRecordingModeToggle={toggleRecordingMode}
+        onTraceImport={openTraceImport}
         responseActive={isStreaming}
+        sceneEpoch={traceSceneEpoch}
         selectedMemoryId={selectedMemoryId}
         focusedMemoryIds={brainFocusMemoryIds}
         focusedRegions={brainFocusRegions}
@@ -630,7 +735,7 @@ export function EngramApp({ recordingMode = false }: EngramAppProps) {
         />
       ) : null}
 
-      {!activePanel ? (
+      {!activePanel && !importedTrace ? (
         <DemoPromptGuide
           currentPrompt={demoStagedPrompt ?? (demoPlaybackActive ? draftTurn?.user : undefined)}
           onRunDemo={runDemoPlayback}
@@ -707,7 +812,25 @@ export function EngramApp({ recordingMode = false }: EngramAppProps) {
         pending={dreamPending}
         proposal={dreamProposal}
       />
-      {!cleanDemoMode ? (
+      {importedTrace ? (
+        <TraceInspectorPanel
+          currentStepIndex={tracePlayback.stepIndex}
+          onClose={closeSecondaryPanel}
+          onSelectStep={seekTrace}
+          open={activePanel === "trace"}
+          trace={importedTrace}
+        />
+      ) : null}
+      {traceImportOpen ? (
+        <TraceImportDialog
+          error={traceImportError}
+          onCancel={() => setTraceImportOpen(false)}
+          onImport={importTrace}
+          onLoadSample={() => importTrace(sampleAgentTrace)}
+          open
+        />
+      ) : null}
+      {!cleanDemoMode && !importedTrace ? (
         <SecondaryDock
           activePanel={activePanel}
           hasActiveContext={activeContextFill.used > 0}
@@ -724,37 +847,54 @@ export function EngramApp({ recordingMode = false }: EngramAppProps) {
         />
       ) : null}
 
-      <form className="chat-bar" data-demo-preview={Boolean(demoStagedPrompt)} onSubmit={onSubmit}>
-        <span className="chat-prefix">›</span>
-        <input
-          ref={inputRef}
-          className="chat-input"
-          suppressHydrationWarning
-          value={message}
-          onChange={(event) => setMessage(event.target.value)}
-          placeholder="Tell me something about yourself..."
-          aria-label="Chat message"
+      {importedTrace ? (
+        <TracePlaybackBar
+          currentStepIndex={tracePlayback.stepIndex}
+          onExit={exitTracePlayback}
+          onInspect={openTraceInspector}
+          onNext={tracePlayback.next}
+          onPlayPause={playOrPauseTrace}
+          onPrevious={previousTraceStep}
+          onRestart={restartTrace}
+          onSeek={seekTrace}
+          onSpeedChange={tracePlayback.setSpeed}
+          playing={tracePlayback.playing}
+          speed={tracePlayback.speed}
+          trace={importedTrace}
         />
-        <span className="chat-status">{chatStatus}</span>
-        {isStreaming ? (
-          <button
-            className="send-btn"
-            type="button"
-            onClick={() => {
-              stopDemoPlayback();
-              turnInFlight.current = false;
-              cancel();
-            }}
-            aria-label="Cancel response"
-          >
-            <Square size={13} />
-          </button>
-        ) : (
-          <button className="send-btn" type="submit" disabled={!message.trim()} aria-label="Send">
-            <Send size={15} />
-          </button>
-        )}
-      </form>
+      ) : (
+        <form className="chat-bar" data-demo-preview={Boolean(demoStagedPrompt)} onSubmit={onSubmit}>
+          <span className="chat-prefix">›</span>
+          <input
+            ref={inputRef}
+            className="chat-input"
+            suppressHydrationWarning
+            value={message}
+            onChange={(event) => setMessage(event.target.value)}
+            placeholder="Tell me something about yourself..."
+            aria-label="Chat message"
+          />
+          <span className="chat-status">{chatStatus}</span>
+          {isStreaming ? (
+            <button
+              className="send-btn"
+              type="button"
+              onClick={() => {
+                stopDemoPlayback();
+                turnInFlight.current = false;
+                cancel();
+              }}
+              aria-label="Cancel response"
+            >
+              <Square size={13} />
+            </button>
+          ) : (
+            <button className="send-btn" type="submit" disabled={!message.trim()} aria-label="Send">
+              <Send size={15} />
+            </button>
+          )}
+        </form>
+      )}
     </main>
   );
 }

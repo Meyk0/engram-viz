@@ -9,7 +9,8 @@ export type SecondaryPanel =
   | "dream"
   | "help"
   | "xray"
-  | "lineage";
+  | "lineage"
+  | "trace";
 
 type SecondaryDockProps = {
   activeContextCount: number;

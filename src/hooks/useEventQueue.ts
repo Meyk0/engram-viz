@@ -22,10 +22,5 @@ export function useEventQueue(initialEvents: EngramEvent[] = []) {
     setEventHistory([]);
   }, []);
 
-  const replaceEvents = useCallback((nextNewestFirst: EngramEvent[]) => {
-    setEvents(nextNewestFirst.slice(0, 50));
-    setEventHistory(nextNewestFirst);
-  }, []);
-
-  return { events, eventHistory, pushEvent, clearEvents, replaceEvents };
+  return { events, eventHistory, pushEvent, clearEvents };
 }

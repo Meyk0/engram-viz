@@ -3,7 +3,7 @@
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { OrbitControls, Stars } from "@react-three/drei";
 import { Bloom, EffectComposer } from "@react-three/postprocessing";
-import { Clapperboard, Ellipsis, Info, MapPin, RotateCcw, Trash2 } from "lucide-react";
+import { Clapperboard, Ellipsis, FileUp, Info, MapPin, RotateCcw, Trash2 } from "lucide-react";
 import { Suspense, useCallback, useEffect, useRef, useState, type RefObject } from "react";
 import * as THREE from "three";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
@@ -38,7 +38,9 @@ type Brain3DProps = {
   onRegionSelect?: (region: keyof typeof regionBounds) => void;
   onResetSession?: () => void;
   onRecordingModeToggle?: () => void;
+  onTraceImport?: () => void;
   responseActive?: boolean;
+  sceneEpoch?: number;
   selectedMemoryId?: string;
 };
 
@@ -60,7 +62,9 @@ export function Brain3D({
   onRegionSelect,
   onResetSession,
   onRecordingModeToggle,
+  onTraceImport,
   responseActive = false,
+  sceneEpoch = 0,
   selectedMemoryId
 }: Brain3DProps) {
   const controls = useRef<OrbitControlsImpl>(null);
@@ -88,6 +92,7 @@ export function Brain3D({
         <Stars radius={8} depth={18} count={900} factor={2.2} saturation={0} fade speed={0.35} />
         <Suspense fallback={<FallbackBrain />}>
           <BrainRig
+            key={sceneEpoch}
             events={events}
             memories={memories}
             loadedMemoryIds={loadedMemoryIds}
@@ -142,6 +147,16 @@ export function Brain3D({
         </button>
         {recordingMode ? null : (
           <>
+            <button
+              aria-label="Import agent trace"
+              className="brain-tool-btn"
+              disabled={!onTraceImport}
+              onClick={onTraceImport}
+              title="Import agent trace"
+              type="button"
+            >
+              <FileUp size={14} />
+            </button>
             <button
               aria-label="Open how Engram works"
               className="brain-tool-btn"

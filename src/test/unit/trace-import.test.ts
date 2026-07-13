@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { importAgentTrace } from "@/lib/traces/import";
 import { traceMemoryOperationCount, traceStepEvents } from "@/lib/traces/types";
+import { sampleAgentTrace } from "@/lib/traces/sample";
 
 const memory = {
   id: "memory-indigo",
@@ -12,6 +13,22 @@ const memory = {
 };
 
 describe("trace import", () => {
+  it("loads the bundled Agents SDK sample as explicit memory playback", () => {
+    const result = importAgentTrace(sampleAgentTrace);
+
+    expect(result.trace.trace.name).toBe("Personalization agent");
+    expect(result.trace.trace.source.format).toBe("agents-sdk-export");
+    expect(result.trace.steps.flatMap(traceStepEvents).map((event) => event.type)).toEqual([
+      "store",
+      "store",
+      "consolidate",
+      "retrieve",
+      "load",
+      "fire"
+    ]);
+    expect(result.warnings).toEqual([]);
+  });
+
   it("accepts, sanitizes, and deterministically orders a normalized Engram trace", () => {
     const result = importAgentTrace({
       schemaVersion: 1,

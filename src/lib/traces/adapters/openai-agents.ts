@@ -56,7 +56,7 @@ export function importOpenAIAgents(input: unknown): NormalizedTrace {
     ) ?? "agent step";
     const startedAt = normalizeTimestamp(firstDefined(span.started_at, span.startedAt, data.started_at, data.startedAt));
     const endedAt = normalizeTimestamp(firstDefined(span.ended_at, span.endedAt, data.ended_at, data.endedAt));
-    const rawInput = parseJsonValue(firstDefined(data.input, data.arguments, data.event, span.input));
+    const rawInput = parseJsonValue(firstDefined(data.input, data.arguments, data.event, data.data, span.input));
     const rawOutput = parseJsonValue(firstDefined(data.output, data.result, span.output));
     const sourcePath = `items[${itemIndex}]`;
 

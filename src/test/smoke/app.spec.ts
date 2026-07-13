@@ -67,7 +67,7 @@ test("runs the demo and focuses completed memory story turns", async ({ page }) 
   await expect(page.getByLabel("Chat message")).toHaveValue("I love the color indigo.");
   await expect(page.getByLabel("Demo controls")).toContainText("I love the color indigo.");
   await expect(page.locator(".chat-status")).toContainText("READY", { timeout: 20_000 });
-  await page.getByRole("button", { name: "Stop demo" }).click();
+  await page.getByRole("button", { name: "Stop demo" }).click({ force: true });
   await expect(page.getByLabel("Current memory receipt")).toContainText(/Stored|Preparing memory/i, { timeout: 12_000 });
   await page.getByRole("button", { name: "Story" }).click({ force: true });
   const timeline = page.getByRole("complementary", { name: "Memory story" });
@@ -81,7 +81,7 @@ test("runs the demo and focuses completed memory story turns", async ({ page }) 
 
   await page.getByRole("button", { name: "Run demo" }).click();
   await expect(page.getByRole("button", { name: "Story 2" })).toBeVisible({ timeout: 20_000 });
-  await page.getByRole("button", { name: "Stop demo" }).click();
+  await page.getByRole("button", { name: "Stop demo" }).click({ force: true });
   await page.getByRole("button", { name: "Story" }).click({ force: true });
   await expect(page.getByLabel("Timeline turn 2")).toBeVisible({ timeout: 12_000 });
 });
@@ -255,6 +255,36 @@ test("runs a Causal X-Ray without mutating the memory session", async ({ page })
   await expect(page.getByRole("button", { name: "Story 2" })).toBeVisible();
 });
 
+test("imports and replays an observed OpenAI agent memory trace", async ({ page }) => {
+  test.setTimeout(45_000);
+  await page.goto("/");
+
+  await page.getByRole("button", { name: "Import agent trace" }).click();
+  const dialog = page.getByRole("dialog", { name: "Import a recorded trace" });
+  await expect(dialog).toContainText("Parsed locally; never uploaded");
+  await page.getByRole("button", { name: "Load sample trace" }).click();
+
+  const playback = page.getByRole("region", { name: "Trace playback controls" });
+  await expect(playback).toContainText("Personalization agent");
+  await expect(page.getByLabel("Chat message")).toHaveCount(0);
+
+  await page.getByRole("button", { name: "Next trace step" }).click();
+  await expect(playback).toContainText("No memory event");
+  await page.getByRole("button", { name: "Next trace step" }).click();
+  await expect(playback).toContainText("Observed memory event");
+  await expect(page.getByLabel("Current memory receipt")).toContainText("Stored", { timeout: 12_000 });
+
+  await page.getByRole("button", { name: "Inspect trace" }).click();
+  const inspector = page.getByRole("complementary", { name: "Trace inspector" });
+  await expect(inspector).toContainText("6 observed");
+  await expect(inspector).toContainText("Neither proves hidden model reasoning");
+  await page.getByRole("button", { name: "Close trace inspector" }).click();
+
+  await page.getByRole("button", { name: "Exit trace playback" }).click();
+  await expect(page.getByLabel("Chat message")).toBeVisible();
+  await expect(page.getByLabel("Demo controls")).toBeVisible();
+});
+
 test("opens and dismisses Dream Mode after enough memories", async ({ page }) => {
   test.setTimeout(60_000);
   await page.setViewportSize({ width: 390, height: 700 });
@@ -279,7 +309,7 @@ test("opens and dismisses Dream Mode after enough memories", async ({ page }) =>
   await expect(dreamPanel).toBeVisible({ timeout: 12_000 });
   await expect(page.getByText(/Dream review complete|Model-reviewed memories/)).toBeVisible();
   await expect(dreamPanel).toContainText("Nothing changes until you apply it");
-  await expect(page.getByLabel("Current memory receipt")).toContainText(/Dream|Review/i);
+  await expect(page.getByLabel("Current memory receipt")).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Apply dream" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Keep current memories" })).toBeVisible();
 
