@@ -1,0 +1,82 @@
+# Authenticated telemetry ingestion
+
+Engram telemetry v2 can be sent to `POST /api/telemetry/v2` and resumed with
+`GET /api/telemetry/v2?after=<cursor>&limit=<count>`. Every request is bound to
+one configured tenant and project. Event-supplied project IDs cannot cross that
+boundary.
+
+This endpoint is disabled until at least one ingest key is configured.
+
+## Configure an ingest key
+
+Generate a high-entropy token and store only its SHA-256 digest in Engram:
+
+```bash
+TOKEN="$(openssl rand -hex 32)"
+printf %s "$TOKEN" | shasum -a 256
+```
+
+Keep `TOKEN` in the sending agent's secret store. Configure Engram with the
+digest, tenant, and fixed project:
+
+```env
+ENGRAM_INGEST_KEYS_JSON=[{"keyId":"agent-prod","tenantId":"tenant-acme","projectId":"support-agent","tokenSha256":"<64-char digest>"}]
+```
+
+The sender uses `Authorization: Bearer <TOKEN>`. Engram hashes the presented
+token and uses a constant-time comparison against configured digests.
+
+## Send from an agent
+
+The framework-neutral client validates events, preserves order, batches, and
+retries without removing failed events from its buffer:
+
+```ts
+import {
+  MemoryTelemetryClient,
+  createMemoryTelemetryHttpTransport
+} from "./src/lib/telemetry";
+
+const telemetry = new MemoryTelemetryClient({
+  transport: createMemoryTelemetryHttpTransport({
+    endpoint: "https://engram.example/api/telemetry/v2",
+    token: process.env.ENGRAM_INGEST_TOKEN!
+  }),
+  flushIntervalMs: 500,
+  maxBatchSize: 25
+});
+```
+
+Call `flush()` at transaction boundaries and `close()` during graceful
+shutdown. Each event needs a stable `eventId`; retries with the same ID are
+reported as duplicates instead of creating another row.
+
+## Durable Supabase storage
+
+Without either database variable, the API uses an in-process store. That is useful
+for local development only and can be lost on restart or serverless eviction.
+Supplying only a URL or only a secret fails closed instead of silently falling
+back to ephemeral storage.
+
+To use Supabase:
+
+1. Apply `supabase/migrations/20260714181928_telemetry_ingestion.sql`.
+2. Set `SUPABASE_URL` and the server-only `SUPABASE_SECRET_KEY`.
+3. Never prefix the secret with `NEXT_PUBLIC_` or send it to a browser.
+
+The migration enables RLS, revokes all table privileges from `anon` and
+`authenticated`, and grants only `SELECT` and `INSERT` to `service_role`.
+There are intentionally no browser policies. Current Supabase projects require
+explicit Data API grants for new tables, so the service-role grant is part of
+the migration: <https://supabase.com/docs/guides/api/securing-your-api>.
+
+## Browser and operational boundaries
+
+- Cross-origin browser access is denied by default. Add exact origins to
+  `ENGRAM_INGEST_ALLOWED_ORIGINS` only when a browser client is intentional.
+- The ingest token authorizes both append and project-scoped resume reads.
+- Raw tokens and Supabase secrets must stay in server or agent secret stores.
+- A cursor records accepted ingest order. The source `sequence` remains part of
+  the event and may expose network reordering.
+- The local store is not distributed rate limiting or durable storage. Use
+  platform quotas and database monitoring in production.
