@@ -3,6 +3,26 @@ import { POST } from "@/app/api/dream/route";
 import type { EngramMemory } from "@/types";
 
 describe("/api/dream", () => {
+  it("rejects malformed, oversized, and unbounded dream inputs", async () => {
+    const malformed = await POST(new Request("http://localhost/api/dream", {
+      method: "POST",
+      body: "{broken"
+    }));
+    const oversized = await POST(new Request("http://localhost/api/dream", {
+      method: "POST",
+      headers: { "Content-Length": "256001" },
+      body: JSON.stringify({ clientMemories: [] })
+    }));
+    const tooManyMemories = await POST(new Request("http://localhost/api/dream", {
+      method: "POST",
+      body: JSON.stringify({ clientMemories: Array.from({ length: 201 }, () => ({})) })
+    }));
+
+    expect(malformed.status).toBe(400);
+    expect(oversized.status).toBe(413);
+    expect(tooManyMemories.status).toBe(400);
+  });
+
   it("returns a deterministic dream proposal for client memories", async () => {
     const memories = [
       makeMemory("mem-red-1", "User likes deep red interfaces.", "interface_style"),

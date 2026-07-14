@@ -11,6 +11,26 @@ import type { MemoryRetriever } from "@/lib/memory/retrieve";
 import type { TurnMemoryPlanner } from "@/lib/memory/turn-planner";
 
 describe("/api/chat", () => {
+  it("rejects malformed and oversized request bodies before starting a stream", async () => {
+    const malformed = await POST(new Request("http://localhost/api/chat", {
+      method: "POST",
+      body: "{broken"
+    }));
+    const oversized = await POST(new Request("http://localhost/api/chat", {
+      method: "POST",
+      headers: { "Content-Length": "256001" },
+      body: JSON.stringify({ message: "hello" })
+    }));
+    const invalidHistory = await POST(new Request("http://localhost/api/chat", {
+      method: "POST",
+      body: JSON.stringify({ message: "hello", history: [{ role: "system", content: "hidden" }] })
+    }));
+
+    expect(malformed.status).toBe(400);
+    expect(oversized.status).toBe(413);
+    expect(invalidHistory.status).toBe(400);
+  });
+
   it("returns live memory SSE chunks in demo mode", async () => {
     resetLiveMemoryStore();
 
