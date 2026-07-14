@@ -1,5 +1,6 @@
 import { Activity, BrainCircuit, GitBranch, History, MapPin, MoonStar, ScanSearch, ShieldCheck } from "lucide-react";
 import type { ReactNode } from "react";
+import type { EngramProductMode } from "@/lib/lab/types";
 
 export type SecondaryPanel =
   | "timeline"
@@ -30,6 +31,7 @@ type SecondaryDockProps = {
   integrityAvailable?: boolean;
   integrityCount?: number;
   memoryCount: number;
+  mode: EngramProductMode;
   onSelect: (panel: SecondaryPanel) => void;
   regionCount: number;
   retrievalCount?: number;
@@ -50,6 +52,7 @@ export function SecondaryDock({
   integrityAvailable = false,
   integrityCount = 0,
   memoryCount,
+  mode,
   onSelect,
   regionCount,
   retrievalCount = 0,
@@ -57,7 +60,7 @@ export function SecondaryDock({
   timelineCount
 }: SecondaryDockProps) {
   const shouldShowDream = hasDreamReview || dreamReady || dreamCount >= 3;
-  const items: Array<{
+  const learnItems: Array<{
     count: number;
     badge?: string;
     icon: ReactNode;
@@ -70,37 +73,6 @@ export function SecondaryDock({
       id: "timeline",
       label: "Story"
     },
-    ...(checkpointCount > 0
-      ? [
-          {
-            count: checkpointCount,
-            icon: <GitBranch size={14} />,
-            id: "timeMachine" as const,
-            label: "Time Machine"
-          }
-        ]
-      : []),
-    ...(integrityAvailable
-      ? [
-          {
-            count: integrityCount,
-            badge: integrityCount === 0 ? "Clear" : undefined,
-            icon: <ShieldCheck size={14} />,
-            id: "integrity" as const,
-            label: "Integrity"
-          }
-        ]
-      : []),
-    ...(hasRetrieval
-      ? [
-          {
-            count: retrievalCount,
-            icon: <ScanSearch size={14} />,
-            id: "retrieval" as const,
-            label: "Retrieval MRI"
-          }
-        ]
-      : []),
     ...(shouldShowDream
       ? [
           {
@@ -143,6 +115,32 @@ export function SecondaryDock({
         ]
       : [])
   ];
+  const investigateItems: typeof learnItems = [
+    {
+      count: checkpointCount,
+      icon: <GitBranch size={14} />,
+      id: "timeMachine",
+      label: "Time Machine"
+    },
+    ...(integrityAvailable
+      ? [{
+          count: integrityCount,
+          badge: integrityCount === 0 ? "Clear" : undefined,
+          icon: <ShieldCheck size={14} />,
+          id: "integrity" as const,
+          label: "Integrity"
+        }]
+      : []),
+    ...(hasRetrieval
+      ? [{
+          count: retrievalCount,
+          icon: <ScanSearch size={14} />,
+          id: "retrieval" as const,
+          label: "Retrieval MRI"
+        }]
+      : [])
+  ];
+  const items = mode === "investigate" ? investigateItems : mode === "learn" ? learnItems : [];
 
   return (
     <nav className="secondary-dock" aria-label="Secondary views">

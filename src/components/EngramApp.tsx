@@ -16,6 +16,7 @@ import { useMemoryStore } from "@/hooks/useMemoryStore";
 import { useSemanticLayout } from "@/hooks/useSemanticLayout";
 import { useLiveTraceRecorder } from "@/hooks/useLiveTraceRecorder";
 import { useTracePlayback } from "@/hooks/useTracePlayback";
+import { useGuidedDemoPlayback } from "@/hooks/useGuidedDemoPlayback";
 import { Brain3D } from "@/components/Brain/Brain3D";
 import { ActiveContextPanel } from "@/components/UI/ActiveContextPanel";
 import { AgentTopologyPanel } from "@/components/UI/AgentTopologyPanel";
@@ -80,10 +81,6 @@ const regionShortcuts: Array<{ label: string; region: BrainRegion }> = [
   { label: "Stable", region: "temporal" }
 ];
 
-const DEMO_FIRST_LINE_DELAY_MS = 1_100;
-const DEMO_INTER_TURN_HOLD_MS = 4_200;
-const DEMO_STAGED_LINE_HOLD_MS = 3_000;
-
 type EngramAppProps = {
   recordingMode?: boolean;
 };
@@ -93,8 +90,6 @@ export function EngramApp({ recordingMode = false }: EngramAppProps) {
   const [draftTurn, setDraftTurn] = useState<{ user: string; assistant: string } | null>(null);
   const [activePanel, setActivePanel] = useState<SecondaryPanel | null>(null);
   const [cleanDemoMode, setCleanDemoMode] = useState(recordingMode);
-  const [demoPlaybackActive, setDemoPlaybackActive] = useState(false);
-  const [demoStagedPrompt, setDemoStagedPrompt] = useState<string | null>(null);
   const [provenancePulseKey, setProvenancePulseKey] = useState(0);
   const [selectedMemoryId, setSelectedMemoryId] = useState<string | undefined>(undefined);
   const [selectedRegion, setSelectedRegion] = useState<BrainRegion | undefined>(undefined);
@@ -540,56 +535,35 @@ export function EngramApp({ recordingMode = false }: EngramAppProps) {
     [isStreaming, sendMessage]
   );
 
+  const isTurnInFlight = useCallback(() => turnInFlight.current, []);
+  const {
+    active: demoPlaybackActive,
+    stagedPrompt: demoStagedPrompt,
+    start: startGuidedDemoPlayback,
+    stop: stopGuidedDemoPlayback
+  } = useGuidedDemoPlayback({
+    prompts: timelineDemoPrompts,
+    message,
+    setMessage,
+    conversationCount: conversationTimelineCount,
+    isStreaming,
+    isTurnInFlight,
+    sendTurn
+  });
+
   const runDemoPlayback = useCallback(() => {
     setProductMode("learn");
     setActivePanel(null);
     setSelectedMemoryId(undefined);
     setSelectedRegion(undefined);
     setFocusedTimelineId(undefined);
-    setDemoStagedPrompt(null);
-    setDemoPlaybackActive(true);
-  }, []);
+    startGuidedDemoPlayback();
+  }, [startGuidedDemoPlayback]);
 
   const stopDemoPlayback = useCallback(() => {
-    if (demoStagedPrompt && message === demoStagedPrompt) {
-      setMessage("");
-    }
-    setDemoStagedPrompt(null);
-    setDemoPlaybackActive(false);
+    stopGuidedDemoPlayback();
     setViewMode("anatomical");
-  }, [demoStagedPrompt, message]);
-
-  useEffect(() => {
-    if (!demoPlaybackActive) return;
-    if (isStreaming) return;
-    if (turnInFlight.current) return;
-
-    const prompt = timelineDemoPrompts[conversationTimelineCount];
-    if (!prompt) {
-      const timer = window.setTimeout(() => setDemoPlaybackActive(false), 0);
-      return () => window.clearTimeout(timer);
-    }
-
-    if (message.trim() && message !== prompt) return;
-
-    if (demoStagedPrompt === prompt) {
-      const sendTimer = window.setTimeout(() => {
-        setDemoStagedPrompt(null);
-        void sendTurn(prompt);
-      }, DEMO_STAGED_LINE_HOLD_MS);
-      return () => window.clearTimeout(sendTimer);
-    }
-
-    const delay = conversationTimelineCount === 0
-      ? DEMO_FIRST_LINE_DELAY_MS
-      : DEMO_INTER_TURN_HOLD_MS;
-    const timer = window.setTimeout(() => {
-      setMessage(prompt);
-      setDemoStagedPrompt(prompt);
-    }, delay);
-
-    return () => window.clearTimeout(timer);
-  }, [conversationTimelineCount, demoPlaybackActive, demoStagedPrompt, isStreaming, message, sendTurn]);
+  }, [stopGuidedDemoPlayback]);
 
   const onRegionSelect = useCallback((region: BrainRegion) => {
     setSelectedMemoryId(undefined);
@@ -613,8 +587,7 @@ export function EngramApp({ recordingMode = false }: EngramAppProps) {
     setDreamError(null);
     setTimelineEntries([]);
     setFocusedTimelineId(undefined);
-    setDemoStagedPrompt(null);
-    setDemoPlaybackActive(false);
+    stopGuidedDemoPlayback();
     setViewMode("anatomical");
     setProductMode("learn");
     setTurnRecordsByTimelineId({});
@@ -623,7 +596,7 @@ export function EngramApp({ recordingMode = false }: EngramAppProps) {
     setTimeMachineFocusMemoryIds([]);
     resetCausalXRay();
     setProvenancePulseKey((current) => current + 1);
-  }, [clearEvents, resetCausalXRay, resetSession]);
+  }, [clearEvents, resetCausalXRay, resetSession, stopGuidedDemoPlayback]);
 
   const resetDemoSession = useCallback(() => {
     const confirmed = window.confirm("Reset this demo session and clear all memories?");
@@ -730,8 +703,7 @@ export function EngramApp({ recordingMode = false }: EngramAppProps) {
 
   function onSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setDemoStagedPrompt(null);
-    setDemoPlaybackActive(false);
+    stopGuidedDemoPlayback();
     void sendTurn(message);
   }
 
@@ -1151,6 +1123,7 @@ export function EngramApp({ recordingMode = false }: EngramAppProps) {
           activeContextCount={activeContextFill.used}
           timelineCount={timelineEntries.length}
           memoryCount={memoryDetailCount}
+          mode={productMode}
           onSelect={onDockSelect}
           hasRegionDetails={regionDetailCount > 0}
           hasRetrieval={Boolean(latestRetrieve)}

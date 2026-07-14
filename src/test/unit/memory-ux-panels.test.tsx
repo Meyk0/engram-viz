@@ -137,6 +137,7 @@ describe("memory UX panels", () => {
         hasMemoryDetails={false}
         hasRegionDetails={false}
         memoryCount={0}
+        mode="learn"
         onSelect={onSelect}
         regionCount={0}
         timelineCount={0}
@@ -160,6 +161,7 @@ describe("memory UX panels", () => {
         hasMemoryDetails={false}
         hasRegionDetails={false}
         memoryCount={0}
+        mode="learn"
         onSelect={onSelect}
         regionCount={0}
         timelineCount={0}
@@ -169,6 +171,30 @@ describe("memory UX panels", () => {
     await user.click(screen.getByRole("button", { name: "Story" }));
 
     expect(onSelect).toHaveBeenCalledWith("timeline");
+  });
+
+  it("keeps a focused investigation dock available before checkpoints exist", async () => {
+    const onSelect = vi.fn();
+    const user = userEvent.setup();
+
+    render(
+      <SecondaryDock
+        activeContextCount={0}
+        activePanel={null}
+        hasActiveContext={false}
+        hasMemoryDetails={false}
+        hasRegionDetails={false}
+        memoryCount={0}
+        mode="investigate"
+        onSelect={onSelect}
+        regionCount={0}
+        timelineCount={0}
+      />
+    );
+
+    expect(screen.queryByRole("button", { name: "Story" })).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Time Machine" }));
+    expect(onSelect).toHaveBeenCalledWith("timeMachine");
   });
 
   it("opens Retrieval MRI when candidate evidence exists", async () => {
@@ -184,6 +210,7 @@ describe("memory UX panels", () => {
         hasRegionDetails={false}
         hasRetrieval
         memoryCount={2}
+        mode="investigate"
         onSelect={onSelect}
         regionCount={0}
         retrievalCount={2}
@@ -208,6 +235,7 @@ describe("memory UX panels", () => {
         integrityAvailable
         integrityCount={2}
         memoryCount={3}
+        mode="investigate"
         onSelect={onSelect}
         regionCount={0}
         timelineCount={1}
