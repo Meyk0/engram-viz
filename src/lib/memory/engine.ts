@@ -18,6 +18,7 @@ export type RetrieveMemoryInput = {
   limit?: number;
   retriever?: MemoryRetriever;
   now?: string;
+  signal?: AbortSignal;
 };
 
 export type ConsolidateMemoryInput = {
@@ -54,7 +55,8 @@ export class MemoryEngine {
     const retrieval = await (input.retriever ?? this.retriever).retrieve({
       memories: listMemories(session),
       query: input.query,
-      limit: input.limit
+      limit: input.limit,
+      signal: input.signal
     });
     const ids = retrieval.results.map((result) => result.memory.id);
     const accessed = markAccessed(session, ids, input.now);

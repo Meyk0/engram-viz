@@ -5,6 +5,7 @@ export type ChatTurnInput = {
   message: string;
   history: ChatMessage[];
   retrievedMemories: EngramMemory[];
+  signal?: AbortSignal;
   storedMemories?: EngramMemory[];
   turnIntent?: TurnMemoryPlan["intent"];
 };

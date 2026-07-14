@@ -19,8 +19,8 @@ describe("POST /api/lab/replay", () => {
     expect(result.evidence).toBe("replayed");
     expect(result.baselineMemoryIds).toEqual(["mem-color", "mem-location"]);
     expect(result.branchMemoryIds).toEqual(["mem-location"]);
-    expect(result.baselineAnswer).toContain("2 prior memory traces");
-    expect(result.branchAnswer).toContain("1 prior memory trace");
+    expect(result.baselineAnswer).toContain("Based on 2 retrieved memories");
+    expect(result.branchAnswer).toContain("Based on the retrieved memory");
     expect(result.changed).toBe(true);
     expect(result.caveat).toContain("does not reproduce hidden model state");
   });

@@ -37,6 +37,7 @@ export type LiveChatInput = {
   chatProvider?: ChatProviderClient;
   memoryStore?: MemoryStore;
   now?: string;
+  signal?: AbortSignal;
 };
 
 export async function createLiveMemoryStream(input: LiveChatInput): Promise<StreamChunk[]> {
@@ -101,6 +102,7 @@ async function* orchestrateLiveMemoryChunks(
   engine: MemoryEngine
 ): AsyncGenerator<StreamChunk, OrchestrationResult> {
   const history = input.history ?? [];
+  input.signal?.throwIfAborted();
   const memoryConsolidationPlanner =
     input.memoryConsolidationPlanner ?? configuredMemoryConsolidationPlanner();
   const turnMemoryPlanner =
@@ -117,8 +119,10 @@ async function* orchestrateLiveMemoryChunks(
   const turnPlan = await turnMemoryPlanner.decide({
     message: input.message,
     history,
-    memories: await store.list(input.sessionId)
+    memories: await store.list(input.sessionId),
+    signal: input.signal
   });
+  input.signal?.throwIfAborted();
   let planEmitted = false;
   const storedIds: string[] = [];
 
@@ -136,9 +140,11 @@ async function* orchestrateLiveMemoryChunks(
         query: turnPlan.retrieveQuery ?? input.message,
         limit: 3,
         retriever: memoryRetriever,
-        now: input.now
+        now: input.now,
+        signal: input.signal
       })
     : undefined;
+  input.signal?.throwIfAborted();
 
   if (retrieve) {
     yield { kind: "event", event: retrieve };
@@ -177,12 +183,14 @@ async function* orchestrateLiveMemoryChunks(
     message: input.message,
     history,
     retrievedMemories,
+    signal: input.signal,
     storedMemories,
     turnIntent: turnPlan.intent
   })) {
     if (chunk.kind === "done") continue;
     yield chunk;
   }
+  input.signal?.throwIfAborted();
 
   if (!storeBeforeResponse) {
     for (const chunk of await storePlannedMemories({
@@ -200,8 +208,10 @@ async function* orchestrateLiveMemoryChunks(
   if (storedIds.length > 0) {
     const consolidationDecision = await memoryConsolidationPlanner.decide({
       memories: await store.list(input.sessionId),
-      recentMemoryIds: storedIds
+      recentMemoryIds: storedIds,
+      signal: input.signal
     });
+    input.signal?.throwIfAborted();
 
     if (consolidationDecision.operation === "consolidate") {
       const consolidated = await engine.consolidate({

@@ -18,6 +18,7 @@ export type MemoryRetrievalInput = {
   memories: EngramMemory[];
   query: string;
   limit?: number;
+  signal?: AbortSignal;
 };
 
 export type MemoryRetrievalOutput = {

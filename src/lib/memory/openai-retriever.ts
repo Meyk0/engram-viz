@@ -85,6 +85,7 @@ export class OpenAISemanticMemoryRetriever implements MemoryRetriever {
           Authorization: `Bearer ${this.apiKey}`,
           "Content-Type": "application/json"
         },
+        signal: input.signal,
         body: JSON.stringify({
           model: this.model,
           input: [input.query, ...eligibleMemories.map(memoryEmbeddingText)]

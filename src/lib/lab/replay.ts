@@ -27,19 +27,22 @@ export class MemoryBranchReplayProviderError extends Error {
 
 export async function runMemoryBranchReplay(
   request: MemoryBranchReplayRequest,
-  provider: ChatProviderClient = createChatProvider(configuredChatProvider())
+  provider: ChatProviderClient = createChatProvider(configuredChatProvider()),
+  signal?: AbortSignal
 ): Promise<MemoryBranchReplayResult> {
   validateBranchReplay(request);
 
   const baselineAnswer = await replay(provider, {
     message: request.record.userMessage,
     history: structuredClone(request.record.history),
-    retrievedMemories: structuredClone(request.record.retrievedMemories)
+    retrievedMemories: structuredClone(request.record.retrievedMemories),
+    signal
   });
   const branchAnswer = await replay(provider, {
     message: request.record.userMessage,
     history: structuredClone(request.record.history),
-    retrievedMemories: structuredClone(request.branchContextMemories)
+    retrievedMemories: structuredClone(request.branchContextMemories),
+    signal
   });
   const comparison = compareReplayAnswers(baselineAnswer, branchAnswer);
 

@@ -23,7 +23,8 @@ export class CausalAblationProviderError extends Error {
 
 export async function runCausalAblation(
   request: CausalAblationRequest,
-  provider: ChatProviderClient = createChatProvider(configuredChatProvider())
+  provider: ChatProviderClient = createChatProvider(configuredChatProvider()),
+  signal?: AbortSignal
 ): Promise<CausalAblationResult> {
   validateExcludedMemoryIds(request);
 
@@ -31,14 +32,16 @@ export async function runCausalAblation(
   const baselineAnswer = await replayTurn(provider, {
     message: request.record.userMessage,
     history: structuredClone(request.record.history),
-    retrievedMemories: structuredClone(request.record.retrievedMemories)
+    retrievedMemories: structuredClone(request.record.retrievedMemories),
+    signal
   });
   const counterfactualAnswer = await replayTurn(provider, {
     message: request.record.userMessage,
     history: structuredClone(request.record.history),
     retrievedMemories: structuredClone(
       request.record.retrievedMemories.filter((memory) => !excludedIds.has(memory.id))
-    )
+    ),
+    signal
   });
   const comparison = compareReplayAnswers(baselineAnswer, counterfactualAnswer);
 

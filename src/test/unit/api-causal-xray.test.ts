@@ -18,8 +18,8 @@ describe("POST /api/causal-xray", () => {
     const result = causalAblationResultSchema.parse(body);
 
     expect(response.status).toBe(200);
-    expect(result.baselineAnswer).toContain("2 prior memory traces");
-    expect(result.counterfactualAnswer).toContain("1 prior memory trace");
+    expect(result.baselineAnswer).toContain("Based on 2 retrieved memories");
+    expect(result.counterfactualAnswer).toContain("Based on the retrieved memory");
     expect(result.changed).toBe(true);
     expect(result.comparison.outcome).toBe("changed");
     expect(result.comparison.normalizedTextDistance).toBeGreaterThan(0);

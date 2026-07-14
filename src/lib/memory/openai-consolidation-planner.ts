@@ -72,6 +72,7 @@ export class OpenAIConsolidationPlanner implements MemoryConsolidationPlanner {
           Authorization: `Bearer ${this.apiKey}`,
           "Content-Type": "application/json"
         },
+        signal: input.signal,
         body: JSON.stringify({
           model: this.model,
           instructions: buildConsolidationInstructions(),

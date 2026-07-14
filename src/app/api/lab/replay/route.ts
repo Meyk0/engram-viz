@@ -8,6 +8,7 @@ import {
   MemoryBranchReplayValidationError,
   runMemoryBranchReplay
 } from "@/lib/lab/replay";
+import { createRequestDeadline } from "@/lib/request-signal";
 
 export const runtime = "nodejs";
 
@@ -34,8 +35,9 @@ export async function POST(request: Request) {
     return errorResponse("Memory branch replay request failed validation.", 400);
   }
 
+  const deadline = createRequestDeadline(request.signal, 45_000);
   try {
-    const result = await runMemoryBranchReplay(parsed.data);
+    const result = await runMemoryBranchReplay(parsed.data, undefined, deadline.signal);
     return Response.json(memoryBranchReplayResultSchema.parse(result));
   } catch (error) {
     if (error instanceof MemoryBranchReplayValidationError) {
@@ -45,6 +47,8 @@ export async function POST(request: Request) {
       return errorResponse("Memory branch provider replay failed.", 502);
     }
     return errorResponse("Memory branch replay failed.", 500);
+  } finally {
+    deadline.dispose();
   }
 }
 

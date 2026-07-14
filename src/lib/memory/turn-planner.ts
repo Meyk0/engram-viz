@@ -56,6 +56,7 @@ export type TurnMemoryPlanningInput = {
   history?: ChatMessage[];
   memories?: EngramMemory[];
   message: string;
+  signal?: AbortSignal;
 };
 
 export interface TurnMemoryPlanner {

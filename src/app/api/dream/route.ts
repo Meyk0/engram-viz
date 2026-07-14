@@ -2,6 +2,7 @@ import { dreamProposalSchema, engramMemorySchema } from "@/lib/events/schema";
 import { configuredDreamPlanner } from "@/lib/memory/planner-config";
 import { readBoundedJson, RequestBodyError } from "@/lib/http";
 import type { EngramMemory } from "@/types";
+import { createRequestDeadline } from "@/lib/request-signal";
 
 export const runtime = "nodejs";
 const MAX_DREAM_REQUEST_BYTES = 256_000;
@@ -31,13 +32,16 @@ export async function POST(request: Request) {
   }
   const body = rawBody;
   const now = typeof body.now === "string" ? body.now : undefined;
+  const deadline = createRequestDeadline(request.signal, 30_000);
 
   try {
     const planner = configuredDreamPlanner();
     const proposal = await planner.decide({
       memories: parseClientMemories(body.clientMemories),
-      now
+      now,
+      signal: deadline.signal
     });
+    deadline.signal.throwIfAborted();
 
     return Response.json({ proposal: dreamProposalSchema.parse(proposal) });
   } catch (error) {
@@ -47,6 +51,8 @@ export async function POST(request: Request) {
       },
       { status: 500 }
     );
+  } finally {
+    deadline.dispose();
   }
 }
 

@@ -27,6 +27,7 @@ export class OpenAIChatProvider implements ChatProviderClient {
         Authorization: `Bearer ${this.apiKey}`,
         "Content-Type": "application/json"
       },
+      signal: input.signal,
       body: JSON.stringify({
         model: this.model,
         instructions:

@@ -33,6 +33,7 @@ export type MemoryPlanningInput = {
   message: string;
   relatedMemoryIds?: string[];
   relatedMemories?: Pick<EngramMemory, "id" | "text" | "topic" | "importance">[];
+  signal?: AbortSignal;
 };
 
 export interface MemoryDecisionPlanner {

@@ -8,6 +8,7 @@ import {
   causalAblationRequestSchema,
   causalAblationResultSchema
 } from "@/lib/events/schema";
+import { createRequestDeadline } from "@/lib/request-signal";
 
 export const runtime = "nodejs";
 
@@ -37,8 +38,9 @@ export async function POST(request: Request) {
     return errorResponse("Causal X-ray request failed validation.", 400);
   }
 
+  const deadline = createRequestDeadline(request.signal, 45_000);
   try {
-    const result = await runCausalAblation(parsedRequest.data);
+    const result = await runCausalAblation(parsedRequest.data, undefined, deadline.signal);
     return Response.json(causalAblationResultSchema.parse(result));
   } catch (error) {
     if (error instanceof CausalAblationValidationError) {
@@ -48,6 +50,8 @@ export async function POST(request: Request) {
       return errorResponse("Causal X-ray provider replay failed.", 502);
     }
     return errorResponse("Causal X-ray generation failed.", 500);
+  } finally {
+    deadline.dispose();
   }
 }
 

@@ -38,6 +38,7 @@ export type ConsolidationDecision = z.infer<typeof consolidationDecisionSchema>;
 export type ConsolidationPlanningInput = {
   memories: EngramMemory[];
   recentMemoryIds?: string[];
+  signal?: AbortSignal;
 };
 
 export interface MemoryConsolidationPlanner {

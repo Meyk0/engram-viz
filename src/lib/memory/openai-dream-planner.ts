@@ -89,6 +89,7 @@ export class OpenAIDreamPlanner implements DreamPlanner {
           Authorization: `Bearer ${this.apiKey}`,
           "Content-Type": "application/json"
         },
+        signal: input.signal,
         body: JSON.stringify({
           model: this.model,
           instructions: buildDreamPlannerInstructions(),

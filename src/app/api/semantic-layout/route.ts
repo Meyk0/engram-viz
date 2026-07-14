@@ -9,6 +9,7 @@ import {
 } from "@/lib/semantic/schema";
 import { semanticMemoryText } from "@/lib/semantic/text";
 import type { SemanticLayoutRequest } from "@/lib/semantic/types";
+import { createRequestDeadline } from "@/lib/request-signal";
 
 export const runtime = "nodejs";
 
@@ -35,21 +36,24 @@ export async function POST(request: Request) {
     return errorResponse("Semantic layout request failed validation.", 400);
   }
 
+  const deadline = createRequestDeadline(request.signal, 30_000);
   try {
-    const snapshot = await createConfiguredLayout(parsedRequest.data);
+    const snapshot = await createConfiguredLayout(parsedRequest.data, deadline.signal);
     return Response.json(semanticLayoutSnapshotSchema.parse(snapshot));
   } catch {
     return errorResponse("Semantic layout generation failed.", 500);
+  } finally {
+    deadline.dispose();
   }
 }
 
-async function createConfiguredLayout(request: SemanticLayoutRequest) {
+async function createConfiguredLayout(request: SemanticLayoutRequest, signal?: AbortSignal) {
   const config = getSemanticLayoutProviderConfig();
   if (config.provider === "openai" && config.apiKey && config.model) {
     try {
       const memories = canonicalizeSemanticMemories(request.memories);
       const client = new OpenAIEmbeddingsClient({ apiKey: config.apiKey, model: config.model });
-      const embeddings = await client.embed(memories.map(semanticMemoryText));
+      const embeddings = await client.embed(memories.map(semanticMemoryText), signal);
       const vectors = new Map(memories.map((memory, index) => [memory.id, embeddings[index]!] as const));
       return buildSemanticLayout(request, {
         provider: "openai",
@@ -57,6 +61,7 @@ async function createConfiguredLayout(request: SemanticLayoutRequest) {
         vectors
       });
     } catch {
+      signal?.throwIfAborted();
       // Provider failures are intentionally contained; Reality Mode remains available offline.
     }
   }

@@ -10,12 +10,14 @@ describe("OpenAIChatProvider", () => {
       })
     );
     const provider = new OpenAIChatProvider(fetcher, "test-key", "test-model");
+    const controller = new AbortController();
 
     const chunks = [];
     for await (const chunk of provider.streamTurn({
       message: "What design style do I prefer?",
       history: [{ role: "user", content: "remember that I like cyberpunk medical interfaces" }],
       retrievedMemories: [memory("mem-style", "I like restrained cyberpunk medical interfaces.")],
+      signal: controller.signal,
       storedMemories: [],
       turnIntent: "memory_question"
     })) {
@@ -41,6 +43,7 @@ describe("OpenAIChatProvider", () => {
     const body = JSON.parse(String(request?.body));
 
     expect(body.model).toBe("test-model");
+    expect(request?.signal).toBe(controller.signal);
     expect(body.input).toEqual([
       { role: "user", content: "remember that I like cyberpunk medical interfaces" },
       {

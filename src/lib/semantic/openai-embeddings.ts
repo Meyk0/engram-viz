@@ -36,7 +36,7 @@ export class OpenAIEmbeddingsClient {
       DEFAULT_SEMANTIC_EMBEDDING_MODEL;
   }
 
-  async embed(input: readonly string[]): Promise<number[][]> {
+  async embed(input: readonly string[], signal?: AbortSignal): Promise<number[][]> {
     if (input.length === 0) return [];
     if (!this.apiKey) throw new Error("OPENAI_API_KEY is not configured for semantic layout.");
     if (input.length > MAX_EMBEDDING_INPUTS) {
@@ -49,6 +49,7 @@ export class OpenAIEmbeddingsClient {
         Authorization: `Bearer ${this.apiKey}`,
         "Content-Type": "application/json"
       },
+      signal,
       body: JSON.stringify({ model: this.model, input })
     });
 

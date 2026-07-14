@@ -3,7 +3,8 @@ import { engramMemorySchema } from "@/lib/events/schema";
 import { encodeSseChunk } from "@/lib/events/sse";
 import { readBoundedJson, RequestBodyError } from "@/lib/http";
 import { InMemoryMemoryStore } from "@/lib/memory/store-interface";
-import type { ChatMessage, EngramMemory } from "@/types";
+import { createRequestDeadline } from "@/lib/request-signal";
+import type { ChatMessage, EngramMemory, StreamChunk } from "@/types";
 
 export const runtime = "nodejs";
 const MAX_CHAT_REQUEST_BYTES = 256_000;
@@ -32,33 +33,52 @@ export async function POST(request: Request) {
   const message = body.message;
   const sessionId = typeof body.sessionId === "string" ? body.sessionId : "demo-session";
   const clientMemories = parseClientMemories(body.clientMemories);
+  const deadline = createRequestDeadline(request.signal, 45_000);
+  let iterator: AsyncIterator<StreamChunk> | undefined;
 
   const stream = new ReadableStream({
     async start(controller) {
       const encoder = new TextEncoder();
 
       try {
-        for await (const chunk of streamLiveMemoryChunks({
+        iterator = streamLiveMemoryChunks({
           sessionId,
           message,
           history,
           clientMemories,
-          memoryStore: new InMemoryMemoryStore()
-        })) {
+          memoryStore: new InMemoryMemoryStore(),
+          signal: deadline.signal
+        })[Symbol.asyncIterator]();
+        while (!deadline.signal.aborted) {
+          const step = await iterator.next();
+          if (step.done) break;
+          const chunk = step.value;
           controller.enqueue(encoder.encode(encodeSseChunk(chunk)));
         }
       } catch (error) {
-        controller.enqueue(
-          encoder.encode(
-            encodeSseChunk({
-              kind: "error",
-              message: error instanceof Error ? error.message : "Chat stream failed."
-            })
-          )
-        );
+        if (!deadline.signal.aborted) {
+          controller.enqueue(
+            encoder.encode(
+              encodeSseChunk({
+                kind: "error",
+                message: error instanceof Error ? error.message : "Chat stream failed."
+              })
+            )
+          );
+        }
       } finally {
-        controller.close();
+        deadline.dispose();
+        try {
+          controller.close();
+        } catch {
+          // The consumer may already have canceled and closed the stream.
+        }
       }
+    },
+    async cancel(reason) {
+      deadline.abort(reason);
+      deadline.dispose();
+      await iterator?.return?.(reason);
     }
   });
 

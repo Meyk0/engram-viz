@@ -6,6 +6,7 @@ import type { DreamOperation, DreamProposal, EngramMemory, MemoryDecisionTracePr
 export type DreamPlanningInput = {
   memories: EngramMemory[];
   now?: Date | string;
+  signal?: AbortSignal;
 };
 
 export interface DreamPlanner {
