@@ -34,15 +34,12 @@ test("switches into a docked investigation workbench without covering the stage"
   await expect(workbench).toBeVisible();
 
   await expect
-    .poll(
-      async () => {
-        const stageBox = await stage.boundingBox();
-        const workbenchBox = await workbench.boundingBox();
-        if (!stageBox || !workbenchBox) return Number.POSITIVE_INFINITY;
-        return stageBox.x + stageBox.width - workbenchBox.x;
-      },
-      { timeout: 12_000 }
-    )
+    .poll(async () => {
+      const stageBox = await stage.boundingBox();
+      const workbenchBox = await workbench.boundingBox();
+      if (!stageBox || !workbenchBox) return Number.POSITIVE_INFINITY;
+      return stageBox.x + stageBox.width - workbenchBox.x;
+    })
     .toBeLessThanOrEqual(8);
 });
 
