@@ -57,6 +57,7 @@ import type { EngramViewMode } from "@/lib/semantic/types";
 import type { TurnRecord } from "@/lib/evidence/types";
 import type { EngramProductMode } from "@/lib/lab/types";
 import { buildTimelineCheckpoints, buildTraceCheckpoints } from "@/lib/lab/checkpoints";
+import { resolveBrainFocus } from "@/lib/lab/brain-focus";
 import { createSampleMemoryIncident } from "@/lib/lab/sample-incident";
 import {
   serializeMemoryRegressionArtifact,
@@ -290,57 +291,29 @@ export function EngramApp({ recordingMode = false }: EngramAppProps) {
   const memoryDetailCount = activeMemories.length;
   const regionDetailCount = selectedRegion ? 1 : 0;
   const effectiveTimelineFocus = focusedTimelineEntry ? timelineFocus : undefined;
-  const brainFocusMemoryIds = effectiveTimelineFocus
-    ? effectiveTimelineFocus.memoryIds
-    : activePanel === "timeMachine"
-      ? timeMachineFocusMemoryIds
-    : activePanel === "integrity"
-      ? integrityFocusMemoryIds.length > 0
-        ? integrityFocusMemoryIds
-        : integrityReport.findings.flatMap((finding) => finding.memoryIds)
-    : activePanel === "lineage" && lineageGraph
-      ? lineageGraph.relatedMemoryIds
-    : activePanel === "xray" && causalMemoryId
-      ? [causalMemoryId]
-    : activePanel === "retrieval"
-      ? retrievalCandidateIds
-    : activePanel === "context"
-      ? loadedMemoryIds
-      : [];
-  const brainFocusRegions = effectiveTimelineFocus
-    ? effectiveTimelineFocus.regions
-    : activePanel === "timeMachine" && timeMachineFocusMemoryIds.length > 0
-      ? [...new Set(timeMachineFocusMemoryIds
-          .map((id) => memories.find((memory) => memory.id === id)?.region)
-          .filter((region): region is BrainRegion => Boolean(region)))]
-    : activePanel === "integrity" && brainFocusMemoryIds.length > 0
-      ? [...new Set(brainFocusMemoryIds
-          .map((id) => memories.find((memory) => memory.id === id)?.region)
-          .filter((region): region is BrainRegion => Boolean(region)))]
-    : activePanel === "lineage" && lineageGraph
+  const memoryRegionById = useMemo(
+    () => new Map(memories.map((memory) => [memory.id, memory.region])),
+    [memories]
+  );
+  const brainFocus = resolveBrainFocus({
+    activePanel,
+    causalMemoryId,
+    contextMemoryIds: loadedMemoryIds,
+    contextPulseKey: provenancePulseKey,
+    integrityFindingMemoryIds: integrityReport.findings.flatMap((finding) => finding.memoryIds),
+    integrityFocusMemoryIds,
+    lineageFocusMemoryId: lineageMemoryId,
+    lineageMemoryIds: lineageGraph?.relatedMemoryIds ?? [],
+    lineageRegions: lineageGraph
       ? [...new Set(lineageGraph.nodes.flatMap((node) => node.region ?? []))]
-    : activePanel === "xray"
-      ? (["prefrontal"] satisfies BrainRegion[])
-    : activePanel === "retrieval" && retrievalCandidateIds.length > 0
-      ? (["prefrontal"] satisfies BrainRegion[])
-    : activePanel === "context" && loadedMemoryIds.length > 0
-      ? (["prefrontal"] satisfies BrainRegion[])
-      : [];
-  const brainFocusPulseKey = effectiveTimelineFocus
-    ? timelineFocusPulseKey
-    : activePanel === "timeMachine" && timeMachineFocusMemoryIds.length > 0
-      ? `time-machine-${timeMachineFocusMemoryIds.join(".")}`
-    : activePanel === "integrity" && brainFocusMemoryIds.length > 0
-      ? `integrity-${brainFocusMemoryIds.join(".")}`
-    : activePanel === "lineage" && lineageMemoryId
-      ? `lineage-${lineageMemoryId}`
-    : activePanel === "xray" && causalMemoryId
-      ? `xray-${causalMemoryId}`
-    : activePanel === "retrieval" && latestRetrieve
-      ? `retrieval-${latestRetrieve.query}-${retrievalCandidateIds.join(".")}`
-    : activePanel === "context" && loadedMemoryIds.length > 0
-      ? `context-${provenancePulseKey}-${loadedMemoryIds.join(".")}`
-      : undefined;
+      : [],
+    regionByMemoryId: memoryRegionById,
+    retrievalMemoryIds: retrievalCandidateIds,
+    retrievalQuery: latestRetrieve?.query,
+    timeMachineMemoryIds: timeMachineFocusMemoryIds,
+    timelineFocus: effectiveTimelineFocus,
+    timelinePulseKey: timelineFocusPulseKey
+  });
 
   const onMemorySelect = useCallback((id: string) => {
     setSelectedMemoryId(id);
@@ -912,9 +885,9 @@ export function EngramApp({ recordingMode = false }: EngramAppProps) {
         responseActive={isStreaming}
         sceneEpoch={traceSceneEpoch}
         selectedMemoryId={selectedMemoryId}
-        focusedMemoryIds={brainFocusMemoryIds}
-        focusedRegions={brainFocusRegions}
-        focusPulseKey={brainFocusPulseKey}
+        focusedMemoryIds={brainFocus.memoryIds}
+        focusedRegions={brainFocus.regions}
+        focusPulseKey={brainFocus.pulseKey}
         dreamReviewActive={activePanel === "dream" && (dreamPending || Boolean(dreamProposal) || Boolean(dreamError))}
       />
 
