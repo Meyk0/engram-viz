@@ -18,4 +18,12 @@ describe("brain camera profiles", () => {
   it("uses mobile framing for narrow portrait-like containers", () => {
     expect(getBrainCameraProfile(720, 1100)).toEqual(brainCameraProfiles.mobile);
   });
+
+  it("uses a readable compact profile beside the incident workspace", () => {
+    const reference = getBrainCameraProfile(520, 800, true);
+
+    expect(reference).toEqual(brainCameraProfiles.reference);
+    expect(reference.position[2]).toBeGreaterThan(brainCameraProfiles.desktop.position[2]);
+    expect(reference.position[2]).toBeLessThan(brainCameraProfiles.mobile.position[2]);
+  });
 });

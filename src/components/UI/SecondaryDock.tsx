@@ -1,8 +1,9 @@
-import { Activity, BrainCircuit, GitBranch, History, MapPin, MoonStar, ScanSearch, ShieldCheck } from "lucide-react";
+import { Activity, BrainCircuit, FileSearch, GitBranch, History, MapPin, MoonStar, ScanSearch, ShieldCheck } from "lucide-react";
 import type { ReactNode } from "react";
 import type { EngramProductMode } from "@/lib/lab/types";
 
 export type SecondaryPanel =
+  | "incident"
   | "timeline"
   | "memory"
   | "context"
@@ -28,6 +29,7 @@ type SecondaryDockProps = {
   hasMemoryDetails: boolean;
   hasRegionDetails: boolean;
   hasRetrieval?: boolean;
+  hasIncident?: boolean;
   integrityAvailable?: boolean;
   integrityCount?: number;
   memoryCount: number;
@@ -49,6 +51,7 @@ export function SecondaryDock({
   hasMemoryDetails,
   hasRegionDetails,
   hasRetrieval = false,
+  hasIncident = false,
   integrityAvailable = false,
   integrityCount = 0,
   memoryCount,
@@ -116,6 +119,13 @@ export function SecondaryDock({
       : [])
   ];
   const investigateItems: typeof learnItems = [
+    {
+      count: hasIncident ? 1 : 0,
+      badge: hasIncident ? "Open" : undefined,
+      icon: <FileSearch size={14} />,
+      id: "incident",
+      label: "Incident"
+    },
     {
       count: checkpointCount,
       icon: <GitBranch size={14} />,

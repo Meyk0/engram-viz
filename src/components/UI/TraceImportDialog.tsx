@@ -13,11 +13,12 @@ export type TraceImportDialogProps = {
   importing?: boolean;
   liveAvailable?: boolean;
   onCancel: () => void;
-  onImport: (raw: unknown | string) => void | Promise<void>;
+  onImport: (raw: unknown | string, expectedAnswer?: string) => void | Promise<void>;
   onLoadSample: () => void;
   onStartLive?: () => void;
   onStopLive?: () => void;
   open: boolean;
+  purpose?: "observe" | "incident";
   liveChannelId?: string;
   liveError?: string;
   liveStatus?: LiveRecorderStatus;
@@ -35,7 +36,8 @@ export function TraceImportDialog({
   liveChannelId,
   liveError,
   liveStatus = "idle",
-  open
+  open,
+  purpose = "observe"
 }: TraceImportDialogProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textareaId = useId();
@@ -44,6 +46,7 @@ export function TraceImportDialog({
   const [localError, setLocalError] = useState<string | null>(null);
   const [mode, setMode] = useState<"file" | "live">("file");
   const [copied, setCopied] = useState(false);
+  const [expectedAnswer, setExpectedAnswer] = useState("");
 
   if (!open) return null;
 
@@ -69,7 +72,11 @@ export function TraceImportDialog({
 
     try {
       JSON.parse(rawTrace);
-      await onImport(rawTrace);
+      if (purpose === "incident") {
+        await onImport(rawTrace, expectedAnswer.trim());
+      } else {
+        await onImport(rawTrace);
+      }
     } catch (caught) {
       setLocalError(
         caught instanceof SyntaxError
@@ -119,7 +126,9 @@ export function TraceImportDialog({
               <FileUp aria-hidden="true" size={12} />
               Agent trace playback
             </span>
-            <h2 id="trace-import-title">Import a recorded trace</h2>
+            <h2 id="trace-import-title">
+              {purpose === "incident" ? "Import a memory incident" : "Import a recorded trace"}
+            </h2>
           </div>
           <button className="trace-icon-button" type="button" onClick={onCancel} aria-label="Close trace import">
             <X aria-hidden="true" size={15} />
@@ -128,14 +137,16 @@ export function TraceImportDialog({
 
         <div className="trace-import-body">
           <p className="trace-import-intro">
-            Replay recorded agent steps and visualize explicit memory operations without rerunning the model.
+            {purpose === "incident"
+              ? "Reconstruct a bad answer from recorded memory evidence, then test a repair against the expected behavior."
+              : "Replay recorded agent steps and visualize explicit memory operations without rerunning the model."}
           </p>
 
           <div className="trace-import-mode" role="tablist" aria-label="Trace source">
             <button role="tab" aria-selected={mode === "file"} type="button" onClick={() => setMode("file")}>
               <FileJson size={12} /> Recorded
             </button>
-            {liveAvailable ? (
+            {liveAvailable && purpose === "observe" ? (
               <button role="tab" aria-selected={mode === "live"} type="button" onClick={() => setMode("live")}>
                 <Radio size={12} /> Live
               </button>
@@ -163,6 +174,23 @@ export function TraceImportDialog({
               <small>OpenAI Responses, Agents SDK, or Engram trace</small>
             </span>
           </button>
+
+          {purpose === "incident" ? (
+            <div className="trace-expected-answer">
+              <label className="trace-import-label" htmlFor={`${textareaId}-expected`}>Expected answer</label>
+              <input
+                id={`${textareaId}-expected`}
+                value={expectedAnswer}
+                onChange={(event) => {
+                  setExpectedAnswer(event.target.value);
+                  setLocalError(null);
+                }}
+                placeholder="What should the agent have answered?"
+                disabled={importing}
+              />
+              <small>Used to identify the failing stage and verify the replayed repair.</small>
+            </div>
+          ) : null}
 
           <div className="trace-import-divider" aria-hidden="true"><span>or paste JSON</span></div>
 
@@ -231,15 +259,22 @@ export function TraceImportDialog({
 
         <footer className="trace-import-actions">
           {mode === "file" ? <>
-          <button className="trace-sample-button" type="button" onClick={onLoadSample} disabled={importing}>
-            <Sparkles aria-hidden="true" size={13} />
-            Load sample trace
-          </button>
+          {purpose === "observe" ? (
+            <button className="trace-sample-button" type="button" onClick={onLoadSample} disabled={importing}>
+              <Sparkles aria-hidden="true" size={13} />
+              Load sample trace
+            </button>
+          ) : null}
           <span className="trace-import-action-spacer" />
           <button className="trace-cancel-button" type="button" onClick={onCancel} disabled={importing}>Cancel</button>
-          <button className="trace-primary-button" type="button" onClick={submitTrace} disabled={importing || !rawTrace.trim()}>
+          <button
+            className="trace-primary-button"
+            type="button"
+            onClick={submitTrace}
+            disabled={importing || !rawTrace.trim() || (purpose === "incident" && !expectedAnswer.trim())}
+          >
             <FileUp aria-hidden="true" size={13} />
-            {importing ? "Importing..." : "Import trace"}
+            {importing ? "Importing..." : purpose === "incident" ? "Create incident" : "Import trace"}
           </button>
           </> : (
             <button className="trace-cancel-button" type="button" onClick={onCancel}>Close</button>

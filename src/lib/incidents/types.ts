@@ -13,7 +13,12 @@ export type IncidentEvidenceOrigin =
   | "mapped"
   | "derived"
   | "inferred"
-  | "simulated";
+  | "simulated"
+  | "unavailable";
+
+export type MemoryIncidentEvidenceOrigins = Partial<
+  Record<MemoryIncidentStageKind, "observed" | "mapped" | "unavailable">
+>;
 
 export type MemoryIncidentStageKind =
   | "memory_state"

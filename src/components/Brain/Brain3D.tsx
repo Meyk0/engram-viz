@@ -30,6 +30,7 @@ type Brain3DProps = {
   semanticLayout?: SemanticLayoutSnapshot | null;
   viewMode?: EngramViewMode;
   dreamReviewActive?: boolean;
+  compactReference?: boolean;
   focusedMemoryIds?: string[];
   focusedRegions?: BrainRegion[];
   focusPulseKey?: string;
@@ -54,6 +55,7 @@ export function Brain3D({
   semanticLayout,
   viewMode = "anatomical",
   dreamReviewActive = false,
+  compactReference = false,
   focusedMemoryIds = [],
   focusedRegions = [],
   focusPulseKey,
@@ -86,7 +88,7 @@ export function Brain3D({
         data-testid="brain-canvas"
       >
         <color attach="background" args={["#050510"]} />
-        <ResponsiveFog />
+        <ResponsiveFog compactReference={compactReference} />
         <ambientLight intensity={0.25} />
         <directionalLight position={[1.6, 2.2, 2.6]} intensity={0.52} color="#e7f1ff" />
         <pointLight position={[0, 1.8, 2.4]} intensity={0.2} color="#00d4ff" />
@@ -114,8 +116,12 @@ export function Brain3D({
             selectedMemoryId={selectedMemoryId}
           />
         </Suspense>
-        <ResponsiveBrainCamera controls={controls} />
-        <ResponsiveOrbitControls controls={controls} recordingMode={recordingMode} />
+        <ResponsiveBrainCamera compactReference={compactReference} controls={controls} />
+        <ResponsiveOrbitControls
+          compactReference={compactReference}
+          controls={controls}
+          recordingMode={recordingMode}
+        />
         <EffectComposer>
           <Bloom intensity={0.045} luminanceThreshold={0.92} luminanceSmoothing={0.58} mipmapBlur />
         </EffectComposer>
@@ -207,16 +213,22 @@ export function Brain3D({
   );
 }
 
-function ResponsiveFog() {
+function ResponsiveFog({ compactReference }: { compactReference: boolean }) {
   const { size } = useThree();
-  const profile = getBrainCameraProfile(size.width, size.height);
+  const profile = getBrainCameraProfile(size.width, size.height, compactReference);
 
   return <fog attach="fog" args={["#050510", profile.fog[0], profile.fog[1]]} />;
 }
 
-function ResponsiveBrainCamera({ controls }: { controls: RefObject<OrbitControlsImpl | null> }) {
+function ResponsiveBrainCamera({
+  compactReference,
+  controls
+}: {
+  compactReference: boolean;
+  controls: RefObject<OrbitControlsImpl | null>;
+}) {
   const { camera, size } = useThree();
-  const profile = getBrainCameraProfile(size.width, size.height);
+  const profile = getBrainCameraProfile(size.width, size.height, compactReference);
 
   useEffect(() => {
     camera.position.set(...profile.position);
@@ -234,14 +246,16 @@ function ResponsiveBrainCamera({ controls }: { controls: RefObject<OrbitControls
 }
 
 function ResponsiveOrbitControls({
+  compactReference,
   controls,
   recordingMode
 }: {
+  compactReference: boolean;
   controls: RefObject<OrbitControlsImpl | null>;
   recordingMode: boolean;
 }) {
   const { size } = useThree();
-  const profile = getBrainCameraProfile(size.width, size.height);
+  const profile = getBrainCameraProfile(size.width, size.height, compactReference);
 
   return (
     <OrbitControls

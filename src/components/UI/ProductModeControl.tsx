@@ -25,9 +25,9 @@ const modes: Array<{
     value: "observe"
   },
   {
-    description: "Test memory history",
+    description: "Diagnose and repair a memory incident",
     icon: FlaskConical,
-    label: "Investigate",
+    label: "Incidents",
     value: "investigate"
   }
 ];

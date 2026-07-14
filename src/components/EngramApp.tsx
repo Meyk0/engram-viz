@@ -27,6 +27,7 @@ import { DreamReviewPanel } from "@/components/UI/DreamReviewPanel";
 import { MemoryLibraryPanel } from "@/components/UI/MemoryLibraryPanel";
 import { MemoryLineagePanel } from "@/components/UI/MemoryLineagePanel";
 import { HowItWorksPanel } from "@/components/UI/HowItWorksPanel";
+import { IncidentWorkspace } from "@/components/UI/IncidentWorkspace";
 import { InstrumentationCoveragePanel } from "@/components/UI/InstrumentationCoveragePanel";
 import { MemoryTimelinePanel } from "@/components/UI/MemoryTimelinePanel";
 import { MemoryTimeMachinePanel } from "@/components/UI/MemoryTimeMachinePanel";
@@ -55,10 +56,12 @@ import {
 } from "@/lib/timeline";
 import type { EngramViewMode } from "@/lib/semantic/types";
 import type { TurnRecord } from "@/lib/evidence/types";
+import { buildMemoryIncidentFromTrace } from "@/lib/incidents/from-trace";
+import type { MemoryIncident } from "@/lib/incidents/types";
 import type { EngramProductMode } from "@/lib/lab/types";
 import { buildTimelineCheckpoints, buildTraceCheckpoints } from "@/lib/lab/checkpoints";
 import { resolveBrainFocus } from "@/lib/lab/brain-focus";
-import { createSampleMemoryIncident } from "@/lib/lab/sample-incident";
+import { createSampleMemoryIncident, createSampleMemoryIncidentCase } from "@/lib/lab/sample-incident";
 import {
   serializeMemoryRegressionArtifact,
   type MemoryRegressionArtifact
@@ -109,10 +112,15 @@ export function EngramApp({ recordingMode = false }: EngramAppProps) {
   const [importedTrace, setImportedTrace] = useState<NormalizedTrace | undefined>(undefined);
   const [traceImportOpen, setTraceImportOpen] = useState(false);
   const [traceImportError, setTraceImportError] = useState<string | null>(null);
+  const [traceImportPurpose, setTraceImportPurpose] = useState<"observe" | "incident">("observe");
   const [traceSceneEpoch, setTraceSceneEpoch] = useState(0);
   const [timeMachineFocusMemoryIds, setTimeMachineFocusMemoryIds] = useState<string[]>([]);
   const [timeMachineSeedMemoryIds, setTimeMachineSeedMemoryIds] = useState<string[]>([]);
   const [integrityFocusMemoryIds, setIntegrityFocusMemoryIds] = useState<string[]>([]);
+  const [activeIncident, setActiveIncident] = useState<MemoryIncident>();
+  const [incidentFocusMemoryIds, setIncidentFocusMemoryIds] = useState<string[]>([]);
+  const [incidentFocusRegions, setIncidentFocusRegions] = useState<BrainRegion[]>([]);
+  const [incidentFocusPulseKey, setIncidentFocusPulseKey] = useState(0);
   const [traceExportCopied, setTraceExportCopied] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const activeTimelineEntryId = useRef<string | undefined>(undefined);
@@ -325,7 +333,6 @@ export function EngramApp({ recordingMode = false }: EngramAppProps) {
   const closeSecondaryPanel = useCallback(() => {
     setSelectedRegion(undefined);
     setSelectedMemoryId(undefined);
-    setActivePanel(null);
     setCausalMemoryId(undefined);
     setLineageMemoryId(undefined);
     setTimeMachineFocusMemoryIds([]);
@@ -333,8 +340,13 @@ export function EngramApp({ recordingMode = false }: EngramAppProps) {
     setIntegrityFocusMemoryIds([]);
     setTraceExportCopied(false);
     resetCausalXRay();
+    if (productMode === "investigate" && activePanel !== "incident" && activeIncident) {
+      setActivePanel("incident");
+      return;
+    }
+    setActivePanel(null);
     if (productMode === "investigate") setProductMode("learn");
-  }, [productMode, resetCausalXRay]);
+  }, [activeIncident, activePanel, productMode, resetCausalXRay]);
 
   const openCausalXRay = useCallback(
     (memoryId: string) => {
@@ -568,6 +580,9 @@ export function EngramApp({ recordingMode = false }: EngramAppProps) {
     setCausalMemoryId(undefined);
     setLineageMemoryId(undefined);
     setTimeMachineFocusMemoryIds([]);
+    setActiveIncident(undefined);
+    setIncidentFocusMemoryIds([]);
+    setIncidentFocusRegions([]);
     resetCausalXRay();
     setProvenancePulseKey((current) => current + 1);
   }, [clearEvents, resetCausalXRay, resetSession, stopGuidedDemoPlayback]);
@@ -584,16 +599,40 @@ export function EngramApp({ recordingMode = false }: EngramAppProps) {
   }, [clearConversationState, tracePlayback]);
 
   const importTrace = useCallback(
-    (raw: unknown | string) => {
+    (raw: unknown | string, expectedAnswer?: string) => {
       try {
         liveRecorder.disconnect();
         const result = importAgentTrace(raw);
+        const importedIncident = traceImportPurpose === "incident"
+          ? buildMemoryIncidentFromTrace(result.trace, { expectedAnswer: expectedAnswer ?? "" })
+          : undefined;
         if (isStreaming) cancel();
         clearConversationState();
         tracePlayback.restart();
-        setImportedTrace(result.trace);
-        setProductMode("observe");
-        setActivePanel("trace");
+        if (importedIncident) {
+          setImportedTrace(undefined);
+          importedIncident.checkpoint.events.forEach(pushEvent);
+          setActiveIncident(importedIncident);
+          setProductMode("investigate");
+          setActivePanel("incident");
+          setIncidentFocusMemoryIds(importedIncident.diagnosis.memoryIds);
+          setIncidentFocusRegions([
+            ...new Set(
+              importedIncident.diagnosis.memoryIds.flatMap((id) => {
+                const memory = importedIncident.memories.find((candidate) => candidate.id === id);
+                return memory ? [memory.region] : [];
+              })
+            ),
+            ...(importedIncident.diagnosis.stage === "retrieval" || importedIncident.diagnosis.stage === "active_context"
+              ? ["prefrontal" as const]
+              : [])
+          ]);
+          setIncidentFocusPulseKey((current) => current + 1);
+        } else {
+          setImportedTrace(result.trace);
+          setProductMode("observe");
+          setActivePanel("trace");
+        }
         setTraceImportError(null);
         setTraceExportCopied(false);
         setTraceImportOpen(false);
@@ -604,7 +643,15 @@ export function EngramApp({ recordingMode = false }: EngramAppProps) {
         throw error;
       }
     },
-    [cancel, clearConversationState, isStreaming, liveRecorder, tracePlayback]
+    [
+      cancel,
+      clearConversationState,
+      isStreaming,
+      liveRecorder,
+      pushEvent,
+      traceImportPurpose,
+      tracePlayback
+    ]
   );
 
   const exitTracePlayback = useCallback(() => {
@@ -624,6 +671,7 @@ export function EngramApp({ recordingMode = false }: EngramAppProps) {
     tracePlayback.restart();
     setImportedTrace(undefined);
     setProductMode("observe");
+    setTraceImportPurpose("observe");
     setTraceImportOpen(true);
     setTraceImportError(null);
     liveRecorder.connect();
@@ -636,10 +684,11 @@ export function EngramApp({ recordingMode = false }: EngramAppProps) {
 
   const closeTraceImport = useCallback(() => {
     setTraceImportOpen(false);
+    if (traceImportPurpose === "incident") return;
     if (productMode === "observe" && !importedTrace && !liveRecorder.channelId) {
       setProductMode("learn");
     }
-  }, [importedTrace, liveRecorder.channelId, productMode]);
+  }, [importedTrace, liveRecorder.channelId, productMode, traceImportPurpose]);
 
   const onDockSelect = useCallback(
     (panel: SecondaryPanel) => {
@@ -696,6 +745,13 @@ export function EngramApp({ recordingMode = false }: EngramAppProps) {
   }, []);
 
   const openTraceImport = useCallback(() => {
+    setTraceImportPurpose("observe");
+    setTraceImportError(null);
+    setTraceImportOpen(true);
+  }, []);
+
+  const openIncidentTraceImport = useCallback(() => {
+    setTraceImportPurpose("incident");
     setTraceImportError(null);
     setTraceImportOpen(true);
   }, []);
@@ -717,15 +773,16 @@ export function EngramApp({ recordingMode = false }: EngramAppProps) {
         if (importedTrace) {
           setActivePanel("trace");
         } else {
+          setTraceImportPurpose("observe");
           setTraceImportError(null);
           setTraceImportOpen(true);
         }
         return;
       }
 
-      setActivePanel(memories.length > 0 ? "integrity" : "timeMachine");
+      setActivePanel("incident");
     },
-    [importedTrace, liveRecorder, memories.length]
+    [importedTrace, liveRecorder]
   );
 
   const openIntegrityTimeMachine = useCallback((memoryIds: string[]) => {
@@ -744,15 +801,34 @@ export function EngramApp({ recordingMode = false }: EngramAppProps) {
     setImportedTrace(undefined);
 
     const incident = createSampleMemoryIncident();
+    const incidentCase = createSampleMemoryIncidentCase();
     incident.entry.events.forEach(pushEvent);
     setTimelineEntries([incident.entry]);
     setTurnRecordsByTimelineId({ [incident.entry.id]: incident.record });
+    setActiveIncident(incidentCase);
     setProductMode("investigate");
-    setActivePanel("timeMachine");
+    setActivePanel("incident");
     setFocusedTimelineId(incident.entry.id);
-    setTimeMachineFocusMemoryIds(incident.record.retrievedMemories.map((memory) => memory.id));
+    setIncidentFocusMemoryIds(incidentCase.diagnosis.memoryIds);
+    setIncidentFocusRegions(["hippocampus", "prefrontal"]);
+    setIncidentFocusPulseKey((current) => current + 1);
     setTraceSceneEpoch((current) => current + 1);
   }, [cancel, clearConversationState, isStreaming, liveRecorder, pushEvent, tracePlayback]);
+
+  const focusIncidentEvidence = useCallback((memoryIds: string[], regions: BrainRegion[] = []) => {
+    setIncidentFocusMemoryIds(memoryIds);
+    setIncidentFocusRegions(regions);
+    setIncidentFocusPulseKey((current) => current + 1);
+  }, []);
+
+  const openIncidentTool = useCallback((tool: "timeMachine" | "integrity" | "retrieval" | "trace") => {
+    if (tool === "trace" && !importedTrace) {
+      openTraceImport();
+      return;
+    }
+    if (tool === "retrieval" && !latestRetrieve) return;
+    setActivePanel(tool);
+  }, [importedTrace, latestRetrieve, openTraceImport]);
 
   const returnToLearn = useCallback(() => {
     setProductMode("learn");
@@ -867,8 +943,10 @@ export function EngramApp({ recordingMode = false }: EngramAppProps) {
       data-trace-active={Boolean(importedTrace)}
       data-workbench-open={Boolean(activePanel)}
       data-workbench-wide={activePanel === "timeMachine" || activePanel === "integrity" || activePanel === "topology"}
+      data-incident-open={activePanel === "incident"}
     >
       <Brain3D
+        compactReference={activePanel === "incident"}
         events={events}
         memories={activeMemories}
         loadedMemoryIds={loadedMemoryIds}
@@ -886,9 +964,9 @@ export function EngramApp({ recordingMode = false }: EngramAppProps) {
         responseActive={isStreaming}
         sceneEpoch={traceSceneEpoch}
         selectedMemoryId={selectedMemoryId}
-        focusedMemoryIds={brainFocus.memoryIds}
-        focusedRegions={brainFocus.regions}
-        focusPulseKey={brainFocus.pulseKey}
+        focusedMemoryIds={activePanel === "incident" ? incidentFocusMemoryIds : brainFocus.memoryIds}
+        focusedRegions={activePanel === "incident" ? incidentFocusRegions : brainFocus.regions}
+        focusPulseKey={activePanel === "incident" ? `incident-${incidentFocusPulseKey}` : brainFocus.pulseKey}
         dreamReviewActive={activePanel === "dream" && (dreamPending || Boolean(dreamProposal) || Boolean(dreamError))}
       />
 
@@ -1026,6 +1104,18 @@ export function EngramApp({ recordingMode = false }: EngramAppProps) {
           onSaveRegression={saveMemoryRegression}
         />
       ) : null}
+      {activePanel === "incident" ? (
+        <IncidentWorkspace
+          key={activeIncident?.id ?? "empty-incident"}
+          incident={activeIncident}
+          onClose={closeSecondaryPanel}
+          onFocus={focusIncidentEvidence}
+          onImportTrace={openIncidentTraceImport}
+          onLoadSample={loadSampleIncident}
+          onOpenTool={openIncidentTool}
+          onSaveRegression={saveMemoryRegression}
+        />
+      ) : null}
       {activePanel === "integrity" ? (
         <MemoryIntegrityPanel
           onClose={closeSecondaryPanel}
@@ -1085,11 +1175,13 @@ export function EngramApp({ recordingMode = false }: EngramAppProps) {
           onStartLive={startLiveRecorder}
           onStopLive={stopLiveRecorder}
           open
+          purpose={traceImportPurpose}
         />
       ) : null}
       {!cleanDemoMode && !importedTrace ? (
         <SecondaryDock
           activePanel={activePanel}
+          hasIncident={Boolean(activeIncident)}
           hasActiveContext={activeContextFill.used > 0}
           dreamCount={dreamProposal?.operations.length ?? 0}
           dreamReady={dreamEligibleMemories.length >= 3 && !isStreaming && !dreamProposal}
@@ -1129,7 +1221,7 @@ export function EngramApp({ recordingMode = false }: EngramAppProps) {
           speed={tracePlayback.speed}
           trace={importedTrace}
         />
-      ) : (
+      ) : activePanel !== "incident" ? (
         <form className="chat-bar" data-demo-preview={Boolean(demoStagedPrompt)} onSubmit={onSubmit}>
           <span className="chat-prefix">›</span>
           <input
@@ -1161,7 +1253,7 @@ export function EngramApp({ recordingMode = false }: EngramAppProps) {
             </button>
           )}
         </form>
-      )}
+      ) : null}
     </main>
   );
 }

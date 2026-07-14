@@ -4,6 +4,7 @@ import type {
   MemoryIncident,
   MemoryIncidentDiagnosis,
   MemoryIncidentEvidence,
+  MemoryIncidentEvidenceOrigins,
   MemoryIncidentStage,
   MemoryIncidentStageKind,
   MemoryIncidentStageStatus
@@ -12,6 +13,7 @@ import type { EngramMemory, MemoryRetrievalTrace } from "@/types";
 
 type BuildMemoryIncidentInput = {
   checkpoint: MemoryCheckpoint;
+  evidenceOrigins?: MemoryIncidentEvidenceOrigins;
   expectedAnswer?: string;
   title?: string;
   id?: string;
@@ -38,9 +40,28 @@ export function buildMemoryIncident(input: BuildMemoryIncidentInput): MemoryInci
   const record = checkpoint.turnRecord;
   const memories = structuredClone(checkpoint.memories);
   const signals = collectSignals(checkpoint, input.expectedAnswer);
-  const diagnosis = diagnoseMemoryIncident(signals, memories, checkpoint.answer, input.expectedAnswer);
-  const evidence = buildEvidence(checkpoint, signals, diagnosis, input.expectedAnswer);
-  const stages = buildStages(checkpoint, signals, diagnosis, evidence, input.expectedAnswer);
+  const diagnosis = diagnoseMemoryIncident(
+    signals,
+    memories,
+    checkpoint.answer,
+    input.expectedAnswer,
+    input.evidenceOrigins
+  );
+  const evidence = buildEvidence(
+    checkpoint,
+    signals,
+    diagnosis,
+    input.expectedAnswer,
+    input.evidenceOrigins
+  );
+  const stages = buildStages(
+    checkpoint,
+    signals,
+    diagnosis,
+    evidence,
+    input.expectedAnswer,
+    input.evidenceOrigins
+  );
   const title = input.title?.trim() || defaultIncidentTitle(diagnosis);
 
   return deepFreeze({
@@ -107,11 +128,12 @@ function diagnoseMemoryIncident(
   signals: IncidentSignals,
   memories: EngramMemory[],
   answer: string | undefined,
-  expectedAnswer: string | undefined
+  expectedAnswer: string | undefined,
+  evidenceOrigins: MemoryIncidentEvidenceOrigins = {}
 ): MemoryIncidentDiagnosis {
   const evidenceIds: string[] = [];
 
-  if (memories.length === 0) {
+  if (memories.length === 0 && evidenceOrigins.memory_state !== "unavailable") {
     return diagnosis("storage", "Memory was never stored", "The turn had no stored memory state to search.", 0.98, "memory_state", [], evidenceIds);
   }
 
@@ -127,7 +149,11 @@ function diagnoseMemoryIncident(
     );
   }
 
-  if (signals.expectedMemory && !signals.retrievedIds.includes(signals.expectedMemory.id)) {
+  if (
+    signals.expectedMemory
+    && evidenceOrigins.retrieval !== "unavailable"
+    && !signals.retrievedIds.includes(signals.expectedMemory.id)
+  ) {
     const wasCandidate = signals.ignoredIds.includes(signals.expectedMemory.id);
     return diagnosis(
       wasCandidate ? "ranking" : "retrieval",
@@ -143,7 +169,7 @@ function diagnoseMemoryIncident(
   }
 
   const retrievedButNotLoaded = signals.retrievedIds.filter((id) => !signals.loadedIds.includes(id));
-  if (retrievedButNotLoaded.length > 0) {
+  if (retrievedButNotLoaded.length > 0 && evidenceOrigins.active_context !== "unavailable") {
     return diagnosis(
       "context",
       "Retrieved memory was not loaded",
@@ -167,11 +193,14 @@ function diagnoseMemoryIncident(
     );
   }
 
+  const hasBlindSpot = Object.values(evidenceOrigins).includes("unavailable");
   return diagnosis(
     "unknown",
-    "No single memory failure is proven",
-    "The recorded evidence does not isolate one lifecycle stage. Review the supporting events before intervening.",
-    0.35,
+    hasBlindSpot ? "The trace has an instrumentation gap" : "No single memory failure is proven",
+    hasBlindSpot
+      ? "At least one lifecycle stage was not recorded, so Engram will not infer that an operation failed. Add the missing telemetry before intervening."
+      : "The recorded evidence does not isolate one lifecycle stage. Review the supporting events before intervening.",
+    hasBlindSpot ? 0.2 : 0.35,
     "answer",
     signals.loadedIds,
     evidenceIds,
@@ -183,11 +212,12 @@ function buildEvidence(
   checkpoint: MemoryCheckpoint,
   signals: IncidentSignals,
   diagnosis: MemoryIncidentDiagnosis,
-  expectedAnswer?: string
+  expectedAnswer?: string,
+  evidenceOrigins: MemoryIncidentEvidenceOrigins = {}
 ): MemoryIncidentEvidence[] {
   const memoryState: MemoryIncidentEvidence = {
     id: `${checkpoint.id}-evidence-memory-state`,
-    origin: "observed",
+    origin: evidenceOrigins.memory_state ?? "observed",
     stage: "memory_state",
     label: "Recorded memory state",
     detail: `${checkpoint.memories.length} memories existed before the answer; ${checkpoint.memories.filter((memory) => memory.status !== "superseded").length} were active.`,
@@ -196,7 +226,7 @@ function buildEvidence(
   };
   const retrieval: MemoryIncidentEvidence = {
     id: `${checkpoint.id}-evidence-retrieval`,
-    origin: signals.retrieval ? "observed" : "derived",
+    origin: evidenceOrigins.retrieval ?? (signals.retrieval ? "observed" : "derived"),
     stage: "retrieval",
     label: "Retrieval decision",
     detail: signals.retrieval?.reason
@@ -206,7 +236,7 @@ function buildEvidence(
   };
   const context: MemoryIncidentEvidence = {
     id: `${checkpoint.id}-evidence-context`,
-    origin: "observed",
+    origin: evidenceOrigins.active_context ?? "observed",
     stage: "active_context",
     label: "Active context",
     detail: `${signals.loadedIds.length} memories were inserted into the model's working context.`,
@@ -215,7 +245,7 @@ function buildEvidence(
   };
   const answer: MemoryIncidentEvidence = {
     id: `${checkpoint.id}-evidence-answer`,
-    origin: "observed",
+    origin: evidenceOrigins.answer ?? "observed",
     stage: "answer",
     label: "Observed answer",
     detail: checkpoint.answer ?? checkpoint.turnRecord?.originalAnswer ?? "No answer was recorded.",
@@ -242,7 +272,8 @@ function buildStages(
   signals: IncidentSignals,
   diagnosis: MemoryIncidentDiagnosis,
   evidence: MemoryIncidentEvidence[],
-  expectedAnswer?: string
+  expectedAnswer?: string,
+  evidenceOrigins: MemoryIncidentEvidenceOrigins = {}
 ): MemoryIncidentStage[] {
   const evidenceByStage = new Map<MemoryIncidentStageKind, string[]>();
   for (const item of evidence) {
@@ -258,7 +289,12 @@ function buildStages(
       id: `${checkpoint.id}-stage-memory-state`,
       kind: "memory_state",
       label: "Memory state",
-      status: statusFor("memory_state", checkpoint.memories.length > 0 ? "passed" : "warning"),
+      status: statusFor(
+        "memory_state",
+        evidenceOrigins.memory_state === "unavailable"
+          ? "unknown"
+          : checkpoint.memories.length > 0 ? "passed" : "warning"
+      ),
       summary: `${checkpoint.memories.length} stored memories before this turn.`,
       memoryIds: checkpoint.memories.map((memory) => memory.id),
       evidenceIds: evidenceByStage.get("memory_state") ?? []
@@ -267,7 +303,12 @@ function buildStages(
       id: `${checkpoint.id}-stage-retrieval`,
       kind: "retrieval",
       label: "Retrieval",
-      status: statusFor("retrieval", signals.retrievedIds.length > 0 ? "passed" : "warning"),
+      status: statusFor(
+        "retrieval",
+        evidenceOrigins.retrieval === "unavailable"
+          ? "unknown"
+          : signals.retrievedIds.length > 0 ? "passed" : "warning"
+      ),
       summary: signals.retrievedIds.length > 0
         ? `${signals.retrievedIds.length} selected; ${signals.ignoredIds.length} eligible but not selected.`
         : "No memory was selected.",
@@ -278,7 +319,12 @@ function buildStages(
       id: `${checkpoint.id}-stage-active-context`,
       kind: "active_context",
       label: "Active context",
-      status: statusFor("active_context", signals.loadedIds.length > 0 ? "passed" : "warning"),
+      status: statusFor(
+        "active_context",
+        evidenceOrigins.active_context === "unavailable"
+          ? "unknown"
+          : signals.loadedIds.length > 0 ? "passed" : "warning"
+      ),
       summary: `${signals.loadedIds.length} memories reached the model.`,
       memoryIds: signals.loadedIds,
       evidenceIds: evidenceByStage.get("active_context") ?? []

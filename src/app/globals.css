@@ -84,6 +84,37 @@ input {
   --workbench-width: clamp(620px, 48vw, 760px);
 }
 
+.engram-shell[data-incident-open="true"] {
+  --workbench-width: clamp(720px, 58vw, 980px);
+}
+
+.engram-shell[data-incident-open="true"] .product-mode-control,
+.engram-shell[data-incident-open="true"] .demo-prompt-guide,
+.engram-shell[data-incident-open="true"] .secondary-dock,
+.engram-shell[data-incident-open="true"] .current-event-banner {
+  display: none;
+}
+
+.engram-shell[data-incident-open="true"] .brain-tools-toggle {
+  display: grid;
+}
+
+.engram-shell[data-incident-open="true"] .brain-scene-tools:not([data-mobile-open="true"]) >
+  .brain-tool-btn:not(.brain-tools-toggle) {
+  display: none;
+}
+
+.engram-shell[data-incident-open="true"] .brain-scene-tools[data-mobile-open="true"] {
+  display: grid;
+  grid-template-columns: repeat(3, 34px);
+  padding: 6px;
+  border: 1px solid rgba(0, 212, 255, 0.12);
+  border-radius: 8px;
+  background: rgba(4, 6, 24, 0.86);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.42);
+  backdrop-filter: blur(16px);
+}
+
 .brain-scene[data-dream-active="true"]::after {
   position: fixed;
   inset: 0;

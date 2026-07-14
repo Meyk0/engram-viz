@@ -88,6 +88,37 @@ describe("TraceImportDialog", () => {
     expect(onImport).not.toHaveBeenCalled();
   });
 
+  it("requires an expected answer when importing an incident", async () => {
+    const onImport = vi.fn();
+    const user = userEvent.setup();
+
+    render(
+      <TraceImportDialog
+        open
+        purpose="incident"
+        onCancel={vi.fn()}
+        onImport={onImport}
+        onLoadSample={vi.fn()}
+      />
+    );
+
+    expect(screen.getByRole("dialog", { name: "Import a memory incident" })).toBeVisible();
+    expect(screen.queryByRole("tab", { name: "Live" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Load sample trace" })).not.toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("Trace JSON"), {
+      target: { value: '{"items":[]}' }
+    });
+    const createIncident = screen.getByRole("button", { name: "Create incident" });
+    expect(createIncident).toBeDisabled();
+
+    await user.type(screen.getByLabelText("Expected answer"), "Oakland");
+    expect(createIncident).toBeEnabled();
+    await user.click(createIncident);
+
+    await waitFor(() => expect(onImport).toHaveBeenCalledWith('{"items":[]}', "Oakland"));
+  });
+
   it("opens a live flight recorder and shows copyable processor setup", async () => {
     const onStartLive = vi.fn();
     const onStopLive = vi.fn();
