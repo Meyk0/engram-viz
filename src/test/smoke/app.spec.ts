@@ -17,7 +17,7 @@ test("switches into a docked investigation workbench without covering the stage"
 
   const shell = page.locator(".engram-shell");
   const stage = page.getByRole("region", { name: "Engram 3D brain scene" });
-  const workbench = page.getByRole("complementary", { name: "Memory story" });
+  const workbench = page.getByRole("complementary", { name: "Memory Time Machine" });
   await expect(shell).toHaveAttribute("data-product-mode", "investigate");
   await expect(shell).toHaveAttribute("data-workbench-open", "true");
   await expect(workbench).toBeVisible();
@@ -28,6 +28,30 @@ test("switches into a docked investigation workbench without covering the stage"
     if (!stageBox || !workbenchBox) return Number.POSITIVE_INFINITY;
     return stageBox.x + stageBox.width - workbenchBox.x;
   }).toBeLessThanOrEqual(8);
+});
+
+test("branches and replays an immutable memory checkpoint", async ({ page }) => {
+  test.setTimeout(45_000);
+  await page.goto("/");
+
+  await page.getByLabel("Chat message").fill("I love the color indigo.");
+  await page.getByLabel("Send").click();
+  await expect(page.getByRole("button", { name: "Time Machine 1" })).toBeVisible({ timeout: 12_000 });
+  await page.getByLabel("Chat message").fill("What color do I love?");
+  await page.getByLabel("Send").click();
+  await expect(page.getByRole("button", { name: "Time Machine 2" })).toBeVisible({ timeout: 12_000 });
+
+  await page.getByRole("button", { name: "Time Machine 2" }).click();
+  const timeMachine = page.getByRole("complementary", { name: "Memory Time Machine" });
+  await expect(timeMachine).toContainText("What color do I love?");
+  await timeMachine.getByRole("button", { name: "Quarantine" }).click();
+  await expect(timeMachine).toContainText("Quarantined from branch");
+  await timeMachine.getByRole("button", { name: "Replay branch" }).click();
+  await expect(timeMachine.getByRole("region", { name: "Branch replay result" })).toContainText(
+    "The answer changed",
+    { timeout: 12_000 }
+  );
+  await expect(page.getByRole("button", { name: "Memories 1" })).toBeVisible();
 });
 
 test("starts directly without an onboarding gate", async ({ page }) => {

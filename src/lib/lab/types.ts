@@ -73,3 +73,29 @@ export type MaterializedMemoryBranch = {
   diff: MemoryBranchDiff;
 };
 
+export type MemoryBranchReplayRequest = {
+  record: TurnRecord;
+  branch: MemoryBranch;
+  branchContextMemories: EngramMemory[];
+};
+
+export type MemoryBranchReplayResult = {
+  version: 1;
+  evidence: "replayed";
+  recordId: string;
+  branchId: string;
+  baselineMemoryIds: string[];
+  branchMemoryIds: string[];
+  baselineAnswer: string;
+  branchAnswer: string;
+  changed: boolean;
+  comparison: {
+    outcome: "changed" | "stable";
+    normalizedTextDistance: number;
+    answerLengthDelta: number;
+    baselineRuns: 1;
+    counterfactualRuns: 1;
+  };
+  caveat: string;
+  provider: TurnRecord["provider"];
+};

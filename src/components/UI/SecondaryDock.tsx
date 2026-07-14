@@ -1,4 +1,4 @@
-import { Activity, BrainCircuit, History, MapPin, MoonStar, ScanSearch } from "lucide-react";
+import { Activity, BrainCircuit, GitBranch, History, MapPin, MoonStar, ScanSearch } from "lucide-react";
 import type { ReactNode } from "react";
 
 export type SecondaryPanel =
@@ -11,7 +11,8 @@ export type SecondaryPanel =
   | "xray"
   | "lineage"
   | "trace"
-  | "retrieval";
+  | "retrieval"
+  | "timeMachine";
 
 type SecondaryDockProps = {
   activeContextCount: number;
@@ -27,6 +28,7 @@ type SecondaryDockProps = {
   onSelect: (panel: SecondaryPanel) => void;
   regionCount: number;
   retrievalCount?: number;
+  checkpointCount?: number;
   timelineCount: number;
 };
 
@@ -44,6 +46,7 @@ export function SecondaryDock({
   onSelect,
   regionCount,
   retrievalCount = 0,
+  checkpointCount = 0,
   timelineCount
 }: SecondaryDockProps) {
   const shouldShowDream = hasDreamReview || dreamReady || dreamCount >= 3;
@@ -60,6 +63,16 @@ export function SecondaryDock({
       id: "timeline",
       label: "Story"
     },
+    ...(checkpointCount > 0
+      ? [
+          {
+            count: checkpointCount,
+            icon: <GitBranch size={14} />,
+            id: "timeMachine" as const,
+            label: "Time Machine"
+          }
+        ]
+      : []),
     ...(hasRetrieval
       ? [
           {

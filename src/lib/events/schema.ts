@@ -134,6 +134,67 @@ export const turnRecordSchema = z.object({
   })
 });
 
+export const memoryBranchMutationSchema = z.discriminatedUnion("type", [
+  z.object({
+    id: z.string().min(1),
+    type: z.literal("quarantine"),
+    memoryId: z.string().min(1),
+    reason: z.string().min(1)
+  }),
+  z.object({
+    id: z.string().min(1),
+    type: z.literal("replace"),
+    memoryId: z.string().min(1),
+    replacement: engramMemorySchema,
+    reason: z.string().min(1)
+  }),
+  z.object({
+    id: z.string().min(1),
+    type: z.literal("restore"),
+    memoryId: z.string().min(1),
+    reason: z.string().min(1)
+  })
+]);
+
+export const memoryBranchSchema = z.object({
+  version: z.literal(1),
+  id: z.string().min(1),
+  checkpointId: z.string().min(1),
+  title: z.string().min(1),
+  createdAt: z.string().datetime(),
+  mutations: z.array(memoryBranchMutationSchema).max(20)
+});
+
+export const memoryBranchReplayRequestSchema = z.object({
+  record: turnRecordSchema,
+  branch: memoryBranchSchema,
+  branchContextMemories: z.array(engramMemorySchema).max(10)
+});
+
+export const memoryBranchReplayResultSchema = z.object({
+  version: z.literal(1),
+  evidence: z.literal("replayed"),
+  recordId: z.string().min(1),
+  branchId: z.string().min(1),
+  baselineMemoryIds: z.array(z.string().min(1)),
+  branchMemoryIds: z.array(z.string().min(1)),
+  baselineAnswer: z.string(),
+  branchAnswer: z.string(),
+  changed: z.boolean(),
+  comparison: z.object({
+    outcome: z.enum(["changed", "stable"]),
+    normalizedTextDistance: z.number().min(0).max(1),
+    answerLengthDelta: z.number().int(),
+    baselineRuns: z.literal(1),
+    counterfactualRuns: z.literal(1)
+  }),
+  caveat: z.string().min(1),
+  provider: z.object({
+    id: z.enum(["demo", "openai"]),
+    model: z.string().min(1).optional()
+  })
+});
+
 export const causalAblationRequestSchema = z.object({
   record: turnRecordSchema,
   excludedMemoryIds: z.array(z.string().min(1)).min(1).max(10)

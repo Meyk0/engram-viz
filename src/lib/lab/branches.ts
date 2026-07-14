@@ -4,6 +4,7 @@ import type {
   MemoryBranchMutation,
   MemoryCheckpoint
 } from "@/lib/lab/types";
+import type { TurnRecord } from "@/lib/evidence/types";
 import type { EngramMemory } from "@/types";
 
 export function createMemoryBranch(input: {
@@ -110,6 +111,31 @@ export function createReplacementMemory(input: {
   };
 }
 
+export function branchContextMemories(
+  record: TurnRecord,
+  branch: MemoryBranch,
+  materialized: MaterializedMemoryBranch
+): EngramMemory[] {
+  const materializedById = new Map(materialized.memories.map((memory) => [memory.id, memory]));
+  const replacements = new Map(
+    branch.mutations
+      .filter((mutation): mutation is Extract<MemoryBranchMutation, { type: "replace" }> =>
+        mutation.type === "replace"
+      )
+      .map((mutation) => [mutation.memoryId, mutation.replacement])
+  );
+
+  return record.retrievedMemories.flatMap((memory) => {
+    const replacement = replacements.get(memory.id);
+    if (replacement && materializedById.has(replacement.id)) {
+      return [structuredClone(replacement)];
+    }
+
+    const current = materializedById.get(memory.id);
+    return current ? [structuredClone(current)] : [];
+  });
+}
+
 function stableHash(value: string): string {
   let hash = 2166136261;
   for (let index = 0; index < value.length; index += 1) {
@@ -124,4 +150,3 @@ function deepFreeze<T>(value: T): T {
   Object.values(value).forEach(deepFreeze);
   return Object.freeze(value);
 }
-

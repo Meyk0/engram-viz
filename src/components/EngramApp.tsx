@@ -25,6 +25,7 @@ import { MemoryLibraryPanel } from "@/components/UI/MemoryLibraryPanel";
 import { MemoryLineagePanel } from "@/components/UI/MemoryLineagePanel";
 import { HowItWorksPanel } from "@/components/UI/HowItWorksPanel";
 import { MemoryTimelinePanel } from "@/components/UI/MemoryTimelinePanel";
+import { MemoryTimeMachinePanel } from "@/components/UI/MemoryTimeMachinePanel";
 import { MemoryInspector } from "@/components/UI/MemoryInspector";
 import { ProductModeControl } from "@/components/UI/ProductModeControl";
 import { RealityModeControl } from "@/components/UI/RealityModeControl";
@@ -50,6 +51,7 @@ import {
 import type { EngramViewMode } from "@/lib/semantic/types";
 import type { TurnRecord } from "@/lib/evidence/types";
 import type { EngramProductMode } from "@/lib/lab/types";
+import { buildTimelineCheckpoints, buildTraceCheckpoints } from "@/lib/lab/checkpoints";
 import { buildMemoryLineage } from "@/lib/lineage/build";
 import { importAgentTrace } from "@/lib/traces/import";
 import { sampleAgentTrace } from "@/lib/traces/sample";
@@ -95,6 +97,7 @@ export function EngramApp({ recordingMode = false }: EngramAppProps) {
   const [traceImportOpen, setTraceImportOpen] = useState(false);
   const [traceImportError, setTraceImportError] = useState<string | null>(null);
   const [traceSceneEpoch, setTraceSceneEpoch] = useState(0);
+  const [timeMachineFocusMemoryIds, setTimeMachineFocusMemoryIds] = useState<string[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
   const activeTimelineEntryId = useRef<string | undefined>(undefined);
   const turnInFlight = useRef(false);
@@ -176,6 +179,12 @@ export function EngramApp({ recordingMode = false }: EngramAppProps) {
     [causalMemoryId, latestEvidence]
   );
   const turnRecords = useMemo(() => Object.values(turnRecordsByTimelineId), [turnRecordsByTimelineId]);
+  const memoryCheckpoints = useMemo(
+    () => importedTrace
+      ? buildTraceCheckpoints(importedTrace)
+      : buildTimelineCheckpoints(timelineEntries, turnRecordsByTimelineId),
+    [importedTrace, timelineEntries, turnRecordsByTimelineId]
+  );
   const lineageGraph = useMemo(
     () =>
       lineageMemoryId
@@ -242,6 +251,8 @@ export function EngramApp({ recordingMode = false }: EngramAppProps) {
   const effectiveTimelineFocus = focusedTimelineEntry ? timelineFocus : undefined;
   const brainFocusMemoryIds = effectiveTimelineFocus
     ? effectiveTimelineFocus.memoryIds
+    : activePanel === "timeMachine"
+      ? timeMachineFocusMemoryIds
     : activePanel === "lineage" && lineageGraph
       ? lineageGraph.relatedMemoryIds
     : activePanel === "xray" && causalMemoryId
@@ -253,6 +264,10 @@ export function EngramApp({ recordingMode = false }: EngramAppProps) {
       : [];
   const brainFocusRegions = effectiveTimelineFocus
     ? effectiveTimelineFocus.regions
+    : activePanel === "timeMachine" && timeMachineFocusMemoryIds.length > 0
+      ? [...new Set(timeMachineFocusMemoryIds
+          .map((id) => memories.find((memory) => memory.id === id)?.region)
+          .filter((region): region is BrainRegion => Boolean(region)))]
     : activePanel === "lineage" && lineageGraph
       ? [...new Set(lineageGraph.nodes.flatMap((node) => node.region ?? []))]
     : activePanel === "xray"
@@ -264,6 +279,8 @@ export function EngramApp({ recordingMode = false }: EngramAppProps) {
       : [];
   const brainFocusPulseKey = effectiveTimelineFocus
     ? timelineFocusPulseKey
+    : activePanel === "timeMachine" && timeMachineFocusMemoryIds.length > 0
+      ? `time-machine-${timeMachineFocusMemoryIds.join(".")}`
     : activePanel === "lineage" && lineageMemoryId
       ? `lineage-${lineageMemoryId}`
     : activePanel === "xray" && causalMemoryId
@@ -286,6 +303,7 @@ export function EngramApp({ recordingMode = false }: EngramAppProps) {
     setActivePanel(null);
     setCausalMemoryId(undefined);
     setLineageMemoryId(undefined);
+    setTimeMachineFocusMemoryIds([]);
     resetCausalXRay();
     if (productMode === "investigate") setProductMode("learn");
   }, [productMode, resetCausalXRay]);
@@ -543,6 +561,7 @@ export function EngramApp({ recordingMode = false }: EngramAppProps) {
     setTurnRecordsByTimelineId({});
     setCausalMemoryId(undefined);
     setLineageMemoryId(undefined);
+    setTimeMachineFocusMemoryIds([]);
     resetCausalXRay();
     setProvenancePulseKey((current) => current + 1);
   }, [clearEvents, resetCausalXRay, resetSession]);
@@ -671,9 +690,9 @@ export function EngramApp({ recordingMode = false }: EngramAppProps) {
         return;
       }
 
-      setActivePanel(latestRetrieve ? "retrieval" : "timeline");
+      setActivePanel("timeMachine");
     },
-    [importedTrace, latestRetrieve]
+    [importedTrace]
   );
 
   const openTraceInspector = useCallback(() => {
@@ -730,6 +749,7 @@ export function EngramApp({ recordingMode = false }: EngramAppProps) {
       data-product-mode={productMode}
       data-recording={cleanDemoMode}
       data-workbench-open={Boolean(activePanel)}
+      data-workbench-wide={activePanel === "timeMachine"}
     >
       <Brain3D
         events={events}
@@ -878,6 +898,13 @@ export function EngramApp({ recordingMode = false }: EngramAppProps) {
         onSelectEntry={onTimelineSelect}
         open={activePanel === "timeline"}
       />
+      {activePanel === "timeMachine" ? (
+        <MemoryTimeMachinePanel
+          checkpoints={memoryCheckpoints}
+          onClose={closeSecondaryPanel}
+          onFocusMemoryIds={setTimeMachineFocusMemoryIds}
+        />
+      ) : null}
       <HowItWorksPanel onClose={closeSecondaryPanel} open={activePanel === "help"} />
       <DreamReviewPanel
         beforeMemories={dreamMemorySnapshot.length > 0 ? dreamMemorySnapshot : dreamEligibleMemories}
@@ -923,6 +950,7 @@ export function EngramApp({ recordingMode = false }: EngramAppProps) {
           hasRetrieval={Boolean(latestRetrieve)}
           regionCount={regionDetailCount}
           retrievalCount={latestRetrieve?.retrieval?.candidateCount ?? latestRetrieve?.ids.length ?? 0}
+          checkpointCount={memoryCheckpoints.length}
         />
       ) : null}
 

@@ -80,6 +80,10 @@ input {
   right: var(--workbench-width);
 }
 
+.engram-shell[data-workbench-wide="true"] {
+  --workbench-width: clamp(620px, 48vw, 760px);
+}
+
 .brain-scene[data-dream-active="true"]::after {
   position: fixed;
   inset: 0;
@@ -2154,6 +2158,10 @@ input {
 
 @media (max-width: 760px) {
   .engram-shell {
+    --workbench-width: 100vw;
+  }
+
+  .engram-shell[data-workbench-wide="true"] {
     --workbench-width: 100vw;
   }
 
