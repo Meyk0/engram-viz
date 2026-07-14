@@ -11,6 +11,7 @@ const MAX_TRACE_FILE_BYTES = 2 * 1024 * 1024;
 export type TraceImportDialogProps = {
   error?: string | null;
   importing?: boolean;
+  liveAvailable?: boolean;
   onCancel: () => void;
   onImport: (raw: unknown | string) => void | Promise<void>;
   onLoadSample: () => void;
@@ -25,6 +26,7 @@ export type TraceImportDialogProps = {
 export function TraceImportDialog({
   error,
   importing = false,
+  liveAvailable = true,
   onCancel,
   onImport,
   onLoadSample,
@@ -133,9 +135,11 @@ export function TraceImportDialog({
             <button role="tab" aria-selected={mode === "file"} type="button" onClick={() => setMode("file")}>
               <FileJson size={12} /> Recorded
             </button>
-            <button role="tab" aria-selected={mode === "live"} type="button" onClick={() => setMode("live")}>
-              <Radio size={12} /> Live
-            </button>
+            {liveAvailable ? (
+              <button role="tab" aria-selected={mode === "live"} type="button" onClick={() => setMode("live")}>
+                <Radio size={12} /> Live
+              </button>
+            ) : null}
           </div>
 
           {mode === "file" ? <>

@@ -1,8 +1,12 @@
-# Engram Flight Recorder
+# Engram Legacy Flight Recorder
 
 The Flight Recorder streams public OpenAI Agents SDK trace and span objects into
 Engram's Observe mode. It is a secondary trace processor: adding it does not
 replace the SDK's default OpenAI exporter.
+
+This endpoint is an **ephemeral legacy demo transport**. It does not provide
+durability, delivery guarantees, retention controls, or a production telemetry
+pipeline. Use the authenticated telemetry v2 ingestion path for durable data.
 
 ## Connect
 
@@ -18,6 +22,22 @@ import { createEngramTracingProcessor } from "./flight-recorder-client";
 addTraceProcessor(createEngramTracingProcessor({
   endpoint: "https://your-engram-host/api/traces/live",
   channelId: "live-generated-in-the-ui"
+}));
+```
+
+Local development remains unauthenticated when `ENGRAM_INGEST_KEYS_JSON` is
+empty. When ingest keys are configured, every `GET` and `POST` requires the raw
+token as a Bearer credential. The processor's injectable `fetch` can add it:
+
+```ts
+addTraceProcessor(createEngramTracingProcessor({
+  endpoint: "https://your-engram-host/api/traces/live",
+  channelId: "live-generated-in-the-ui",
+  fetch: (input, init) => {
+    const headers = new Headers(init?.headers);
+    headers.set("Authorization", `Bearer ${process.env.ENGRAM_INGEST_TOKEN}`);
+    return fetch(input, { ...init, headers });
+  }
 }));
 ```
 
@@ -43,12 +63,21 @@ serialization surface:
 
 ## Security and runtime limits
 
-- The channel ID is an unguessable session capability; no API key is placed in
-  the browser.
+- Browser origins receive CORS access only when they exactly match an origin in
+  `ENGRAM_INGEST_ALLOWED_ORIGINS`. There is no wildcard CORS fallback.
+- When `ENGRAM_INGEST_KEYS_JSON` is configured, Bearer authentication is
+  mandatory. Authenticated channels are isolated by tenant and project even if
+  two clients choose the same public channel ID. Optional top-level or query
+  `tenantId` and `projectId` claims must match the credential.
+- In production, the endpoint returns unavailable unless
+  `ENGRAM_LEGACY_LIVE_RECORDER_ENABLED=true` **and** ingest keys are configured.
+- The built-in browser recorder uses `EventSource`, which cannot attach a Bearer
+  header. Treat that flow as local development functionality; do not place raw
+  ingest tokens in browser code or URL query strings.
 - Credential-shaped keys and values are redacted before a live item reaches the
   browser and again before export.
 - Live channels are in-memory, capped, and removed after inactivity. On
   serverless deployments a process restart can end a channel. This is an
   interactive demo transport, not a durable telemetry backend.
-- Production use should put authenticated ingestion, durable storage, retention
-  controls, and tenant isolation in front of the normalization layer.
+- Do not rely on this endpoint for production telemetry. Use telemetry v2 with
+  durable storage, retention controls, and operational monitoring instead.

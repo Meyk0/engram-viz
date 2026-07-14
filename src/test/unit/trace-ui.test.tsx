@@ -7,6 +7,21 @@ import { TracePlaybackBar } from "@/components/UI/TracePlaybackBar";
 import type { NormalizedTrace } from "@/lib/traces/types";
 
 describe("TraceImportDialog", () => {
+  it("can hide the local-only live recorder from production surfaces", () => {
+    render(
+      <TraceImportDialog
+        liveAvailable={false}
+        onCancel={vi.fn()}
+        onImport={vi.fn()}
+        onLoadSample={vi.fn()}
+        open
+      />
+    );
+
+    expect(screen.getByRole("tab", { name: "Recorded" })).toBeInTheDocument();
+    expect(screen.queryByRole("tab", { name: "Live" })).not.toBeInTheDocument();
+  });
+
   it("stays hidden when closed", () => {
     render(
       <TraceImportDialog

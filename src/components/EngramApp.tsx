@@ -87,6 +87,7 @@ type EngramAppProps = {
 };
 
 export function EngramApp({ recordingMode = false }: EngramAppProps) {
+  const liveRecorderAvailable = process.env.NODE_ENV !== "production";
   const [message, setMessage] = useState("");
   const [draftTurn, setDraftTurn] = useState<{ user: string; assistant: string } | null>(null);
   const [activePanel, setActivePanel] = useState<SecondaryPanel | null>(null);
@@ -1074,6 +1075,7 @@ export function EngramApp({ recordingMode = false }: EngramAppProps) {
       {traceImportOpen ? (
         <TraceImportDialog
           error={traceImportError}
+          liveAvailable={liveRecorderAvailable}
           liveChannelId={liveRecorder.channelId}
           liveError={liveRecorder.error}
           liveStatus={liveRecorder.status}

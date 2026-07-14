@@ -52,11 +52,13 @@ test("branches and replays an immutable memory checkpoint", async ({ page }) => 
 
   await page.getByLabel("Chat message").fill("I love the color indigo.");
   await page.getByLabel("Send").click();
-  await expect(page.getByRole("button", { name: "Time Machine 1" })).toBeVisible({ timeout: 12_000 });
+  await expect(page.getByRole("button", { name: "Story 1" })).toBeVisible({ timeout: 12_000 });
   await page.getByLabel("Chat message").fill("What color do I love?");
   await page.getByLabel("Send").click();
-  await expect(page.getByRole("button", { name: "Time Machine 2" })).toBeVisible({ timeout: 12_000 });
+  await expect(page.getByRole("button", { name: "Story 2" })).toBeVisible({ timeout: 12_000 });
 
+  await page.getByRole("button", { name: "Investigate: Test memory history" }).click();
+  await expect(page.getByRole("button", { name: "Time Machine 2" })).toBeVisible();
   await page.getByRole("button", { name: "Time Machine 2" }).click();
   const timeMachine = page.getByRole("complementary", { name: "Memory Time Machine" });
   await expect(timeMachine).toContainText("What color do I love?");
@@ -74,6 +76,7 @@ test("branches and replays an immutable memory checkpoint", async ({ page }) => 
   await timeMachine.getByRole("button", { name: "Save regression" }).click();
   await expect(timeMachine).toContainText("Regression saved");
   expect((await regressionDownload).suggestedFilename()).toMatch(/\.engram-test\.json$/);
+  await page.getByRole("button", { name: "Learn: Explore how memory works" }).click();
   await expect(page.getByRole("button", { name: "Memories 1" })).toBeVisible();
 });
 
@@ -105,47 +108,20 @@ test("opens a clean recording demo route", async ({ page }) => {
   await expect(page.getByRole("button", { name: "Run demo" })).toBeVisible();
 });
 
-test("streams an Agents SDK flight recorder into Observe mode", async ({ page }) => {
-  test.setTimeout(45_000);
+test("keeps the legacy live recorder out of the production browser surface", async ({ page }) => {
   await page.goto("/");
   await page.getByRole("button", { name: "Observe: Inspect an agent trace" }).click();
   const dialog = page.getByRole("dialog", { name: "Import a recorded trace" });
   await expect(dialog).toBeVisible();
-  await dialog.getByRole("tab", { name: "Live" }).click();
-  await dialog.getByRole("button", { name: "Start flight recorder" }).click();
-  const setup = dialog.getByLabel("Live flight recorder setup");
-  await expect(setup).toContainText("Listening for first span");
-  const channelId = await setup.getAttribute("data-channel-id");
-  expect(channelId).toMatch(/^live-/);
+  await expect(dialog.getByRole("tab", { name: "Recorded" })).toBeVisible();
+  await expect(dialog.getByRole("tab", { name: "Live" })).toHaveCount(0);
 
-  const ingest = await page.request.post(`/api/traces/live?channel=${channelId}`, {
+  const ingest = await page.request.post("/api/traces/live?channel=production-smoke", {
     data: {
-      items: [
-        { object: "trace", id: "trace-smoke-live", workflow_name: "Live memory agent" },
-        {
-          object: "trace.span",
-          id: "span-smoke-store",
-          trace_id: "trace-smoke-live",
-          ended_at: "2026-07-13T12:00:01.000Z",
-          span_data: {
-            type: "function",
-            name: "store_memory",
-            input: { text: "User likes indigo.", api_key: "sk-must-not-reach-browser-123456" }
-          }
-        }
-      ]
+      item: { object: "trace", id: "trace-smoke-live", workflow_name: "Live memory agent" }
     }
   });
-  expect(ingest.ok()).toBe(true);
-
-  await expect(page.getByLabel("Live trace controls")).toBeVisible({ timeout: 12_000 });
-  const inspector = page.getByRole("complementary", { name: "Trace inspector" });
-  await expect(inspector).toContainText("Live memory agent");
-  await expect(inspector).toContainText("store_memory");
-  await expect(inspector).not.toContainText("sk-must-not-reach-browser");
-  await expect(inspector.getByRole("button", { name: "Download sanitized trace" })).toBeVisible();
-  await page.getByRole("button", { name: "Exit trace playback" }).click();
-  await expect(page.getByLabel("Chat message")).toBeVisible();
+  expect(ingest.status()).toBe(404);
 });
 
 test("exposes brain thumbnail metadata", async ({ page }) => {
@@ -177,6 +153,7 @@ test("opens Retrieval MRI after a memory recall", async ({ page }) => {
   await expect(page.getByRole("button", { name: "Memories 1" })).toBeVisible({ timeout: 12_000 });
   await page.getByLabel("Chat message").fill("What color do I love?");
   await page.getByLabel("Send").click();
+  await page.getByRole("button", { name: "Investigate: Test memory history" }).click();
   await expect(page.getByRole("button", { name: "Retrieval MRI 1" })).toBeVisible({ timeout: 12_000 });
 
   await page.getByRole("button", { name: "Retrieval MRI 1" }).click();
@@ -193,9 +170,9 @@ test("audits the current memory state with observed integrity rules", async ({ p
 
   await page.getByLabel("Chat message").fill("I love the color indigo.");
   await page.getByLabel("Send").click();
+  await page.getByRole("button", { name: "Investigate: Test memory history" }).click();
   const integrityButton = page.getByRole("button", { name: /^Integrity/ });
   await expect(integrityButton).toBeVisible({ timeout: 12_000 });
-  await integrityButton.click();
 
   const integrity = page.getByRole("complementary", { name: "Memory Integrity" });
   await expect(integrity).toBeVisible();
