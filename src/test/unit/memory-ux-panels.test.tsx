@@ -20,10 +20,12 @@ describe("memory UX panels", () => {
 
     expect(screen.getByText("AI memory, visible")).toBeVisible();
     expect(screen.getByText("How Engram works")).toBeVisible();
-    expect(screen.getByText(/Durable facts become memory dots/i)).toBeVisible();
+    expect(screen.getByText(/visualizes observable memory operations/i)).toBeVisible();
+    expect(screen.getByText(/does not expose hidden reasoning or internal model activations/i)).toBeVisible();
     expect(screen.getByText(/Hippocampus: durable facts land here first/i)).toBeVisible();
     expect(screen.getByText("Reality map")).toBeVisible();
-    expect(screen.getByText("Causal X-Ray")).toBeVisible();
+    expect(screen.getByText("Ablation Replay")).toBeVisible();
+    expect(screen.getByText(/experimental evidence, not proof of deterministic causality/i)).toBeVisible();
     expect(screen.getByText("Lineage")).toBeVisible();
     expect(screen.getByText("Trace playback")).toBeVisible();
     expect(screen.queryByRole("button", { name: "Start" })).not.toBeInTheDocument();

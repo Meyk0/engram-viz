@@ -26,25 +26,35 @@ export function CausalXRayPanel({
     <aside
       className="secondary-panel secondary-panel-right causal-xray-panel"
       aria-busy={pending}
-      aria-label="Causal X-Ray"
+      aria-describedby="ablation-replay-method"
+      aria-label="Ablation Replay"
     >
       <header className="causal-xray-header">
         <div>
           <div className="causal-xray-eyebrow">
             <FlaskConical aria-hidden="true" size={12} />
-            Causal X-Ray
+            Controlled memory test
           </div>
-          <h2 id="causal-xray-title">Counterfactual replay</h2>
+          <h2 id="causal-xray-title">Ablation Replay</h2>
         </div>
-        <button className="causal-xray-close" type="button" onClick={onClose} aria-label="Close Causal X-Ray">
+        <button className="causal-xray-close" type="button" onClick={onClose} aria-label="Close Ablation Replay">
           <X aria-hidden="true" size={14} />
         </button>
       </header>
 
       <div className="causal-xray-body">
+        <section className="causal-xray-original" aria-labelledby="ablation-replay-method-label">
+          <h3 id="ablation-replay-method-label">What this tests</h3>
+          <p id="ablation-replay-method">
+            Engram reruns this recorded turn with its original retrieved context, then with one selected
+            memory omitted. It tests whether that observable context change alters the output; it does
+            not reveal hidden model reasoning.
+          </p>
+        </section>
+
         <section className="causal-xray-memory" aria-labelledby="causal-xray-memory-label">
           <div className="causal-xray-section-label" id="causal-xray-memory-label">
-            Memory being removed
+            Memory omitted in replay
           </div>
           <blockquote>{memory.text}</blockquote>
           <div className="causal-xray-memory-meta">
@@ -105,8 +115,11 @@ export function CausalXRayPanel({
             </section>
 
             <p className="causal-xray-caveat">
-              <strong>Caveat</strong>
-              {result.caveat}
+              <strong>Interpret carefully</strong>
+              <span>
+                {result.caveat} One replay does not establish causality; model sampling, provider
+                behavior, or other uncontrolled runtime differences may also change the answer.
+              </span>
             </p>
           </div>
         ) : (

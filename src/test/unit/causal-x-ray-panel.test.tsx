@@ -5,7 +5,7 @@ import { CausalXRayPanel } from "@/components/UI/CausalXRayPanel";
 import type { CausalAblationResult, TurnRecord } from "@/lib/evidence/types";
 import type { EngramMemory } from "@/types";
 
-describe("CausalXRayPanel", () => {
+describe("Ablation Replay panel", () => {
   it("shows the excluded memory, original answer, and one run action", async () => {
     const onRun = vi.fn();
     const user = userEvent.setup();
@@ -19,9 +19,11 @@ describe("CausalXRayPanel", () => {
       />
     );
 
-    expect(screen.getByLabelText("Causal X-Ray")).toBeVisible();
-    expect(screen.getByRole("heading", { name: "Counterfactual replay" })).toBeVisible();
-    expect(screen.getByText("Memory being removed")).toBeVisible();
+    expect(screen.getByLabelText("Ablation Replay")).toBeVisible();
+    expect(screen.getByRole("heading", { name: "Ablation Replay" })).toBeVisible();
+    expect(screen.getByText("Memory omitted in replay")).toBeVisible();
+    expect(screen.getByText(/tests whether that observable context change alters the output/i)).toBeVisible();
+    expect(screen.getByText(/does not reveal hidden model reasoning/i)).toBeVisible();
     expect(screen.getByText(memory.text)).toBeVisible();
     expect(screen.getByText(record.originalAnswer)).toBeVisible();
     expect(screen.getAllByRole("button")).toHaveLength(2);
@@ -47,7 +49,9 @@ describe("CausalXRayPanel", () => {
     expect(screen.getByLabelText("Replay evidence")).toHaveTextContent("Baseline context1 memories");
     expect(screen.getByText("Changed")).toBeVisible();
     expect(screen.getByText("Answer changed when this memory was omitted")).toBeVisible();
-    expect(screen.getByText(result.caveat)).toBeVisible();
+    expect(screen.getByLabelText("Ablation Replay")).toHaveTextContent(result.caveat);
+    expect(screen.getByText(/One replay does not establish causality/i)).toBeVisible();
+    expect(screen.getByText(/uncontrolled runtime differences may also change the answer/i)).toBeVisible();
     expect(screen.queryByRole("button", { name: "Run without this memory" })).not.toBeInTheDocument();
   });
 
@@ -83,7 +87,7 @@ describe("CausalXRayPanel", () => {
 
     expect(screen.getByRole("alert")).toHaveTextContent("The comparison could not be completed.");
     await user.click(screen.getByRole("button", { name: "Run without this memory" }));
-    await user.click(screen.getByRole("button", { name: "Close Causal X-Ray" }));
+    await user.click(screen.getByRole("button", { name: "Close Ablation Replay" }));
 
     expect(onRun).toHaveBeenCalledTimes(1);
     expect(onClose).toHaveBeenCalledTimes(1);

@@ -24,9 +24,9 @@ export function HowItWorksPanel({ onClose, open }: HowItWorksPanelProps) {
       </header>
       <div className="how-it-works-body">
         <p>
-          Engram shows what the AI stores, retrieves, and uses. Durable facts become memory dots.
-          Questions retrieve relevant dots into working memory before the answer, so you can see what
-          influenced it.
+          Engram visualizes observable memory operations around an AI agent. Durable facts become
+          memory dots, and retrieved dots show what memory was made available to the model for an
+          answer. Engram does not expose hidden reasoning or internal model activations.
         </p>
         <dl className="memory-model-list">
           <div data-region="hippocampus">
@@ -35,7 +35,7 @@ export function HowItWorksPanel({ onClose, open }: HowItWorksPanelProps) {
           </div>
           <div data-region="prefrontal">
             <dt>Working Memory</dt>
-            <dd>Prefrontal cortex: retrieved facts used right now</dd>
+            <dd>Prefrontal cortex: retrieved facts loaded for this turn</dd>
           </div>
           <div data-region="temporal">
             <dt>Stable Knowledge</dt>
@@ -53,8 +53,11 @@ export function HowItWorksPanel({ onClose, open }: HowItWorksPanelProps) {
               <dd>Switch from anatomy to the semantic geometry used for memory retrieval.</dd>
             </div>
             <div>
-              <dt>Causal X-Ray</dt>
-              <dd>Rerun an answer without one retrieved memory to estimate its influence.</dd>
+              <dt>Ablation Replay</dt>
+              <dd>
+                Compare a baseline rerun with a replay that omits one retrieved memory. A changed
+                answer is experimental evidence, not proof of deterministic causality.
+              </dd>
             </div>
             <div>
               <dt>Lineage</dt>

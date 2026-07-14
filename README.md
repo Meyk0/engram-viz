@@ -1,12 +1,48 @@
 # Engram
 
-See your AI think.
+**Memory observability and replay for AI agents.**
 
-Engram is a 3D brain visualizer that makes LLM memory visible in real time. v1 is an embedded web demo with a chat surface, a memory/event stream, and a holographic brain visualization driven by a shared event contract.
+Engram is an interactive workbench for inspecting the observable memory layer around an AI agent. It
+shows what the application stored, what retrieval considered and selected, what memory was loaded into
+model context, and how that state changed over time. Controlled replays let developers test whether an
+answer changes when a selected memory is omitted.
+
+The 3D brain is Engram's visual overview. The underlying product is an event-driven memory debugger,
+trace player, and experimentation environment.
+
+## What Engram Can Show
+
+- **Learn:** run a deterministic memory lifecycle and see new, working, and stable memory represented
+  through an anatomical metaphor.
+- **Observe:** import recorded agent traces or stream supported OpenAI Agents SDK spans into a flight
+  recorder. Explicit events remain distinguished from operations mapped by an adapter.
+- **Investigate:** inspect retrieval candidates with Retrieval MRI, replay an answer with a memory
+  omitted, branch from an immutable checkpoint, scan memory integrity, review Dream proposals, and
+  follow memory movement across multiple agents.
+
+## Evidence Boundaries
+
+Engram is deliberately narrow about what its evidence proves:
+
+- It does **not** expose chain-of-thought, hidden reasoning, or internal model activations.
+- A memory loaded into context was available to the model; that fact alone does not prove it influenced
+  the answer.
+- **Ablation Replay** compares a baseline rerun with a rerun that omits one retrieved memory. A changed
+  output is evidence that the observable context change mattered in those runs, not proof of
+  deterministic causality. Sampling and uncontrolled provider behavior can also affect the result.
+- Trace completeness depends on instrumentation. An absent memory event may mean that no operation
+  occurred or that the integration did not capture it.
 
 ## Status
 
-Early scaffold. Current work focuses on deterministic memory/event contracts and testable fixture streams before wiring a live LLM provider.
+Engram is an advanced engineering prototype, not a production telemetry service. Session and live-trace
+state are currently process-local; there is no login, durable persistence, tenant isolation, or
+production-grade ingestion guarantee. Deterministic demo mode and mocked providers keep normal tests
+repeatable.
+
+The architecture and current evidence model are described in
+[`docs/engram-lab-architecture.md`](docs/engram-lab-architecture.md). The live Agents SDK integration is
+documented in [`docs/flight-recorder.md`](docs/flight-recorder.md).
 
 ## Development
 
@@ -15,7 +51,7 @@ npm install
 npm run dev
 ```
 
-The app runs in deterministic demo mode by default. To use ChatGPT/OpenAI for local chat turns, set:
+The app runs in deterministic `demo` mode by default. To use OpenAI for local chat turns, set:
 
 ```bash
 ENGRAM_CHAT_PROVIDER=openai
@@ -24,7 +60,8 @@ OPENAI_API_KEY=...
 OPENAI_MODEL=gpt-5.4-mini
 ```
 
-Memory extraction and consolidation are separate guarded planners. To let OpenAI decide what to store and when repeated hippocampus memories should merge into temporal memory, set:
+Memory extraction and consolidation are separate guarded planners. To let OpenAI decide what to store
+and when repeated episodic memories should consolidate into stable memory, set:
 
 ```bash
 ENGRAM_MEMORY_PLANNER=openai
@@ -33,7 +70,7 @@ ENGRAM_CONSOLIDATION_PLANNER=openai
 OPENAI_CONSOLIDATION_PLANNER_ENABLED=true
 ```
 
-Retrieval is lexical by default. To use OpenAI embeddings for semantic memory retrieval, set:
+Retrieval is lexical by default. To use OpenAI embeddings for semantic retrieval, set:
 
 ```bash
 ENGRAM_RETRIEVAL_PROVIDER=openai
@@ -51,14 +88,17 @@ npm run lint
 npm test
 npm run eval:memory
 npm run build
+npm run smoke
 ```
 
-`npm run eval:memory` runs the deterministic memory eval harness. It covers storage decisions,
-retrieval relevance, and hippocampus-to-temporal consolidation without calling a live LLM.
+`npm run eval:memory` runs deterministic memory scenarios covering storage decisions, retrieval
+relevance, correction behavior, and consolidation without calling a live model.
 
 ## Provider Direction
 
-The architecture is provider-neutral. Development starts in deterministic `demo` mode, and the live chat layer can target OpenAI/ChatGPT while emitting the same `EngramEvent` stream. Anthropic remains a future provider boundary.
+Engram's event and trace layers are designed to be provider-neutral. The current live integration
+targets OpenAI, while deterministic fixtures exercise the same contracts without a network dependency.
+Additional provider and memory-store adapters remain future work.
 
 ## Credit
 

@@ -351,7 +351,7 @@ test("switches between the anatomical brain and semantic memory map without chan
   await expect(page.getByRole("button", { name: "Memories 1" })).toBeVisible();
 });
 
-test("runs a Causal X-Ray without mutating the memory session", async ({ page }) => {
+test("runs an Ablation Replay without mutating the memory session", async ({ page }) => {
   test.setTimeout(45_000);
   await page.goto("/");
 
@@ -367,16 +367,17 @@ test("runs a Causal X-Ray without mutating the memory session", async ({ page })
 
   await page.getByRole("button", { name: "Inspect 1 used memory" }).click();
   await page.getByRole("button", { name: "Test without this memory" }).click();
-  const xray = page.getByRole("complementary", { name: "Causal X-Ray" });
-  await expect(xray).toContainText("Memory being removed");
-  await expect(xray).toContainText("Original answer");
+  const replay = page.getByRole("complementary", { name: "Ablation Replay" });
+  await expect(replay).toContainText("Memory omitted in replay");
+  await expect(replay).toContainText("Original answer");
+  await expect(replay).toContainText("does not reveal hidden model reasoning");
 
   await page.getByRole("button", { name: "Run without this memory" }).click();
   await expect(page.getByRole("region", { name: "Baseline rerun" })).toBeVisible({ timeout: 12_000 });
   await expect(page.getByRole("region", { name: "Answer without memory" })).toBeVisible();
   await expect(page.getByLabel("Replay evidence")).toContainText("Runs2");
   await expect(page.getByLabel("Replay evidence")).toContainText("Text difference");
-  await expect(xray).toContainText("does not prove hidden model causality");
+  await expect(replay).toContainText("One replay does not establish causality");
   await expect(page.getByRole("button", { name: "Memories 1" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Story 2" })).toBeVisible();
 });
