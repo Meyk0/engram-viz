@@ -125,12 +125,6 @@ export type MemoryEvaluatorLimitationFixture =
       name: string;
       kind: "memory-scope";
       expectedLimitationIncludes: string[];
-    }
-  | {
-      name: string;
-      kind: "topic-only-consolidation";
-      memories: EvalMemoryInput[];
-      expectedLimitationIncludes: string[];
     };
 
 export type MemoryEvalResult = {
@@ -636,27 +630,31 @@ export const memoryConsolidationEvalFixtures: MemoryConsolidationEvalFixture[] =
     }
   },
   {
-    name: "selects oldest three memories in an eligible topic",
+    name: "selects the three memories in the strongest semantic group",
     memories: [
       {
         id: "design-1",
         text: "I prefer red accents",
-        topic: "design"
+        topic: "design",
+        cluster: "interface_design"
       },
       {
         id: "design-2",
         text: "I prefer dim brain regions",
-        topic: "design"
+        topic: "design",
+        cluster: "interface_design"
       },
       {
         id: "design-3",
         text: "I prefer visible wireframes",
-        topic: "design"
+        topic: "design",
+        cluster: "interface_design"
       },
       {
         id: "design-4",
         text: "I prefer minimal labels",
-        topic: "design"
+        topic: "design",
+        cluster: "label_design"
       }
     ],
     expected: {
@@ -670,27 +668,32 @@ export const memoryConsolidationEvalFixtures: MemoryConsolidationEvalFixture[] =
       {
         id: "design-1",
         text: "I prefer red accents",
-        topic: "design"
+        topic: "design",
+        cluster: "interface_design"
       },
       {
         id: "design-2",
         text: "I prefer dim brain regions",
-        topic: "design"
+        topic: "design",
+        cluster: "interface_design"
       },
       {
         id: "technical-1",
         text: "The app uses React Three Fiber",
-        topic: "technical"
+        topic: "technical",
+        cluster: "engram_stack"
       },
       {
         id: "technical-2",
         text: "The app uses TypeScript",
-        topic: "technical"
+        topic: "technical",
+        cluster: "engram_stack"
       },
       {
         id: "technical-3",
         text: "The app deploys on Vercel",
-        topic: "technical"
+        topic: "technical",
+        cluster: "engram_stack"
       }
     ],
     expected: {
@@ -752,6 +755,26 @@ export const memoryConsolidationEvalFixtures: MemoryConsolidationEvalFixture[] =
         text: "I love omakase",
         topic: "food",
         status: "superseded"
+      }
+    ],
+    expected: {
+      ids: null
+    }
+  },
+  {
+    name: "keeps unrelated memories with the same broad topic separate",
+    memories: [
+      {
+        id: "broad-preference-sushi",
+        text: "I love sushi",
+        topic: "preference",
+        entities: ["sushi"]
+      },
+      {
+        id: "broad-preference-climbing",
+        text: "I enjoy climbing",
+        topic: "preference",
+        entities: ["climbing"]
       }
     ],
     expected: {
@@ -1225,25 +1248,6 @@ export const memoryEvaluatorLimitationFixtures: MemoryEvaluatorLimitationFixture
     name: "memory model cannot evaluate user agent run and shared scope isolation",
     kind: "memory-scope",
     expectedLimitationIncludes: ["scope", "user/agent/run/shared"]
-  },
-  {
-    name: "live consolidation cannot prove unrelated same-topic facts stay separate",
-    kind: "topic-only-consolidation",
-    memories: [
-      {
-        id: "broad-preference-sushi",
-        text: "I love sushi",
-        topic: "preference",
-        entities: ["sushi"]
-      },
-      {
-        id: "broad-preference-climbing",
-        text: "I enjoy climbing",
-        topic: "preference",
-        entities: ["climbing"]
-      }
-    ],
-    expectedLimitationIncludes: ["topic-only", "unrelated"]
   }
 ];
 
@@ -1450,15 +1454,6 @@ export function runEvaluatorLimitationFixture(
       );
     } else {
       failures.push("expected the documented memory-scope limitation to remain observable; add executable isolation cases when scope is modeled");
-    }
-  } else {
-    const candidate = findConsolidationCandidate(fixture.memories.map(toEngramMemory));
-    if (candidate && sameItems(candidate.ids, fixture.memories.map((memory) => memory.id))) {
-      limitations.push(
-        "Live deterministic consolidation is topic-only and can merge unrelated facts that share a broad topic; semantic separation is not yet guaranteed."
-      );
-    } else {
-      failures.push("expected the documented topic-only consolidation limitation to remain observable; promote this case if semantic isolation is added");
     }
   }
 
