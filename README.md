@@ -37,8 +37,9 @@ Engram is deliberately narrow about what its evidence proves:
 
 ## Status
 
-Engram is an advanced engineering prototype, not a hosted production telemetry service. The interactive
-chat session and legacy live flight-recorder channel remain process-local. The provider-neutral telemetry
+Engram is an advanced engineering prototype, not a hosted production telemetry service. Interactive
+chat memory is browser-owned and explicitly projected into each stateless request; the legacy live
+flight-recorder channel remains process-local. The provider-neutral telemetry
 v2 path adds hashed bearer-key authentication, fixed tenant/project boundaries, idempotent cursor-based
 ingestion, and optional server-only Supabase persistence. Engram still has no end-user login, billing,
 distributed quota service, or managed retention policy. Deterministic demo mode and mocked providers keep

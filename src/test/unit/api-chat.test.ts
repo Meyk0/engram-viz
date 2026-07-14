@@ -56,27 +56,26 @@ describe("/api/chat", () => {
     expect(chunks.slice(0, -1).some((chunk) => chunk.kind === "done")).toBe(false);
   });
 
-  it("retrieves memories stored by prior turns in the same session", async () => {
+  it("retrieves memories explicitly projected by the client from prior turns", async () => {
     resetLiveMemoryStore();
 
-    await drainResponse(
-      await POST(
-        new Request("http://localhost/api/chat", {
-          method: "POST",
-          body: JSON.stringify({
-            sessionId: "api-chat-b",
-            message: "remember that I prefer restrained medical cyberpunk design"
-          })
+    const clientMemories = await storedMemoriesFromResponse(await POST(
+      new Request("http://localhost/api/chat", {
+        method: "POST",
+        body: JSON.stringify({
+          sessionId: "api-chat-b",
+          message: "remember that I prefer restrained medical cyberpunk design"
         })
-      )
-    );
+      })
+    ));
 
     const response = await POST(
       new Request("http://localhost/api/chat", {
         method: "POST",
         body: JSON.stringify({
           sessionId: "api-chat-b",
-          message: "what design style do I prefer?"
+          message: "what design style do I prefer?",
+          clientMemories
         })
       })
     );
@@ -95,27 +94,80 @@ describe("/api/chat", () => {
     expect(fireChunk?.kind).toBe("event");
   });
 
+  it("does not retain or expose memory between HTTP requests by session id alone", async () => {
+    const sessionId = "api-chat-untrusted-session-id";
+    const stored = await storedMemoriesFromResponse(await POST(new Request("http://localhost/api/chat", {
+      method: "POST",
+      body: JSON.stringify({ sessionId, message: "I love the color indigo" })
+    })));
+    expect(stored).toHaveLength(1);
+
+    const response = await POST(new Request("http://localhost/api/chat", {
+      method: "POST",
+      body: JSON.stringify({ sessionId, message: "What color do I love?" })
+    }));
+    const chunks = decodeSseChunks(await response.text());
+    const init = chunks.find((chunk) => chunk.kind === "event" && chunk.event.type === "init");
+    const retrieve = chunks.find((chunk) => chunk.kind === "event" && chunk.event.type === "retrieve");
+
+    expect(init).toEqual({ kind: "event", event: { type: "init", memories: [] } });
+    expect(retrieve?.kind).toBe("event");
+    if (retrieve?.kind === "event" && retrieve.event.type === "retrieve") {
+      expect(retrieve.event.ids).toEqual([]);
+    }
+  });
+
+  it("retrieves an accepted Dream result from the next client memory projection", async () => {
+    const dreamResult = {
+      id: "dream-result-food",
+      text: "User has a recurring sushi preference.",
+      importance: 0.82,
+      topic: "food",
+      kind: "semantic",
+      entities: ["sushi"],
+      confidence: 0.86,
+      sourceMemoryIds: ["sushi-raw-1", "sushi-raw-2"],
+      region: "temporal" as const,
+      created_at: "2026-05-11T12:00:00.000Z",
+      access_count: 0
+    };
+    const response = await POST(new Request("http://localhost/api/chat", {
+      method: "POST",
+      body: JSON.stringify({
+        sessionId: "api-chat-dream-projection",
+        message: "What food do I like?",
+        clientMemories: [dreamResult]
+      })
+    }));
+    const chunks = decodeSseChunks(await response.text());
+    const retrieve = chunks.find((chunk) => chunk.kind === "event" && chunk.event.type === "retrieve");
+
+    expect(retrieve?.kind).toBe("event");
+    if (retrieve?.kind === "event" && retrieve.event.type === "retrieve") {
+      expect(retrieve.event.ids).toEqual([dreamResult.id]);
+    }
+  });
+
   it("loads retrieved memories into active context before firing prefrontal", async () => {
     resetLiveMemoryStore();
 
-    await drainResponse(
-      await POST(
-        new Request("http://localhost/api/chat", {
-          method: "POST",
-          body: JSON.stringify({
-            sessionId: "api-chat-load",
-            message: "remember that I love red"
-          })
+    const clientMemories = await storedMemoriesFromResponse(await POST(
+      new Request("http://localhost/api/chat", {
+        method: "POST",
+        body: JSON.stringify({
+          sessionId: "api-chat-load",
+          message: "remember that I love red"
         })
-      )
-    );
+      })
+    ));
 
     const response = await POST(
       new Request("http://localhost/api/chat", {
         method: "POST",
         body: JSON.stringify({
           sessionId: "api-chat-load",
-          message: "what color do I love?"
+          message: "what color do I love?",
+          clientMemories
         })
       })
     );
@@ -131,24 +183,23 @@ describe("/api/chat", () => {
   it("retrieves indigo preference before answering a favorite-color question", async () => {
     resetLiveMemoryStore();
 
-    await drainResponse(
-      await POST(
-        new Request("http://localhost/api/chat", {
-          method: "POST",
-          body: JSON.stringify({
-            sessionId: "api-chat-indigo",
-            message: "I love the color indigo"
-          })
+    const clientMemories = await storedMemoriesFromResponse(await POST(
+      new Request("http://localhost/api/chat", {
+        method: "POST",
+        body: JSON.stringify({
+          sessionId: "api-chat-indigo",
+          message: "I love the color indigo"
         })
-      )
-    );
+      })
+    ));
 
     const response = await POST(
       new Request("http://localhost/api/chat", {
         method: "POST",
         body: JSON.stringify({
           sessionId: "api-chat-indigo",
-          message: "what is my favorite color?"
+          message: "what is my favorite color?",
+          clientMemories
         })
       })
     );
@@ -214,24 +265,23 @@ describe("/api/chat", () => {
   it("does not load active context for unrelated standalone preference stores", async () => {
     resetLiveMemoryStore();
 
-    await drainResponse(
-      await POST(
-        new Request("http://localhost/api/chat", {
-          method: "POST",
-          body: JSON.stringify({
-            sessionId: "api-chat-unrelated-store",
-            message: "I like the color blue"
-          })
+    const clientMemories = await storedMemoriesFromResponse(await POST(
+      new Request("http://localhost/api/chat", {
+        method: "POST",
+        body: JSON.stringify({
+          sessionId: "api-chat-unrelated-store",
+          message: "I like the color blue"
         })
-      )
-    );
+      })
+    ));
 
     const response = await POST(
       new Request("http://localhost/api/chat", {
         method: "POST",
         body: JSON.stringify({
           sessionId: "api-chat-unrelated-store",
-          message: "I like the ocean"
+          message: "I like the ocean",
+          clientMemories
         })
       })
     );
@@ -591,24 +641,23 @@ describe("/api/chat", () => {
   it("consolidates repeated same-topic hippocampus memories into temporal memory", async () => {
     resetLiveMemoryStore();
 
-    await drainResponse(
-      await POST(
-        new Request("http://localhost/api/chat", {
-          method: "POST",
-          body: JSON.stringify({
-            sessionId: "api-chat-d",
-            message: "remember that I prefer quiet cyberpunk medical interfaces"
-          })
+    const clientMemories = await storedMemoriesFromResponse(await POST(
+      new Request("http://localhost/api/chat", {
+        method: "POST",
+        body: JSON.stringify({
+          sessionId: "api-chat-d",
+          message: "remember that I prefer quiet cyberpunk medical interfaces"
         })
-      )
-    );
+      })
+    ));
 
     const response = await POST(
       new Request("http://localhost/api/chat", {
         method: "POST",
         body: JSON.stringify({
           sessionId: "api-chat-d",
-          message: "remember that I like restrained interface design"
+          message: "remember that I like quiet cyberpunk medical interface design",
+          clientMemories
         })
       })
     );
@@ -687,8 +736,10 @@ describe("/api/chat", () => {
   });
 });
 
-async function drainResponse(response: Response) {
-  await response.text();
+async function storedMemoriesFromResponse(response: Response) {
+  return decodeSseChunks(await response.text()).flatMap((chunk) =>
+    chunk.kind === "event" && chunk.event.type === "store" ? [chunk.event.memory] : []
+  );
 }
 
 function eventTypes(chunks: Awaited<ReturnType<typeof createLiveMemoryStream>>) {

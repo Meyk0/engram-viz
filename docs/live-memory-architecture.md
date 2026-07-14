@@ -1,6 +1,6 @@
 # Live Memory Architecture
 
-This note defines the shared interfaces for the next implementation milestone. The goal is to replace the static demo stream with a real chat loop that emits honest memory events, while keeping the app deterministic and testable.
+This note documents Engram's live chat memory boundary. The app emits honest memory events while remaining deterministic and testable without a database.
 
 ## Product Target
 
@@ -21,10 +21,10 @@ Already implemented:
 - In-memory session helpers in `src/lib/memory/store.ts`.
 - Basic retrieve/consolidate logic in `src/lib/memory`.
 - Memory tool wrappers in `src/lib/memory/tools.ts`.
-- Demo `/api/chat` route that streams fixture events.
+- Stateless `/api/chat` route that streams deterministic or OpenAI-backed events.
 - Unit tests and Playwright smoke coverage.
 
-The next milestone should extend these rather than replacing them.
+The browser's explicit memory projection is authoritative for the next request. The server does not retain chat memory between HTTP requests.
 
 ## Runtime Modes
 
@@ -70,7 +70,8 @@ Initial adapter:
 
 - `InMemoryMemoryStore`
 - Backed by `Map<string, MemorySession>`
-- Used by `/api/chat`, unit tests, and demo mode.
+- Created fresh for each `/api/chat` request and hydrated from `clientMemories`.
+- A shared instance is used only by direct engine tests that exercise multi-turn behavior.
 
 Later adapter:
 
@@ -99,7 +100,8 @@ Rules for v1:
 
 - New user facts start in `hippocampus`.
 - Retrieval emits `retrieve` and then `fire`.
-- Repeated access can move a memory to `temporal`.
+- Retrieval updates access metadata but never changes a memory's anatomical region.
+- Only explicit consolidation or an accepted Dream proposal creates `temporal` stable knowledge.
 - Prefrontal represents loaded/active context, not durable storage.
 - Decay dims lower-ranked memories; it should not delete them.
 
@@ -139,8 +141,11 @@ Request:
   sessionId?: string;
   message: string;
   history?: ChatMessage[];
+  clientMemories?: EngramMemory[];
 }
 ```
+
+`sessionId` namespaces event and memory IDs; it is not an authentication credential. Because the route creates a fresh store for every request, knowing another session ID does not expose server-retained memory. The browser sends its current validated memory projection explicitly.
 
 Response stream:
 

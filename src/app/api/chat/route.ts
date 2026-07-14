@@ -2,6 +2,7 @@ import { streamLiveMemoryChunks } from "@/lib/chat/live";
 import { engramMemorySchema } from "@/lib/events/schema";
 import { encodeSseChunk } from "@/lib/events/sse";
 import { readBoundedJson, RequestBodyError } from "@/lib/http";
+import { InMemoryMemoryStore } from "@/lib/memory/store-interface";
 import type { ChatMessage, EngramMemory } from "@/types";
 
 export const runtime = "nodejs";
@@ -41,7 +42,8 @@ export async function POST(request: Request) {
           sessionId,
           message,
           history,
-          clientMemories
+          clientMemories,
+          memoryStore: new InMemoryMemoryStore()
         })) {
           controller.enqueue(encoder.encode(encodeSseChunk(chunk)));
         }

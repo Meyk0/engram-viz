@@ -11,7 +11,7 @@ import {
 } from "@/lib/memory/planner-config";
 import { configuredMemoryRetriever } from "@/lib/memory/retriever-config";
 import type { MemoryRetriever } from "@/lib/memory/retrieve";
-import { InMemoryMemoryStore } from "@/lib/memory/store-interface";
+import { InMemoryMemoryStore, type MemoryStore } from "@/lib/memory/store-interface";
 import type { PlannedMemory, TurnMemoryPlan, TurnMemoryPlanner } from "@/lib/memory/turn-planner";
 import type {
   ChatMessage,
@@ -35,6 +35,7 @@ export type LiveChatInput = {
   memoryRetriever?: MemoryRetriever;
   turnMemoryPlanner?: TurnMemoryPlanner;
   chatProvider?: ChatProviderClient;
+  memoryStore?: MemoryStore;
   now?: string;
 };
 
@@ -52,7 +53,9 @@ export async function* streamLiveMemoryChunks(input: LiveChatInput): AsyncIterab
   const startedAt = input.now ?? new Date().toISOString();
   const events: EngramEvent[] = [];
   let originalAnswer = "";
-  const iterator = orchestrateLiveMemoryChunks(input)[Symbol.asyncIterator]();
+  const store = input.memoryStore ?? memoryStore;
+  const engine = input.memoryStore ? new MemoryEngine(store) : memoryEngine;
+  const iterator = orchestrateLiveMemoryChunks(input, store, engine)[Symbol.asyncIterator]();
   let result: OrchestrationResult;
 
   while (true) {
@@ -93,7 +96,9 @@ type OrchestrationResult = {
 };
 
 async function* orchestrateLiveMemoryChunks(
-  input: LiveChatInput
+  input: LiveChatInput,
+  store: MemoryStore,
+  engine: MemoryEngine
 ): AsyncGenerator<StreamChunk, OrchestrationResult> {
   const history = input.history ?? [];
   const memoryConsolidationPlanner =
@@ -105,14 +110,14 @@ async function* orchestrateLiveMemoryChunks(
       : configuredTurnMemoryPlanner());
   const memoryRetriever = input.memoryRetriever ?? configuredMemoryRetriever();
 
-  await hydrateSessionFromClient(input.sessionId, input.clientMemories);
+  await hydrateSessionFromClient(store, input.sessionId, input.clientMemories);
 
-  yield { kind: "event", event: await memoryEngine.initialize(input.sessionId) };
+  yield { kind: "event", event: await engine.initialize(input.sessionId) };
 
   const turnPlan = await turnMemoryPlanner.decide({
     message: input.message,
     history,
-    memories: await memoryStore.list(input.sessionId)
+    memories: await store.list(input.sessionId)
   });
   let planEmitted = false;
   const storedIds: string[] = [];
@@ -126,7 +131,7 @@ async function* orchestrateLiveMemoryChunks(
   }
 
   const retrieve = turnPlan.shouldRetrieve
-    ? await memoryEngine.retrieve({
+    ? await engine.retrieve({
         sessionId: input.sessionId,
         query: turnPlan.retrieveQuery ?? input.message,
         limit: 3,
@@ -142,10 +147,10 @@ async function* orchestrateLiveMemoryChunks(
   const retrievedIds = retrieve?.type === "retrieve" ? retrieve.ids : [];
   if (retrievedIds.length > 0) {
     yield { kind: "event", event: { type: "load", ids: retrievedIds } };
-    yield { kind: "event", event: memoryEngine.fire("prefrontal", retrievedIds) };
+    yield { kind: "event", event: engine.fire("prefrontal", retrievedIds) };
   }
 
-  const retrievedMemories = (await memoryStore.list(input.sessionId)).filter((memory) =>
+  const retrievedMemories = (await store.list(input.sessionId)).filter((memory) =>
     retrievedIds.includes(memory.id)
   );
   const storeBeforeResponse = !turnPlan.shouldRetrieve && turnPlan.memories.length > 0;
@@ -153,6 +158,7 @@ async function* orchestrateLiveMemoryChunks(
   if (storeBeforeResponse) {
     for (const chunk of await storePlannedMemories({
       sessionId: input.sessionId,
+      engine,
       now: input.now,
       plan: turnPlan,
       relatedMemoryIds: retrievedIds
@@ -175,6 +181,7 @@ async function* orchestrateLiveMemoryChunks(
   if (!storeBeforeResponse) {
     for (const chunk of await storePlannedMemories({
       sessionId: input.sessionId,
+      engine,
       now: input.now,
       plan: turnPlan,
       relatedMemoryIds: retrievedIds
@@ -186,12 +193,12 @@ async function* orchestrateLiveMemoryChunks(
 
   if (storedIds.length > 0) {
     const consolidationDecision = await memoryConsolidationPlanner.decide({
-      memories: await memoryStore.list(input.sessionId),
+      memories: await store.list(input.sessionId),
       recentMemoryIds: storedIds
     });
 
     if (consolidationDecision.operation === "consolidate") {
-      const consolidated = await memoryEngine.consolidate({
+      const consolidated = await engine.consolidate({
         sessionId: input.sessionId,
         ids: consolidationDecision.ids,
         consolidatedText: consolidationDecision.consolidatedText,
@@ -206,7 +213,7 @@ async function* orchestrateLiveMemoryChunks(
         yield { kind: "event", event: consolidated };
         yield {
           kind: "event",
-          event: memoryEngine.fire(consolidated.added.region, [consolidated.added.id])
+          event: engine.fire(consolidated.added.region, [consolidated.added.id])
         };
       }
     }
@@ -217,7 +224,7 @@ async function* orchestrateLiveMemoryChunks(
     };
   }
 
-  const decay = await memoryEngine.decay(input.sessionId);
+  const decay = await engine.decay(input.sessionId);
   if (decay) {
     yield { kind: "event", event: decay };
   }
@@ -246,13 +253,17 @@ export function resetLiveMemoryStore() {
   memoryStore.clear();
 }
 
-async function hydrateSessionFromClient(sessionId: string, clientMemories: EngramMemory[] = []) {
+async function hydrateSessionFromClient(
+  store: MemoryStore,
+  sessionId: string,
+  clientMemories: EngramMemory[] = []
+) {
   if (clientMemories.length === 0) return;
 
-  const existing = await memoryStore.list(sessionId);
+  const existing = await store.list(sessionId);
   if (existing.length > 0) return;
 
-  await Promise.all(clientMemories.map((memory) => memoryStore.upsert(sessionId, memory)));
+  await Promise.all(clientMemories.map((memory) => store.upsert(sessionId, memory)));
 }
 
 function plannedMemoryDecisionTrace(
@@ -294,11 +305,13 @@ function unique(values: string[]) {
 }
 
 async function storePlannedMemories({
+  engine,
   sessionId,
   now,
   plan,
   relatedMemoryIds
 }: {
+  engine: MemoryEngine;
   sessionId: string;
   now?: string;
   plan: TurnMemoryPlan;
@@ -311,9 +324,9 @@ async function storePlannedMemories({
       ...(plannedMemory.supersedes ?? []),
       ...(plan.supersedeMemoryIds ?? [])
     ]);
-    await memoryEngine.supersede(sessionId, supersedes);
+    await engine.supersede(sessionId, supersedes);
 
-    const stored = await memoryEngine.storeMemory({
+    const stored = await engine.storeMemory({
       sessionId,
       text: plannedMemory.text,
       importance: plannedMemory.importance,
@@ -337,7 +350,7 @@ async function storePlannedMemories({
     const storedRegion = storeEvent.type === "store" ? storeEvent.memory.region : "hippocampus";
     chunks.push({
       kind: "event",
-      event: memoryEngine.fire(storedRegion, storeEvent.type === "store" ? [storeEvent.memory.id] : [])
+      event: engine.fire(storedRegion, storeEvent.type === "store" ? [storeEvent.memory.id] : [])
     });
   }
 
