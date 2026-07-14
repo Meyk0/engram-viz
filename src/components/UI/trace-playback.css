@@ -81,6 +81,165 @@
   overscroll-behavior: contain;
 }
 
+.trace-import-mode {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 3px;
+  margin-bottom: 14px;
+  padding: 3px;
+  border: 1px solid rgba(0, 212, 255, 0.1);
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.18);
+}
+
+.trace-import-mode button {
+  display: inline-flex;
+  min-height: 32px;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background: transparent;
+  color: rgba(201, 222, 242, 0.46);
+  cursor: pointer;
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.trace-import-mode button[aria-selected="true"] {
+  border-color: rgba(0, 212, 255, 0.18);
+  background: rgba(0, 212, 255, 0.08);
+  color: rgba(229, 247, 255, 0.88);
+}
+
+.trace-live-setup {
+  display: grid;
+  gap: 12px;
+}
+
+.trace-live-status {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 10px;
+  border: 1px solid rgba(0, 212, 255, 0.1);
+  border-radius: 5px;
+  background: rgba(0, 212, 255, 0.035);
+}
+
+.trace-live-status > i {
+  width: 8px;
+  height: 8px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: rgba(180, 205, 230, 0.35);
+}
+
+.trace-live-status[data-status="listening"] > i,
+.trace-live-status[data-status="live"] > i {
+  background: var(--temporal);
+  box-shadow: 0 0 10px rgba(20, 241, 149, 0.8);
+  animation: trace-live-pulse 1.4s ease-in-out infinite;
+}
+
+.trace-live-status span {
+  display: grid;
+  gap: 2px;
+  color: rgba(190, 215, 238, 0.42);
+  font-size: 7px;
+}
+
+.trace-live-status strong {
+  color: rgba(230, 243, 255, 0.86);
+  font-size: 9px;
+}
+
+.trace-live-start,
+.trace-live-stop {
+  display: inline-flex;
+  min-height: 36px;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  border: 1px solid rgba(20, 241, 149, 0.28);
+  border-radius: 5px;
+  background: rgba(20, 241, 149, 0.07);
+  color: rgba(189, 255, 225, 0.86);
+  cursor: pointer;
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.trace-live-stop {
+  min-height: 30px;
+  justify-self: start;
+  border-color: rgba(249, 115, 22, 0.2);
+  background: rgba(249, 115, 22, 0.05);
+  color: rgba(255, 178, 130, 0.72);
+}
+
+.trace-live-setup > p {
+  margin: 0;
+  color: rgba(202, 222, 242, 0.54);
+  font-size: 9px;
+  line-height: 1.5;
+}
+
+.trace-live-code {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid rgba(168, 85, 247, 0.16);
+  border-radius: 5px;
+  background: rgba(3, 4, 16, 0.8);
+}
+
+.trace-live-code pre {
+  max-height: 170px;
+  margin: 0;
+  padding: 11px 68px 11px 11px;
+  overflow: auto;
+  color: rgba(213, 226, 255, 0.72);
+  font: 7px/1.55 "JetBrains Mono", ui-monospace, monospace;
+  white-space: pre-wrap;
+}
+
+.trace-live-code button {
+  position: absolute;
+  top: 7px;
+  right: 7px;
+  display: inline-flex;
+  min-height: 26px;
+  align-items: center;
+  gap: 5px;
+  border: 1px solid rgba(168, 85, 247, 0.22);
+  border-radius: 4px;
+  background: rgba(168, 85, 247, 0.08);
+  color: rgba(229, 214, 255, 0.76);
+  cursor: pointer;
+  font-size: 7px;
+}
+
+.trace-live-caveat {
+  display: flex;
+  gap: 8px;
+  color: rgba(202, 222, 242, 0.42);
+  font-size: 7px;
+  line-height: 1.45;
+}
+
+.trace-live-caveat svg { flex: 0 0 auto; color: rgba(20, 241, 149, 0.62); }
+.trace-live-caveat strong { color: rgba(216, 234, 249, 0.68); }
+
+@keyframes trace-live-pulse {
+  0%, 100% { opacity: 0.5; transform: scale(0.9); }
+  50% { opacity: 1; transform: scale(1.12); }
+}
+
 .trace-import-intro {
   margin: 0 0 14px;
   color: rgba(210, 228, 255, 0.6);
@@ -287,7 +446,7 @@
 
 .trace-playback-bar {
   position: fixed;
-  z-index: 18;
+  z-index: 22;
   right: 0;
   bottom: 0;
   left: 0;
@@ -303,6 +462,27 @@
   color: rgba(220, 236, 250, 0.82);
   backdrop-filter: blur(22px) saturate(1.3);
 }
+
+.engram-shell[data-trace-active="true"][data-workbench-open="true"] .trace-inspector-panel {
+  bottom: 72px;
+}
+
+.trace-live-bar {
+  grid-template-columns: minmax(150px, 0.8fr) minmax(280px, 2fr) auto;
+}
+
+.trace-live-bar-status {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 9px;
+  align-items: center;
+  color: rgba(20, 241, 149, 0.74);
+}
+
+.trace-live-bar-status > svg { animation: trace-live-pulse 1.4s ease-in-out infinite; }
+.trace-live-bar-status > span:not(.trace-mapping-indicator) { display: grid; gap: 2px; }
+.trace-live-bar-status strong { font-size: 9px; color: rgba(221, 247, 238, 0.88); }
+.trace-live-bar-status span span { color: rgba(191, 219, 232, 0.48); font-size: 8px; }
 
 .trace-playback-identity {
   display: grid;
@@ -493,6 +673,40 @@
   flex-direction: column;
   color: rgba(226, 238, 255, 0.9);
 }
+
+.trace-inspector-actions {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.trace-inspector-actions > button {
+  display: inline-flex;
+  min-height: 28px;
+  align-items: center;
+  gap: 5px;
+  padding: 0 7px;
+  border: 1px solid rgba(0, 212, 255, 0.12);
+  border-radius: 5px;
+  background: rgba(0, 212, 255, 0.04);
+  color: rgba(201, 225, 242, 0.62);
+  cursor: pointer;
+  font-size: 7px;
+}
+
+.trace-inspector-actions > .trace-icon-button { width: 28px; padding: 0; }
+
+.trace-export-note {
+  margin: 0 14px 14px;
+  padding: 9px 10px;
+  border-left: 2px solid rgba(168, 85, 247, 0.42);
+  background: rgba(168, 85, 247, 0.035);
+  color: rgba(195, 215, 237, 0.42);
+  font-size: 7px;
+  line-height: 1.45;
+}
+
+.trace-export-note code { color: rgba(220, 205, 255, 0.72); }
 
 .trace-inspector-body {
   min-height: 0;
@@ -780,6 +994,10 @@ button.trace-step-row:focus-visible {
   .trace-speed {
     display: none;
   }
+
+  .trace-live-bar {
+    grid-template-columns: minmax(140px, 0.7fr) minmax(240px, 1.5fr) auto;
+  }
 }
 
 @media (max-width: 680px) {
@@ -815,6 +1033,24 @@ button.trace-step-row:focus-visible {
     min-height: 104px;
     gap: 6px 10px;
     padding: 8px 10px;
+  }
+
+  .trace-live-bar {
+    grid-template-columns: minmax(0, 1fr) auto;
+    min-height: 94px;
+  }
+
+  .trace-live-bar .trace-playback-identity {
+    grid-column: 1 / 2;
+  }
+
+  .trace-live-bar .trace-playback-actions {
+    grid-column: 2 / 3;
+  }
+
+  .trace-live-bar-status {
+    grid-column: 1 / -1;
+    grid-row: 2;
   }
 
   .trace-playback-identity {
@@ -857,6 +1093,11 @@ button.trace-step-row:focus-visible {
     left: 12px;
     width: auto;
     max-height: calc(100dvh - 154px);
+  }
+
+  .engram-shell[data-trace-active="true"][data-workbench-open="true"] .trace-inspector-panel {
+    bottom: 94px;
+    max-height: calc(100dvh - 118px);
   }
 
   .trace-inspector-metadata dl {

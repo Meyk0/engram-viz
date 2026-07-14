@@ -1,8 +1,9 @@
 "use client";
 
-import { FileJson, FileUp, ShieldCheck, Sparkles, X } from "lucide-react";
+import { Copy, FileJson, FileUp, Radio, ShieldCheck, Sparkles, Square, X } from "lucide-react";
 import { useId, useRef, useState } from "react";
 import type { ChangeEvent } from "react";
+import type { LiveRecorderStatus } from "@/hooks/useLiveTraceRecorder";
 import "./trace-playback.css";
 
 const MAX_TRACE_FILE_BYTES = 2 * 1024 * 1024;
@@ -13,7 +14,12 @@ export type TraceImportDialogProps = {
   onCancel: () => void;
   onImport: (raw: unknown | string) => void | Promise<void>;
   onLoadSample: () => void;
+  onStartLive?: () => void;
+  onStopLive?: () => void;
   open: boolean;
+  liveChannelId?: string;
+  liveError?: string;
+  liveStatus?: LiveRecorderStatus;
 };
 
 export function TraceImportDialog({
@@ -22,6 +28,11 @@ export function TraceImportDialog({
   onCancel,
   onImport,
   onLoadSample,
+  onStartLive,
+  onStopLive,
+  liveChannelId,
+  liveError,
+  liveStatus = "idle",
   open
 }: TraceImportDialogProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -29,10 +40,22 @@ export function TraceImportDialog({
   const [rawTrace, setRawTrace] = useState("");
   const [fileName, setFileName] = useState<string | null>(null);
   const [localError, setLocalError] = useState<string | null>(null);
+  const [mode, setMode] = useState<"file" | "live">("file");
+  const [copied, setCopied] = useState(false);
 
   if (!open) return null;
 
   const displayedError = localError ?? error;
+  const origin = typeof window === "undefined" ? "https://your-engram-host" : window.location.origin;
+  const setupCode = liveChannelId
+    ? liveSetupCode(`${origin}/api/traces/live`, liveChannelId)
+    : "";
+
+  async function copySetup() {
+    await navigator.clipboard.writeText(setupCode);
+    setCopied(true);
+    window.setTimeout(() => setCopied(false), 1600);
+  }
 
   async function submitTrace() {
     setLocalError(null);
@@ -82,7 +105,7 @@ export function TraceImportDialog({
   return (
     <div className="trace-import-backdrop" role="presentation">
       <section
-        aria-describedby="trace-import-privacy"
+        aria-describedby={mode === "file" ? "trace-import-privacy" : undefined}
         aria-labelledby="trace-import-title"
         aria-modal="true"
         className="trace-import-dialog"
@@ -106,11 +129,21 @@ export function TraceImportDialog({
             Replay recorded agent steps and visualize explicit memory operations without rerunning the model.
           </p>
 
+          <div className="trace-import-mode" role="tablist" aria-label="Trace source">
+            <button role="tab" aria-selected={mode === "file"} type="button" onClick={() => setMode("file")}>
+              <FileJson size={12} /> Recorded
+            </button>
+            <button role="tab" aria-selected={mode === "live"} type="button" onClick={() => setMode("live")}>
+              <Radio size={12} /> Live
+            </button>
+          </div>
+
+          {mode === "file" ? <>
           <input
             ref={fileInputRef}
             className="trace-file-input"
             type="file"
-            accept=".json,application/json"
+            accept=".engram,.json,application/json"
             onChange={readFile}
             aria-label="Choose trace JSON file"
           />
@@ -149,9 +182,51 @@ export function TraceImportDialog({
             <ShieldCheck aria-hidden="true" size={14} />
             <span><strong>Parsed locally; never uploaded.</strong> Trace content stays in this browser session.</span>
           </div>
+          </> : (
+            <section
+              className="trace-live-setup"
+              aria-label="Live flight recorder setup"
+              data-channel-id={liveChannelId}
+            >
+              <div className="trace-live-status" data-status={liveStatus}>
+                <i aria-hidden="true" />
+                <span>
+                  <strong>{liveStatusLabel(liveStatus)}</strong>
+                  {liveChannelId ? `${liveChannelId.slice(0, 18)}...` : "No channel is open."}
+                </span>
+              </div>
+
+              {!liveChannelId ? (
+                <button className="trace-live-start" type="button" onClick={onStartLive} disabled={!onStartLive}>
+                  <Radio size={14} /> Start flight recorder
+                </button>
+              ) : (
+                <>
+                  <p>
+                    Add this secondary processor to a server-side OpenAI Agents SDK app. Engram receives serialized traces and spans; your existing OpenAI exporter remains active.
+                  </p>
+                  <div className="trace-live-code">
+                    <pre>{setupCode}</pre>
+                    <button type="button" onClick={() => void copySetup()} aria-label="Copy live recorder setup">
+                      <Copy size={12} /> {copied ? "Copied" : "Copy"}
+                    </button>
+                  </div>
+                  <div className="trace-live-caveat">
+                    <ShieldCheck size={14} />
+                    <span><strong>Ephemeral demo channel.</strong> Items are redacted and kept only in this server process. Serverless restarts can end the stream.</span>
+                  </div>
+                  <button className="trace-live-stop" type="button" onClick={onStopLive}>
+                    <Square size={11} /> Stop listening
+                  </button>
+                </>
+              )}
+              {liveError ? <p className="trace-import-error" role="alert">{liveError}</p> : null}
+            </section>
+          )}
         </div>
 
         <footer className="trace-import-actions">
+          {mode === "file" ? <>
           <button className="trace-sample-button" type="button" onClick={onLoadSample} disabled={importing}>
             <Sparkles aria-hidden="true" size={13} />
             Load sample trace
@@ -162,8 +237,30 @@ export function TraceImportDialog({
             <FileUp aria-hidden="true" size={13} />
             {importing ? "Importing..." : "Import trace"}
           </button>
+          </> : (
+            <button className="trace-cancel-button" type="button" onClick={onCancel}>Close</button>
+          )}
         </footer>
       </section>
     </div>
   );
+}
+
+function liveStatusLabel(status: LiveRecorderStatus) {
+  if (status === "connecting") return "Opening channel";
+  if (status === "listening") return "Listening for first span";
+  if (status === "live") return "Receiving live trace";
+  if (status === "reconnecting") return "Reconnecting";
+  if (status === "error") return "Connection needs attention";
+  return "Flight recorder idle";
+}
+
+function liveSetupCode(endpoint: string, channelId: string) {
+  return `import { addTraceProcessor } from "@openai/agents";
+import { createEngramTracingProcessor } from "./flight-recorder-client";
+
+addTraceProcessor(createEngramTracingProcessor({
+  endpoint: "${endpoint}",
+  channelId: "${channelId}"
+}));`;
 }

@@ -7,6 +7,7 @@ import {
   importOpenAIResponses
 } from "@/lib/traces/adapters";
 import { isRecord, sanitizeJson, sortAndReindexSteps } from "@/lib/traces/adapters/helpers";
+import { isEngramTraceBundle } from "@/lib/traces/export";
 
 const MAX_JSON_BYTES = 2 * 1024 * 1024;
 const MAX_TRACE_STEPS = 1000;
@@ -34,7 +35,8 @@ function sanitizeNormalizedTrace(input: unknown): NormalizedTrace {
 }
 
 export function importAgentTrace(input: string | unknown): TraceImportResult {
-  const parsed = parseInput(input);
+  const rawParsed = parseInput(input);
+  const parsed = isEngramTraceBundle(rawParsed) ? rawParsed.trace : rawParsed;
   if (!isRecord(parsed) && !Array.isArray(parsed)) {
     throw new Error("Unsupported trace format. Import an Engram trace, OpenAI Agents export, or Responses capture.");
   }

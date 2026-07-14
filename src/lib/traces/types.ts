@@ -66,6 +66,25 @@ export type TraceImportResult = {
   warnings: string[];
 };
 
+export type EngramTraceBundle = {
+  format: "engram.trace";
+  version: 1;
+  exportedAt: string;
+  trace: NormalizedTrace;
+  redactions: {
+    count: number;
+    policy: "engram-safe-export-v1";
+  };
+};
+
+export type LiveTraceSnapshot = {
+  channelId: string;
+  receivedAt: string;
+  itemCount: number;
+  trace: NormalizedTrace;
+  warnings: string[];
+};
+
 export function traceStepEvents(step: NormalizedTraceStep): EngramEvent[] {
   return step.memoryMappings.flatMap((mapping) =>
     mapping.event ? [mapping.event] : []

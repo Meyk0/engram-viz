@@ -1,6 +1,6 @@
 "use client";
 
-import { CircleAlert, Eye, ListTree, Route, X } from "lucide-react";
+import { Check, CircleAlert, Copy, Download, Eye, ListTree, Route, X } from "lucide-react";
 import type { NormalizedTrace, NormalizedTraceStep, TraceMemoryMapping } from "@/lib/traces/types";
 import "./trace-playback.css";
 
@@ -8,14 +8,20 @@ export type TraceInspectorPanelProps = {
   currentStepIndex: number;
   onClose: () => void;
   onSelectStep?: (stepIndex: number) => void;
+  onCopyExport?: () => void | Promise<void>;
+  onExport?: () => void;
   open: boolean;
+  exportCopied?: boolean;
   trace: NormalizedTrace;
 };
 
 export function TraceInspectorPanel({
   currentStepIndex,
   onClose,
+  onCopyExport,
+  onExport,
   onSelectStep,
+  exportCopied = false,
   open,
   trace
 }: TraceInspectorPanelProps) {
@@ -34,9 +40,22 @@ export function TraceInspectorPanel({
           </span>
           <h2>{trace.trace.name}</h2>
         </div>
-        <button className="trace-icon-button" type="button" onClick={onClose} aria-label="Close trace inspector">
-          <X aria-hidden="true" size={14} />
-        </button>
+        <div className="trace-inspector-actions">
+          {onCopyExport ? (
+            <button type="button" onClick={() => void onCopyExport()} aria-label="Copy sanitized trace">
+              {exportCopied ? <Check size={13} /> : <Copy size={13} />}
+              <span>{exportCopied ? "Copied" : "Copy"}</span>
+            </button>
+          ) : null}
+          {onExport ? (
+            <button type="button" onClick={onExport} aria-label="Download sanitized trace">
+              <Download size={13} /><span>Export</span>
+            </button>
+          ) : null}
+          <button className="trace-icon-button" type="button" onClick={onClose} aria-label="Close trace inspector">
+            <X aria-hidden="true" size={14} />
+          </button>
+        </div>
       </header>
 
       <div className="trace-inspector-body">
@@ -78,6 +97,11 @@ export function TraceInspectorPanel({
           <CircleAlert aria-hidden="true" size={14} />
           <span><strong>What this shows</strong> Playback reconstructs recorded operations. Observed events were captured explicitly; mapped events were translated from recognized memory tools. Neither proves hidden model reasoning.</span>
         </p>
+        {onExport ? (
+          <p className="trace-export-note">
+            Exports use the portable <code>.engram</code> bundle and redact credential-shaped fields and values before download or copy.
+          </p>
+        ) : null}
       </div>
     </aside>
   );

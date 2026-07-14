@@ -82,6 +82,49 @@ test("opens a clean recording demo route", async ({ page }) => {
   await expect(page.getByRole("button", { name: "Run demo" })).toBeVisible();
 });
 
+test("streams an Agents SDK flight recorder into Observe mode", async ({ page }) => {
+  test.setTimeout(45_000);
+  await page.goto("/");
+  await page.getByRole("button", { name: "Observe: Inspect an agent trace" }).click();
+  const dialog = page.getByRole("dialog", { name: "Import a recorded trace" });
+  await expect(dialog).toBeVisible();
+  await dialog.getByRole("tab", { name: "Live" }).click();
+  await dialog.getByRole("button", { name: "Start flight recorder" }).click();
+  const setup = dialog.getByLabel("Live flight recorder setup");
+  await expect(setup).toContainText("Listening for first span");
+  const channelId = await setup.getAttribute("data-channel-id");
+  expect(channelId).toMatch(/^live-/);
+
+  const ingest = await page.request.post(`/api/traces/live?channel=${channelId}`, {
+    data: {
+      items: [
+        { object: "trace", id: "trace-smoke-live", workflow_name: "Live memory agent" },
+        {
+          object: "trace.span",
+          id: "span-smoke-store",
+          trace_id: "trace-smoke-live",
+          ended_at: "2026-07-13T12:00:01.000Z",
+          span_data: {
+            type: "function",
+            name: "store_memory",
+            input: { text: "User likes indigo.", api_key: "sk-must-not-reach-browser-123456" }
+          }
+        }
+      ]
+    }
+  });
+  expect(ingest.ok()).toBe(true);
+
+  await expect(page.getByLabel("Live trace controls")).toBeVisible({ timeout: 12_000 });
+  const inspector = page.getByRole("complementary", { name: "Trace inspector" });
+  await expect(inspector).toContainText("Live memory agent");
+  await expect(inspector).toContainText("store_memory");
+  await expect(inspector).not.toContainText("sk-must-not-reach-browser");
+  await expect(inspector.getByRole("button", { name: "Download sanitized trace" })).toBeVisible();
+  await page.getByRole("button", { name: "Exit trace playback" }).click();
+  await expect(page.getByLabel("Chat message")).toBeVisible();
+});
+
 test("exposes brain thumbnail metadata", async ({ page }) => {
   await page.goto("/");
 

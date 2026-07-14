@@ -60,6 +60,14 @@ export const normalizedTraceSchema = z.object({
   ).max(1000)
 });
 
+export const liveTraceSnapshotSchema = z.object({
+  channelId: z.string().min(8),
+  receivedAt: z.string().datetime(),
+  itemCount: z.number().int().nonnegative(),
+  trace: normalizedTraceSchema,
+  warnings: z.array(z.string())
+});
+
 export function parseNormalizedTrace(input: unknown): NormalizedTrace {
   return normalizedTraceSchema.parse(input) as NormalizedTrace;
 }

@@ -14,6 +14,7 @@ import { useEventQueue } from "@/hooks/useEventQueue";
 import { useMemoryExplanations } from "@/hooks/useMemoryExplanations";
 import { useMemoryStore } from "@/hooks/useMemoryStore";
 import { useSemanticLayout } from "@/hooks/useSemanticLayout";
+import { useLiveTraceRecorder } from "@/hooks/useLiveTraceRecorder";
 import { useTracePlayback } from "@/hooks/useTracePlayback";
 import { Brain3D } from "@/components/Brain/Brain3D";
 import { ActiveContextPanel } from "@/components/UI/ActiveContextPanel";
@@ -53,9 +54,14 @@ import type { TurnRecord } from "@/lib/evidence/types";
 import type { EngramProductMode } from "@/lib/lab/types";
 import { buildTimelineCheckpoints, buildTraceCheckpoints } from "@/lib/lab/checkpoints";
 import { buildMemoryLineage } from "@/lib/lineage/build";
+import { createEngramTraceBundle } from "@/lib/traces/export";
 import { importAgentTrace } from "@/lib/traces/import";
 import { sampleAgentTrace } from "@/lib/traces/sample";
-import { traceEventsThrough, type NormalizedTrace } from "@/lib/traces/types";
+import {
+  traceEventsThrough,
+  type LiveTraceSnapshot,
+  type NormalizedTrace
+} from "@/lib/traces/types";
 import type { BrainRegion, DreamProposal, EngramEvent, EngramMemory, StreamChunk } from "@/types";
 
 const regionShortcuts: Array<{ label: string; region: BrainRegion }> = [
@@ -98,6 +104,7 @@ export function EngramApp({ recordingMode = false }: EngramAppProps) {
   const [traceImportError, setTraceImportError] = useState<string | null>(null);
   const [traceSceneEpoch, setTraceSceneEpoch] = useState(0);
   const [timeMachineFocusMemoryIds, setTimeMachineFocusMemoryIds] = useState<string[]>([]);
+  const [traceExportCopied, setTraceExportCopied] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const activeTimelineEntryId = useRef<string | undefined>(undefined);
   const turnInFlight = useRef(false);
@@ -108,7 +115,21 @@ export function EngramApp({ recordingMode = false }: EngramAppProps) {
     result: causalResult,
     run: runCausalXRay
   } = useCausalXRay();
+  const onLiveTraceSnapshot = useCallback((snapshot: LiveTraceSnapshot) => {
+    setImportedTrace(snapshot.trace);
+    setProductMode("observe");
+    setActivePanel("trace");
+    setTraceImportOpen(false);
+    setTraceImportError(null);
+    setTraceExportCopied(false);
+    setTraceSceneEpoch((current) => current + 1);
+  }, []);
+  const liveRecorder = useLiveTraceRecorder(onLiveTraceSnapshot);
   const tracePlayback = useTracePlayback(importedTrace);
+  const liveTraceActive = Boolean(liveRecorder.channelId && importedTrace);
+  const traceStepIndex = liveTraceActive && importedTrace
+    ? importedTrace.steps.length - 1
+    : tracePlayback.stepIndex;
   const {
     events: queuedEvents,
     eventHistory: queuedEventHistory,
@@ -116,8 +137,8 @@ export function EngramApp({ recordingMode = false }: EngramAppProps) {
     clearEvents
   } = useEventQueue();
   const traceChronologicalEvents = useMemo(
-    () => importedTrace ? traceEventsThrough(importedTrace, tracePlayback.stepIndex) : [],
-    [importedTrace, tracePlayback.stepIndex]
+    () => importedTrace ? traceEventsThrough(importedTrace, traceStepIndex) : [],
+    [importedTrace, traceStepIndex]
   );
   const traceNewestFirstEvents = useMemo(
     () => traceChronologicalEvents.slice().reverse(),
@@ -304,6 +325,7 @@ export function EngramApp({ recordingMode = false }: EngramAppProps) {
     setCausalMemoryId(undefined);
     setLineageMemoryId(undefined);
     setTimeMachineFocusMemoryIds([]);
+    setTraceExportCopied(false);
     resetCausalXRay();
     if (productMode === "investigate") setProductMode("learn");
   }, [productMode, resetCausalXRay]);
@@ -580,14 +602,16 @@ export function EngramApp({ recordingMode = false }: EngramAppProps) {
   const importTrace = useCallback(
     (raw: unknown | string) => {
       try {
+        liveRecorder.disconnect();
         const result = importAgentTrace(raw);
         if (isStreaming) cancel();
         clearConversationState();
         tracePlayback.restart();
-      setImportedTrace(result.trace);
-      setProductMode("observe");
-      setActivePanel("trace");
-      setTraceImportError(null);
+        setImportedTrace(result.trace);
+        setProductMode("observe");
+        setActivePanel("trace");
+        setTraceImportError(null);
+        setTraceExportCopied(false);
         setTraceImportOpen(false);
         setTraceSceneEpoch((current) => current + 1);
       } catch (error) {
@@ -596,22 +620,42 @@ export function EngramApp({ recordingMode = false }: EngramAppProps) {
         throw error;
       }
     },
-    [cancel, clearConversationState, isStreaming, tracePlayback]
+    [cancel, clearConversationState, isStreaming, liveRecorder, tracePlayback]
   );
 
   const exitTracePlayback = useCallback(() => {
+    liveRecorder.disconnect();
     clearConversationState();
     tracePlayback.restart();
     setImportedTrace(undefined);
     setProductMode("learn");
     setTraceImportError(null);
     setTraceSceneEpoch((current) => current + 1);
-  }, [clearConversationState, tracePlayback]);
+  }, [clearConversationState, liveRecorder, tracePlayback]);
+
+  const startLiveRecorder = useCallback(() => {
+    if (isStreaming) cancel();
+    liveRecorder.disconnect();
+    clearConversationState();
+    tracePlayback.restart();
+    setImportedTrace(undefined);
+    setProductMode("observe");
+    setTraceImportOpen(true);
+    setTraceImportError(null);
+    liveRecorder.connect();
+  }, [cancel, clearConversationState, isStreaming, liveRecorder, tracePlayback]);
+
+  const stopLiveRecorder = useCallback(() => {
+    liveRecorder.disconnect();
+    setTraceImportError(null);
+  }, [liveRecorder]);
 
   const closeTraceImport = useCallback(() => {
     setTraceImportOpen(false);
-    if (productMode === "observe" && !importedTrace) setProductMode("learn");
-  }, [importedTrace, productMode]);
+    if (productMode === "observe" && !importedTrace && !liveRecorder.channelId) {
+      setProductMode("learn");
+    }
+  }, [importedTrace, liveRecorder.channelId, productMode]);
 
   const onDockSelect = useCallback(
     (panel: SecondaryPanel) => {
@@ -676,6 +720,7 @@ export function EngramApp({ recordingMode = false }: EngramAppProps) {
       setSelectedRegion(undefined);
 
       if (mode === "learn") {
+        if (liveRecorder.channelId) liveRecorder.disconnect();
         setActivePanel(null);
         return;
       }
@@ -692,8 +737,29 @@ export function EngramApp({ recordingMode = false }: EngramAppProps) {
 
       setActivePanel("timeMachine");
     },
-    [importedTrace]
+    [importedTrace, liveRecorder]
   );
+
+  const exportTrace = useCallback(() => {
+    if (!importedTrace) return;
+    const bundle = createEngramTraceBundle(importedTrace);
+    const blob = new Blob([JSON.stringify(bundle, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = `${safeFileName(importedTrace.trace.name)}.engram`;
+    anchor.click();
+    window.setTimeout(() => URL.revokeObjectURL(url), 0);
+  }, [importedTrace]);
+
+  const copyTraceExport = useCallback(async () => {
+    if (!importedTrace) return;
+    await navigator.clipboard.writeText(
+      JSON.stringify(createEngramTraceBundle(importedTrace), null, 2)
+    );
+    setTraceExportCopied(true);
+    window.setTimeout(() => setTraceExportCopied(false), 1600);
+  }, [importedTrace]);
 
   const openTraceInspector = useCallback(() => {
     setSelectedMemoryId(undefined);
@@ -748,6 +814,7 @@ export function EngramApp({ recordingMode = false }: EngramAppProps) {
       className="engram-shell"
       data-product-mode={productMode}
       data-recording={cleanDemoMode}
+      data-trace-active={Boolean(importedTrace)}
       data-workbench-open={Boolean(activePanel)}
       data-workbench-wide={activePanel === "timeMachine"}
     >
@@ -918,8 +985,11 @@ export function EngramApp({ recordingMode = false }: EngramAppProps) {
       />
       {importedTrace ? (
         <TraceInspectorPanel
-          currentStepIndex={tracePlayback.stepIndex}
+          currentStepIndex={traceStepIndex}
+          exportCopied={traceExportCopied}
           onClose={closeSecondaryPanel}
+          onCopyExport={copyTraceExport}
+          onExport={exportTrace}
           onSelectStep={seekTrace}
           open={activePanel === "trace"}
           trace={importedTrace}
@@ -928,9 +998,14 @@ export function EngramApp({ recordingMode = false }: EngramAppProps) {
       {traceImportOpen ? (
         <TraceImportDialog
           error={traceImportError}
+          liveChannelId={liveRecorder.channelId}
+          liveError={liveRecorder.error}
+          liveStatus={liveRecorder.status}
           onCancel={closeTraceImport}
           onImport={importTrace}
           onLoadSample={() => importTrace(sampleAgentTrace)}
+          onStartLive={startLiveRecorder}
+          onStopLive={stopLiveRecorder}
           open
         />
       ) : null}
@@ -956,7 +1031,8 @@ export function EngramApp({ recordingMode = false }: EngramAppProps) {
 
       {importedTrace ? (
         <TracePlaybackBar
-          currentStepIndex={tracePlayback.stepIndex}
+          currentStepIndex={traceStepIndex}
+          live={liveTraceActive}
           onExit={exitTracePlayback}
           onInspect={openTraceInspector}
           onNext={tracePlayback.next}
@@ -1004,4 +1080,13 @@ export function EngramApp({ recordingMode = false }: EngramAppProps) {
       )}
     </main>
   );
+}
+
+function safeFileName(value: string) {
+  const normalized = value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
+  return normalized || "engram-trace";
 }

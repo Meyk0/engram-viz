@@ -72,6 +72,45 @@ describe("TraceImportDialog", () => {
     expect(screen.getByRole("alert")).toHaveTextContent("This is not valid JSON");
     expect(onImport).not.toHaveBeenCalled();
   });
+
+  it("opens a live flight recorder and shows copyable processor setup", async () => {
+    const onStartLive = vi.fn();
+    const onStopLive = vi.fn();
+    const user = userEvent.setup();
+    const { rerender } = render(
+      <TraceImportDialog
+        open
+        onCancel={vi.fn()}
+        onImport={vi.fn()}
+        onLoadSample={vi.fn()}
+        onStartLive={onStartLive}
+        onStopLive={onStopLive}
+      />
+    );
+
+    await user.click(screen.getByRole("tab", { name: "Live" }));
+    await user.click(screen.getByRole("button", { name: "Start flight recorder" }));
+    expect(onStartLive).toHaveBeenCalledTimes(1);
+
+    rerender(
+      <TraceImportDialog
+        open
+        liveChannelId="live-test-channel-123"
+        liveStatus="listening"
+        onCancel={vi.fn()}
+        onImport={vi.fn()}
+        onLoadSample={vi.fn()}
+        onStartLive={onStartLive}
+        onStopLive={onStopLive}
+      />
+    );
+
+    expect(screen.getByLabelText("Live flight recorder setup")).toHaveTextContent("Listening for first span");
+    expect(screen.getByText(/addTraceProcessor/)).toHaveTextContent("live-test-channel-123");
+    expect(screen.getByText("Ephemeral demo channel.")).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "Stop listening" }));
+    expect(onStopLive).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe("TracePlaybackBar", () => {
@@ -143,6 +182,30 @@ describe("TracePlaybackBar", () => {
     expect(screen.getByText("Playback has not started")).toBeVisible();
     expect(screen.getByRole("button", { name: "Previous trace step" })).toBeDisabled();
   });
+
+  it("replaces playback controls with an honest live ingest state", () => {
+    render(
+      <TracePlaybackBar
+        currentStepIndex={2}
+        live
+        playing={false}
+        speed={1}
+        trace={trace}
+        onExit={vi.fn()}
+        onInspect={vi.fn()}
+        onNext={vi.fn()}
+        onPlayPause={vi.fn()}
+        onPrevious={vi.fn()}
+        onRestart={vi.fn()}
+        onSeek={vi.fn()}
+        onSpeedChange={vi.fn()}
+      />
+    );
+
+    expect(screen.getByLabelText("Live trace controls")).toHaveTextContent("Live flight recorder");
+    expect(screen.queryByRole("button", { name: "Play trace" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Exit trace playback" })).toHaveTextContent("Stop");
+  });
 });
 
 describe("TraceInspectorPanel", () => {
@@ -174,6 +237,29 @@ describe("TraceInspectorPanel", () => {
     await user.click(screen.getByRole("button", { name: "Close trace inspector" }));
     expect(onSelectStep).toHaveBeenCalledWith(2);
     expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it("exposes sanitized copy and export actions", async () => {
+    const onCopyExport = vi.fn();
+    const onExport = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <TraceInspectorPanel
+        currentStepIndex={0}
+        exportCopied
+        onClose={vi.fn()}
+        onCopyExport={onCopyExport}
+        onExport={onExport}
+        open
+        trace={trace}
+      />
+    );
+
+    expect(screen.getByText(/portable/)).toHaveTextContent(".engram");
+    await user.click(screen.getByRole("button", { name: "Copy sanitized trace" }));
+    await user.click(screen.getByRole("button", { name: "Download sanitized trace" }));
+    expect(onCopyExport).toHaveBeenCalledTimes(1);
+    expect(onExport).toHaveBeenCalledTimes(1);
   });
 
   it("stays hidden when closed", () => {

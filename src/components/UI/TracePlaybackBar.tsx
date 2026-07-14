@@ -7,6 +7,7 @@ import {
   Pause,
   Play,
   RotateCcw,
+  Radio,
   X
 } from "lucide-react";
 import type { NormalizedTrace, NormalizedTraceStep } from "@/lib/traces/types";
@@ -27,6 +28,7 @@ export type TracePlaybackBarProps = {
   playing: boolean;
   speed: TracePlaybackSpeed;
   trace: NormalizedTrace;
+  live?: boolean;
 };
 
 const SPEEDS: TracePlaybackSpeed[] = [0.5, 1, 2];
@@ -43,13 +45,44 @@ export function TracePlaybackBar({
   onSpeedChange,
   playing,
   speed,
-  trace
+  trace,
+  live = false
 }: TracePlaybackBarProps) {
   const totalSteps = trace.steps.length;
   const clampedIndex = Math.min(Math.max(currentStepIndex, -1), totalSteps - 1);
   const currentStep = trace.steps[clampedIndex];
   const currentPosition = clampedIndex + 1;
   const mappingState = getMappingState(currentStep);
+
+  if (live) {
+    return (
+      <section className="trace-playback-bar trace-live-bar" data-live="true" aria-label="Live trace controls">
+        <div className="trace-playback-identity">
+          <span className="trace-playback-source">{trace.trace.source.provider}</span>
+          <strong title={trace.trace.name}>{trace.trace.name}</strong>
+          <span className="trace-playback-count">{totalSteps} steps</span>
+        </div>
+        <div className="trace-live-bar-status" aria-live="polite">
+          <Radio aria-hidden="true" size={14} />
+          <span>
+            <strong>Live flight recorder</strong>
+            {currentStep ? `${formatStepKind(currentStep.kind)} · ${currentStep.name}` : "Waiting for spans"}
+          </span>
+          <span className="trace-mapping-indicator" data-provenance={mappingState.provenance}>
+            <i aria-hidden="true" />{mappingState.label}
+          </span>
+        </div>
+        <div className="trace-playback-actions">
+          <button type="button" onClick={onInspect} aria-label="Inspect trace">
+            <ListTree aria-hidden="true" size={14} /><span>Inspect</span>
+          </button>
+          <button type="button" onClick={onExit} aria-label="Exit trace playback">
+            <X aria-hidden="true" size={14} /><span>Stop</span>
+          </button>
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section className="trace-playback-bar" aria-label="Trace playback controls">
