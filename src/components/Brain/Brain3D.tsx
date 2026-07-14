@@ -20,6 +20,8 @@ import { regionBounds } from "@/lib/regions";
 import type { EngramViewMode, SemanticLayoutSnapshot } from "@/lib/semantic/types";
 import type { BrainRegion, EngramEvent, EngramMemory } from "@/types";
 
+const useStaticTestScene = process.env.NEXT_PUBLIC_ENGRAM_TEST_SCENE_STATIC === "true";
+
 type Brain3DProps = {
   events: EngramEvent[];
   memories: EngramMemory[];
@@ -79,6 +81,7 @@ export function Brain3D({
       <Canvas
         camera={{ position: brainCameraProfiles.desktop.position, fov: 46, near: 0.1, far: 100 }}
         dpr={[1, 1.75]}
+        frameloop={useStaticTestScene ? "demand" : "always"}
         gl={{ antialias: true, alpha: true, preserveDrawingBuffer: true }}
         data-testid="brain-canvas"
       >
