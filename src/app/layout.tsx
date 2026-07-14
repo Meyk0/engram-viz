@@ -8,15 +8,15 @@ const siteUrl = process.env.NEXT_PUBLIC_SITE_URL
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
-  title: "Engram - See your AI think",
-  description: "A 3D brain visualizer that makes LLM memory visible in real time.",
+  title: "Engram - Make AI memory visible",
+  description: "An interactive 3D view of observable LLM memory operations: what is stored, retrieved, consolidated, and used to answer.",
   icons: {
     icon: [{ url: "/engram-icon.png", type: "image/png", sizes: "512x512" }],
     apple: [{ url: "/engram-icon.png", type: "image/png", sizes: "512x512" }]
   },
   openGraph: {
-    title: "Engram - See your AI think",
-    description: "A 3D brain visualizer that makes LLM memory visible in real time.",
+    title: "Engram - Make AI memory visible",
+    description: "Explore observable LLM memory operations: what is stored, retrieved, consolidated, and used to answer.",
     url: "/",
     siteName: "Engram",
     images: [
@@ -31,8 +31,8 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "Engram - See your AI think",
-    description: "A 3D brain visualizer that makes LLM memory visible in real time.",
+    title: "Engram - Make AI memory visible",
+    description: "Explore observable LLM memory operations: what is stored, retrieved, consolidated, and used to answer.",
     images: ["/engram-og.png"]
   }
 };
