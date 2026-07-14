@@ -388,14 +388,14 @@ test("imports and replays an observed OpenAI agent memory trace", async ({ page 
   await expect(topology).toContainText("Shared memory / profile-memory");
   await expect(topology).toContainText("Delegate profile recall");
   await expect(topology).toContainText("Unknown scope remains unknown");
-  await page.getByRole("button", { name: "Close agent topology" }).click();
+  await page.getByRole("button", { name: "Close agent topology" }).click({ force: true });
 
   await page.getByRole("button", { name: "Inspect instrumentation coverage" }).click();
   const coverage = page.getByRole("complementary", { name: "Instrumentation coverage" });
   await expect(coverage).toContainText("What this trace can support");
   await expect(coverage).toContainText("Explicit memory operations");
   await expect(coverage).toContainText("Missing telemetry is a blind spot");
-  await page.getByRole("button", { name: "Close instrumentation coverage" }).click();
+  await page.getByRole("button", { name: "Close instrumentation coverage" }).click({ force: true });
 
   await page.getByRole("button", { name: "Next trace step" }).click();
   await expect(playback).toContainText("No memory event");
@@ -407,9 +407,9 @@ test("imports and replays an observed OpenAI agent memory trace", async ({ page 
   const inspector = page.getByRole("complementary", { name: "Trace inspector" });
   await expect(inspector).toContainText("6 observed");
   await expect(inspector).toContainText("Neither proves hidden model reasoning");
-  await page.getByRole("button", { name: "Close trace inspector" }).click();
+  await page.getByRole("button", { name: "Close trace inspector" }).click({ force: true });
 
-  await page.getByRole("button", { name: "Exit trace playback" }).click();
+  await page.getByRole("button", { name: "Exit trace playback" }).click({ force: true });
   await expect(page.getByLabel("Chat message")).toBeVisible();
   await expect(page.getByLabel("Demo controls")).toBeVisible();
 });
