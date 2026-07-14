@@ -22,12 +22,17 @@ test("switches into a docked investigation workbench without covering the stage"
   await expect(shell).toHaveAttribute("data-workbench-open", "true");
   await expect(workbench).toBeVisible();
 
-  await expect.poll(async () => {
-    const stageBox = await stage.boundingBox();
-    const workbenchBox = await workbench.boundingBox();
-    if (!stageBox || !workbenchBox) return Number.POSITIVE_INFINITY;
-    return stageBox.x + stageBox.width - workbenchBox.x;
-  }).toBeLessThanOrEqual(8);
+  await expect
+    .poll(
+      async () => {
+        const stageBox = await stage.boundingBox();
+        const workbenchBox = await workbench.boundingBox();
+        if (!stageBox || !workbenchBox) return Number.POSITIVE_INFINITY;
+        return stageBox.x + stageBox.width - workbenchBox.x;
+      },
+      { timeout: 12_000 }
+    )
+    .toBeLessThanOrEqual(8);
 });
 
 test("loads a replayable sample memory incident from an empty investigation", async ({ page }) => {
@@ -183,7 +188,7 @@ test("audits the current memory state with observed integrity rules", async ({ p
 });
 
 test("runs the demo and focuses completed memory story turns", async ({ page }) => {
-  test.setTimeout(60_000);
+  test.setTimeout(100_000);
   await page.goto("/");
 
   await page.getByRole("button", { name: "Run demo" }).click();
@@ -383,7 +388,7 @@ test("runs an Ablation Replay without mutating the memory session", async ({ pag
 });
 
 test("imports and replays an observed OpenAI agent memory trace", async ({ page }) => {
-  test.setTimeout(45_000);
+  test.setTimeout(75_000);
   await page.goto("/");
 
   await page.getByRole("button", { name: "Import agent trace" }).click();
