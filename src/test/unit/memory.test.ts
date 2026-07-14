@@ -27,7 +27,7 @@ describe("memory store", () => {
     expect(listMemories(session)).toHaveLength(1);
   });
 
-  it("moves repeatedly accessed hippocampal memories to temporal memory", () => {
+  it("keeps repeatedly accessed raw memories in the hippocampus", () => {
     const session = createMemorySession("session-b");
     const memory = createMemory(session, {
       text: "Repeated fact",
@@ -39,7 +39,7 @@ describe("memory store", () => {
     const [updated] = markAccessed(session, [memory.id], "2026-04-29T17:03:00.000Z");
 
     expect(updated.access_count).toBe(3);
-    expect(updated.region).toBe("temporal");
+    expect(updated.region).toBe("hippocampus");
   });
 });
 

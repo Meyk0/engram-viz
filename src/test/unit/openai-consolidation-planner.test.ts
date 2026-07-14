@@ -101,8 +101,18 @@ describe("OpenAIConsolidationPlanner", () => {
     await expect(
       planner.decide({
         memories: [
-          makeMemory({ id: "mem-a", text: "User likes red accents", topic: "design" }),
-          makeMemory({ id: "mem-b", text: "User dislikes busy dashboards", topic: "design" })
+          makeMemory({
+            id: "mem-a",
+            text: "User likes red accents",
+            topic: "design",
+            cluster: "interface_design"
+          }),
+          makeMemory({
+            id: "mem-b",
+            text: "User dislikes busy dashboards",
+            topic: "design",
+            cluster: "interface_design"
+          })
         ]
       })
     ).resolves.toEqual({
@@ -131,8 +141,18 @@ describe("OpenAIConsolidationPlanner", () => {
 
     const decision = await planner.decide({
       memories: [
-        makeMemory({ id: "mem-a", text: "User likes red accents", topic: "design" }),
-        makeMemory({ id: "mem-b", text: "User likes restrained medical UI", topic: "design" }),
+        makeMemory({
+          id: "mem-a",
+          text: "User likes red accents",
+          topic: "design",
+          cluster: "interface_design"
+        }),
+        makeMemory({
+          id: "mem-b",
+          text: "User likes restrained medical UI",
+          topic: "design",
+          cluster: "interface_design"
+        }),
         makeMemory({ id: "mem-c", text: "User likes the ocean", topic: "preference" })
       ],
       recentMemoryIds: ["mem-a"]
@@ -163,8 +183,18 @@ describe("OpenAIConsolidationPlanner", () => {
 
     const decision = await planner.decide({
       memories: [
-        makeMemory({ id: "mem-a", text: "User likes red accents", topic: "design" }),
-        makeMemory({ id: "mem-b", text: "User likes restrained medical UI", topic: "design" })
+        makeMemory({
+          id: "mem-a",
+          text: "User likes red accents",
+          topic: "design",
+          cluster: "interface_design"
+        }),
+        makeMemory({
+          id: "mem-b",
+          text: "User likes restrained medical UI",
+          topic: "design",
+          cluster: "interface_design"
+        })
       ]
     });
 
@@ -182,8 +212,18 @@ describe("OpenAIConsolidationPlanner", () => {
       const planner = new OpenAIConsolidationPlanner({ apiKey: undefined, fetcher });
       const decision = await planner.decide({
         memories: [
-          makeMemory({ id: "mem-a", text: "User likes red accents", topic: "design" }),
-          makeMemory({ id: "mem-b", text: "User likes restrained medical UI", topic: "design" })
+          makeMemory({
+            id: "mem-a",
+            text: "User likes red accents",
+            topic: "design",
+            cluster: "interface_design"
+          }),
+          makeMemory({
+            id: "mem-b",
+            text: "User likes restrained medical UI",
+            topic: "design",
+            cluster: "interface_design"
+          })
         ]
       });
 
@@ -224,12 +264,13 @@ describe("parseOpenAIConsolidationDecision", () => {
   });
 });
 
-function makeMemory(input: { id: string; text: string; topic?: string }): EngramMemory {
+function makeMemory(input: { id: string; text: string; topic?: string; cluster?: string }): EngramMemory {
   return {
     id: input.id,
     text: input.text,
     importance: 0.78,
     topic: input.topic,
+    cluster: input.cluster,
     region: "hippocampus",
     created_at: "2026-04-29T17:00:00.000Z",
     access_count: 0

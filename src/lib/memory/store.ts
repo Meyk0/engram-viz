@@ -1,4 +1,4 @@
-import type { BrainRegion, EngramMemory } from "@/types";
+import type { EngramMemory } from "@/types";
 
 export type MemoryInput = {
   text: string;
@@ -95,8 +95,7 @@ export function markAccessed(
     const updated: EngramMemory = {
       ...memory,
       access_count: memory.access_count + 1,
-      last_accessed: now,
-      region: nextRegion(memory.region, memory.access_count + 1)
+      last_accessed: now
     };
     session.memories.set(id, updated);
     return [updated];
@@ -115,9 +114,4 @@ export function replaceMemories(
 
 function clampImportance(value: number): number {
   return Math.min(1, Math.max(0, value));
-}
-
-function nextRegion(region: BrainRegion, accessCount: number): BrainRegion {
-  if (region === "hippocampus" && accessCount >= 3) return "temporal";
-  return region;
 }
