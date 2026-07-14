@@ -60,13 +60,16 @@ test("branches and replays an immutable memory checkpoint", async ({ page }) => 
   await page.getByRole("button", { name: "Time Machine 2" }).click();
   const timeMachine = page.getByRole("complementary", { name: "Memory Time Machine" });
   await expect(timeMachine).toContainText("What color do I love?");
+  await expect(timeMachine.getByLabel("Investigation workflow")).toContainText("Create regression");
   await timeMachine.getByRole("button", { name: "Quarantine" }).click();
   await expect(timeMachine).toContainText("Quarantined from branch");
+  await expect(timeMachine.locator('[aria-current="step"]')).toContainText("Compare");
   await timeMachine.getByRole("button", { name: "Replay branch" }).click();
   await expect(timeMachine.getByRole("region", { name: "Branch replay result" })).toContainText(
     "The answer changed",
     { timeout: 12_000 }
   );
+  await expect(timeMachine.locator('[aria-current="step"]')).toContainText("Save");
   const regressionDownload = page.waitForEvent("download");
   await timeMachine.getByRole("button", { name: "Save regression" }).click();
   await expect(timeMachine).toContainText("Regression saved");

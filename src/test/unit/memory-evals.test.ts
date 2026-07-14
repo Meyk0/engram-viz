@@ -4,11 +4,13 @@ import {
   memoryConsolidationEvalFixtures,
   memoryConversationEvalFixtures,
   memoryDreamEvalFixtures,
+  memoryEvaluatorLimitationFixtures,
   memoryRetrievalEvalFixtures,
   memoryScenarioEvalFixtures,
   runConsolidationEvalFixture,
   runConversationEvalFixture,
   runDreamEvalFixture,
+  runEvaluatorLimitationFixture,
   runMemoryEvalReport,
   runMemoryScenarioEvalFixture,
   runRetrievalEvalFixture
@@ -55,6 +57,15 @@ describe("memory eval fixtures", () => {
     });
   });
 
+  memoryEvaluatorLimitationFixtures.forEach((fixture) => {
+    it(`documents evaluator limitation: ${fixture.name}`, () => {
+      const result = runEvaluatorLimitationFixture(fixture);
+
+      expect(result.failures, result.failures.join("\n")).toEqual([]);
+      expect(result.limitations?.length).toBeGreaterThan(0);
+    });
+  });
+
   it("produces a green report", () => {
     const report = runMemoryEvalReport();
 
@@ -64,8 +75,10 @@ describe("memory eval fixtures", () => {
         memoryRetrievalEvalFixtures.length +
         memoryConsolidationEvalFixtures.length +
         memoryScenarioEvalFixtures.length +
-        memoryDreamEvalFixtures.length
+        memoryDreamEvalFixtures.length +
+        memoryEvaluatorLimitationFixtures.length
     );
+    expect(report.limitations).toBe(memoryEvaluatorLimitationFixtures.length);
   });
 
   it("formats suite totals for quick CLI inspection", () => {
@@ -77,5 +90,8 @@ describe("memory eval fixtures", () => {
     expect(formatted).toContain(`consolidation: ${report.bySuite.consolidation.passed}/${report.bySuite.consolidation.total} passed`);
     expect(formatted).toContain(`scenario: ${report.bySuite.scenario.passed}/${report.bySuite.scenario.total} passed`);
     expect(formatted).toContain(`dream: ${report.bySuite.dream.passed}/${report.bySuite.dream.total} passed`);
+    expect(formatted).toContain(`limitation: ${report.bySuite.limitation.passed}/${report.bySuite.limitation.total} passed`);
+    expect(formatted).toContain("Known evaluator limitations:");
+    expect(formatted).toContain("user/agent/run/shared isolation");
   });
 });

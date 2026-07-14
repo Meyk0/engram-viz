@@ -248,6 +248,11 @@ export function MemoryTimeMachinePanel({
 
       {checkpoint ? (
         <div className="time-machine-scroll">
+          <InvestigationProgress
+            branchEdits={branch?.mutations.length ?? 0}
+            hasReplay={Boolean(result)}
+            regressionSaved={regressionSaved}
+          />
           <section className="time-machine-checkpoint">
             <label htmlFor="time-machine-checkpoint">Recorded checkpoint</label>
             <select
@@ -357,6 +362,44 @@ export function MemoryTimeMachinePanel({
         </div>
       )}
     </aside>
+  );
+}
+
+function InvestigationProgress({
+  branchEdits,
+  hasReplay,
+  regressionSaved
+}: {
+  branchEdits: number;
+  hasReplay: boolean;
+  regressionSaved: boolean;
+}) {
+  const current = regressionSaved ? 4 : hasReplay ? 4 : branchEdits > 0 ? 3 : 2;
+  const steps = [
+    { number: 1, label: "Inspect", detail: "Recorded evidence" },
+    { number: 2, label: "Branch", detail: "Test a memory fix" },
+    { number: 3, label: "Compare", detail: "Run two replays" },
+    { number: 4, label: "Save", detail: "Create regression" }
+  ];
+
+  return (
+    <nav className="time-machine-progress" aria-label="Investigation workflow">
+      <ol>
+        {steps.map((step) => {
+          const state = step.number < current || regressionSaved ? "done" : step.number === current ? "current" : "pending";
+          return (
+            <li
+              key={step.number}
+              data-state={state}
+              aria-current={state === "current" ? "step" : undefined}
+            >
+              <i aria-hidden="true">{step.number}</i>
+              <span><strong>{step.label}</strong><small>{step.detail}</small></span>
+            </li>
+          );
+        })}
+      </ol>
+    </nav>
   );
 }
 

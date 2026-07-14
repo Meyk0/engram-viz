@@ -50,6 +50,11 @@ describe("MemoryTimeMachinePanel", () => {
     );
 
     expect(screen.getByLabelText("Memory Time Machine")).toBeVisible();
+    const workflow = screen.getByLabelText("Investigation workflow");
+    expect(workflow).toHaveTextContent("Inspect");
+    expect(workflow).toHaveTextContent("Recorded evidence");
+    expect(workflow).toHaveTextContent("Create regression");
+    expect(screen.getByText("Branch").closest("li")).toHaveAttribute("aria-current", "step");
     expect(screen.getAllByText(memory.text)).toHaveLength(2);
     expect(screen.getByRole("button", { name: "Replay branch" })).toBeDisabled();
 
@@ -57,6 +62,7 @@ describe("MemoryTimeMachinePanel", () => {
     expect(screen.getByText("Quarantined from branch")).toBeVisible();
     expect(screen.getAllByText(memory.text)).toHaveLength(2);
     expect(onFocusMemoryIds).toHaveBeenLastCalledWith([memory.id]);
+    expect(screen.getByText("Compare").closest("li")).toHaveAttribute("aria-current", "step");
 
     await user.click(screen.getByRole("button", { name: "Replay branch" }));
 
@@ -67,6 +73,7 @@ describe("MemoryTimeMachinePanel", () => {
     expect(globalThis.fetch).toHaveBeenCalledTimes(1);
     const body = JSON.parse(String(vi.mocked(globalThis.fetch).mock.calls[0]?.[1]?.body));
     expect(body.branchContextMemories).toEqual([]);
+    expect(screen.getByText("Save").closest("li")).toHaveAttribute("aria-current", "step");
 
     await user.click(screen.getByRole("button", { name: "Save regression" }));
     expect(onSaveRegression).toHaveBeenCalledOnce();
@@ -90,6 +97,7 @@ describe("MemoryTimeMachinePanel", () => {
       }
     });
     expect(screen.getByText("Regression saved")).toBeVisible();
+    expect(screen.getByText("Save").closest("li")).toHaveAttribute("data-state", "done");
   });
 
   it("labels trace checkpoints as state only", () => {
