@@ -15,7 +15,9 @@ describe("OpenAIChatProvider", () => {
     for await (const chunk of provider.streamTurn({
       message: "What design style do I prefer?",
       history: [{ role: "user", content: "remember that I like cyberpunk medical interfaces" }],
-      retrievedMemories: [memory("mem-style", "I like restrained cyberpunk medical interfaces.")]
+      retrievedMemories: [memory("mem-style", "I like restrained cyberpunk medical interfaces.")],
+      storedMemories: [],
+      turnIntent: "memory_question"
     })) {
       chunks.push(chunk);
     }
@@ -47,6 +49,7 @@ describe("OpenAIChatProvider", () => {
       }
     ]);
     expect(body.input[1].content).toContain("What design style do I prefer?");
+    expect(body.input[1].content).toContain("Turn intent: memory_question");
   });
 
   it("yields an error chunk when no API key is configured", async () => {

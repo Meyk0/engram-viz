@@ -81,8 +81,11 @@ function buildTurnPrompt(input: ChatTurnInput) {
           )
           .join("\n")
       : "No retrieved memory traces.";
+  const storedContext = input.storedMemories?.length
+    ? input.storedMemories.map((memory) => `- ${memory.text}`).join("\n")
+    : "No new memory was stored before this response.";
 
-  return `Relevant memory traces:\n${memoryContext}\n\nUser message:\n${input.message}`;
+  return `Relevant memory traces:\n${memoryContext}\n\nNew memories stored this turn:\n${storedContext}\n\nTurn intent: ${input.turnIntent ?? "unknown"}\n\nUser message:\n${input.message}`;
 }
 
 function extractResponseText(payload: unknown): string {

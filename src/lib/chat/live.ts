@@ -168,11 +168,17 @@ async function* orchestrateLiveMemoryChunks(
     }
   }
 
+  const storedMemories = storedIds.length > 0
+    ? (await store.list(input.sessionId)).filter((memory) => storedIds.includes(memory.id))
+    : [];
+
   const provider = input.chatProvider ?? createChatProvider(configuredChatProvider());
   for await (const chunk of provider.streamTurn({
     message: input.message,
     history,
-    retrievedMemories
+    retrievedMemories,
+    storedMemories,
+    turnIntent: turnPlan.intent
   })) {
     if (chunk.kind === "done") continue;
     yield chunk;

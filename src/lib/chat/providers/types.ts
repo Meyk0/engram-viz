@@ -1,9 +1,12 @@
 import type { ChatMessage, ChatProvider, EngramMemory } from "@/types";
+import type { TurnMemoryPlan } from "@/lib/memory/turn-planner";
 
 export type ChatTurnInput = {
   message: string;
   history: ChatMessage[];
   retrievedMemories: EngramMemory[];
+  storedMemories?: EngramMemory[];
+  turnIntent?: TurnMemoryPlan["intent"];
 };
 
 export type ProviderChunk =

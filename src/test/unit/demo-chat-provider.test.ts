@@ -17,11 +17,37 @@ describe("DemoChatProvider", () => {
     const output = await runDemo({
       message: "What city do I live in now?",
       history: [],
-      retrievedMemories: []
+      retrievedMemories: [],
+      turnIntent: "memory_question"
     });
 
     expect(output).toContain("do not have a matching prior memory");
     expect(output).toContain("offline demo");
+  });
+
+  it("acknowledges a store-only turn instead of claiming recall failed", async () => {
+    const saved = memory("color", "User loves indigo.");
+    const output = await runDemo({
+      message: "I love the color indigo.",
+      history: [],
+      retrievedMemories: [],
+      storedMemories: [saved],
+      turnIntent: "durable_statement"
+    });
+
+    expect(output).toBe("Saved as a new memory: User loves indigo.");
+    expect(output).not.toContain("matching prior memory");
+  });
+
+  it("uses neutral language for non-memory turns", async () => {
+    const output = await runDemo({
+      message: "Hello",
+      history: [],
+      retrievedMemories: [],
+      turnIntent: "general_chat"
+    });
+
+    expect(output).toContain("No durable memory was stored or used");
   });
 
   it("lists multiple retrieved memories without synthesizing unsupported claims", async () => {

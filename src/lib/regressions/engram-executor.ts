@@ -37,7 +37,8 @@ async function executeFixture(
   for await (const chunk of new DemoChatProvider().streamTurn({
     message: fixture.input.userMessage,
     history: fixture.input.history.map((message) => ({ ...message })),
-    retrievedMemories
+    retrievedMemories,
+    turnIntent: "memory_question"
   })) {
     if (chunk.kind === "text") answer += chunk.delta;
     if (chunk.kind === "error") throw new Error(chunk.message);
