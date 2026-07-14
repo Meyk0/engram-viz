@@ -55,6 +55,7 @@ import type { EngramViewMode } from "@/lib/semantic/types";
 import type { TurnRecord } from "@/lib/evidence/types";
 import type { EngramProductMode } from "@/lib/lab/types";
 import { buildTimelineCheckpoints, buildTraceCheckpoints } from "@/lib/lab/checkpoints";
+import { createSampleMemoryIncident } from "@/lib/lab/sample-incident";
 import { buildMemoryLineage } from "@/lib/lineage/build";
 import { scanMemoryIntegrity } from "@/lib/integrity/scan";
 import { buildAgentTopology } from "@/lib/topology/build";
@@ -784,6 +785,30 @@ export function EngramApp({ recordingMode = false }: EngramAppProps) {
     setActivePanel("timeMachine");
   }, []);
 
+  const loadSampleIncident = useCallback(() => {
+    if (isStreaming) cancel();
+    liveRecorder.disconnect();
+    clearConversationState();
+    tracePlayback.restart();
+    setImportedTrace(undefined);
+
+    const incident = createSampleMemoryIncident();
+    incident.entry.events.forEach(pushEvent);
+    setTimelineEntries([incident.entry]);
+    setTurnRecordsByTimelineId({ [incident.entry.id]: incident.record });
+    setProductMode("investigate");
+    setActivePanel("timeMachine");
+    setFocusedTimelineId(incident.entry.id);
+    setTimeMachineFocusMemoryIds(incident.record.retrievedMemories.map((memory) => memory.id));
+    setTraceSceneEpoch((current) => current + 1);
+  }, [cancel, clearConversationState, isStreaming, liveRecorder, pushEvent, tracePlayback]);
+
+  const returnToLearn = useCallback(() => {
+    setProductMode("learn");
+    setActivePanel(null);
+    setFocusedTimelineId(undefined);
+  }, []);
+
   const exportTrace = useCallback(() => {
     if (!importedTrace) return;
     const bundle = createEngramTraceBundle(importedTrace);
@@ -1027,6 +1052,8 @@ export function EngramApp({ recordingMode = false }: EngramAppProps) {
           initialQuarantineMemoryIds={timeMachineSeedMemoryIds}
           onClose={closeSecondaryPanel}
           onFocusMemoryIds={setTimeMachineFocusMemoryIds}
+          onLoadSampleIncident={loadSampleIncident}
+          onReturnToLearn={returnToLearn}
         />
       ) : null}
       {activePanel === "integrity" ? (

@@ -15,11 +15,14 @@ import type {
   MemoryCheckpoint
 } from "@/lib/lab/types";
 import type { EngramMemory } from "@/types";
+import { IncidentWorkbenchEmptyState } from "@/components/UI/IncidentWorkbenchEmptyState";
 import "./memory-time-machine.css";
 
 type MemoryTimeMachinePanelProps = {
   checkpoints: MemoryCheckpoint[];
   initialQuarantineMemoryIds?: string[];
+  onLoadSampleIncident?: () => void;
+  onReturnToLearn?: () => void;
   onClose: () => void;
   onFocusMemoryIds: (ids: string[]) => void;
 };
@@ -27,6 +30,8 @@ type MemoryTimeMachinePanelProps = {
 export function MemoryTimeMachinePanel({
   checkpoints,
   initialQuarantineMemoryIds = [],
+  onLoadSampleIncident,
+  onReturnToLearn,
   onClose,
   onFocusMemoryIds
 }: MemoryTimeMachinePanelProps) {
@@ -294,6 +299,11 @@ export function MemoryTimeMachinePanel({
 
           {result ? <ReplayComparison ref={resultRef} result={result} /> : null}
         </div>
+      ) : onLoadSampleIncident && onReturnToLearn ? (
+        <IncidentWorkbenchEmptyState
+          onLoadSampleIncident={onLoadSampleIncident}
+          onReturnToLearn={onReturnToLearn}
+        />
       ) : (
         <div className="time-machine-empty">
           No checkpoints yet. Complete a conversation turn or load a trace to create an inspectable state.

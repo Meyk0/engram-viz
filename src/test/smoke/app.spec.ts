@@ -30,6 +30,22 @@ test("switches into a docked investigation workbench without covering the stage"
   }).toBeLessThanOrEqual(8);
 });
 
+test("loads a replayable sample memory incident from an empty investigation", async ({ page }) => {
+  await page.goto("/");
+
+  await page.getByRole("button", { name: "Investigate: Test memory history" }).click();
+  const timeMachine = page.getByRole("complementary", { name: "Memory Time Machine" });
+  await expect(timeMachine).toContainText("Start with a memory incident");
+  await page.getByRole("button", { name: "Load sample incident" }).click();
+
+  await expect(timeMachine).toContainText("What city do I live in now?");
+  await expect(timeMachine).toContainText("2 memories");
+  await expect(timeMachine).toContainText("1 loaded");
+  await expect(timeMachine).toContainText("replayable turn");
+  await expect(timeMachine).toContainText("User moved to San Francisco in 2022.");
+  await expect(timeMachine).toContainText("User lives in Oakland now.");
+});
+
 test("branches and replays an immutable memory checkpoint", async ({ page }) => {
   test.setTimeout(45_000);
   await page.goto("/");

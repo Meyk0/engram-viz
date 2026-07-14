@@ -9,6 +9,25 @@ afterEach(() => {
 });
 
 describe("MemoryTimeMachinePanel", () => {
+  it("offers a replayable sample when no checkpoints exist", async () => {
+    const onLoadSampleIncident = vi.fn();
+    const onReturnToLearn = vi.fn();
+    const user = userEvent.setup();
+
+    render(
+      <MemoryTimeMachinePanel
+        checkpoints={[]}
+        onClose={vi.fn()}
+        onFocusMemoryIds={vi.fn()}
+        onLoadSampleIncident={onLoadSampleIncident}
+        onReturnToLearn={onReturnToLearn}
+      />
+    );
+
+    await user.click(screen.getByRole("button", { name: "Load sample incident" }));
+    expect(onLoadSampleIncident).toHaveBeenCalledOnce();
+  });
+
   it("branches an immutable checkpoint and renders observed replay evidence", async () => {
     const user = userEvent.setup();
     const onFocusMemoryIds = vi.fn();
