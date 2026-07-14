@@ -206,6 +206,50 @@ describe("TracePlaybackBar", () => {
     expect(screen.queryByRole("button", { name: "Play trace" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Exit trace playback" })).toHaveTextContent("Stop");
   });
+
+  it("opens topology only when the trace contains meaningful agent evidence", async () => {
+    const onTopology = vi.fn();
+    const user = userEvent.setup();
+    const { rerender } = render(
+      <TracePlaybackBar
+        currentStepIndex={0}
+        hasTopology
+        onTopology={onTopology}
+        playing={false}
+        speed={1}
+        trace={trace}
+        onExit={vi.fn()}
+        onInspect={vi.fn()}
+        onNext={vi.fn()}
+        onPlayPause={vi.fn()}
+        onPrevious={vi.fn()}
+        onRestart={vi.fn()}
+        onSeek={vi.fn()}
+        onSpeedChange={vi.fn()}
+      />
+    );
+
+    await user.click(screen.getByRole("button", { name: "Inspect agent topology" }));
+    expect(onTopology).toHaveBeenCalledTimes(1);
+
+    rerender(
+      <TracePlaybackBar
+        currentStepIndex={0}
+        playing={false}
+        speed={1}
+        trace={trace}
+        onExit={vi.fn()}
+        onInspect={vi.fn()}
+        onNext={vi.fn()}
+        onPlayPause={vi.fn()}
+        onPrevious={vi.fn()}
+        onRestart={vi.fn()}
+        onSeek={vi.fn()}
+        onSpeedChange={vi.fn()}
+      />
+    );
+    expect(screen.queryByRole("button", { name: "Inspect agent topology" })).not.toBeInTheDocument();
+  });
 });
 
 describe("TraceInspectorPanel", () => {

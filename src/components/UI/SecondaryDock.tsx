@@ -13,6 +13,7 @@ export type SecondaryPanel =
   | "trace"
   | "retrieval"
   | "integrity"
+  | "topology"
   | "timeMachine";
 
 type SecondaryDockProps = {

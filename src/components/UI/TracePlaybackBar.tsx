@@ -4,6 +4,7 @@ import {
   ChevronLeft,
   ChevronRight,
   ListTree,
+  Network,
   Pause,
   Play,
   RotateCcw,
@@ -25,9 +26,11 @@ export type TracePlaybackBarProps = {
   onRestart: () => void;
   onSeek: (stepIndex: number) => void;
   onSpeedChange: (speed: TracePlaybackSpeed) => void;
+  onTopology?: () => void;
   playing: boolean;
   speed: TracePlaybackSpeed;
   trace: NormalizedTrace;
+  hasTopology?: boolean;
   live?: boolean;
 };
 
@@ -43,9 +46,11 @@ export function TracePlaybackBar({
   onRestart,
   onSeek,
   onSpeedChange,
+  onTopology,
   playing,
   speed,
   trace,
+  hasTopology = false,
   live = false
 }: TracePlaybackBarProps) {
   const totalSteps = trace.steps.length;
@@ -73,6 +78,11 @@ export function TracePlaybackBar({
           </span>
         </div>
         <div className="trace-playback-actions">
+          {hasTopology && onTopology ? (
+            <button type="button" onClick={onTopology} aria-label="Inspect agent topology">
+              <Network aria-hidden="true" size={14} /><span>Topology</span>
+            </button>
+          ) : null}
           <button type="button" onClick={onInspect} aria-label="Inspect trace">
             <ListTree aria-hidden="true" size={14} /><span>Inspect</span>
           </button>
@@ -144,6 +154,12 @@ export function TracePlaybackBar({
       </div>
 
       <div className="trace-playback-actions">
+        {hasTopology && onTopology ? (
+          <button type="button" onClick={onTopology} aria-label="Inspect agent topology">
+            <Network aria-hidden="true" size={14} />
+            <span>Topology</span>
+          </button>
+        ) : null}
         <button type="button" onClick={onInspect} aria-label="Inspect trace">
           <ListTree aria-hidden="true" size={14} />
           <span>Inspect</span>

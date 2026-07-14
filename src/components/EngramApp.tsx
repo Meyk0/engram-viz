@@ -18,6 +18,7 @@ import { useLiveTraceRecorder } from "@/hooks/useLiveTraceRecorder";
 import { useTracePlayback } from "@/hooks/useTracePlayback";
 import { Brain3D } from "@/components/Brain/Brain3D";
 import { ActiveContextPanel } from "@/components/UI/ActiveContextPanel";
+import { AgentTopologyPanel } from "@/components/UI/AgentTopologyPanel";
 import { CausalXRayPanel } from "@/components/UI/CausalXRayPanel";
 import { CurrentEventBanner } from "@/components/UI/CurrentEventBanner";
 import { DemoPromptGuide } from "@/components/UI/DemoPromptGuide";
@@ -56,6 +57,7 @@ import type { EngramProductMode } from "@/lib/lab/types";
 import { buildTimelineCheckpoints, buildTraceCheckpoints } from "@/lib/lab/checkpoints";
 import { buildMemoryLineage } from "@/lib/lineage/build";
 import { scanMemoryIntegrity } from "@/lib/integrity/scan";
+import { buildAgentTopology } from "@/lib/topology/build";
 import { createEngramTraceBundle } from "@/lib/traces/export";
 import { importAgentTrace } from "@/lib/traces/import";
 import { sampleAgentTrace } from "@/lib/traces/sample";
@@ -122,7 +124,7 @@ export function EngramApp({ recordingMode = false }: EngramAppProps) {
   const onLiveTraceSnapshot = useCallback((snapshot: LiveTraceSnapshot) => {
     setImportedTrace(snapshot.trace);
     setProductMode("observe");
-    setActivePanel("trace");
+    setActivePanel((current) => current === "topology" ? current : "trace");
     setTraceImportOpen(false);
     setTraceImportError(null);
     setTraceExportCopied(false);
@@ -134,6 +136,11 @@ export function EngramApp({ recordingMode = false }: EngramAppProps) {
   const traceStepIndex = liveTraceActive && importedTrace
     ? importedTrace.steps.length - 1
     : tracePlayback.stepIndex;
+  const agentTopology = useMemo(
+    () => importedTrace ? buildAgentTopology(importedTrace) : undefined,
+    [importedTrace]
+  );
+  const currentTraceStepId = importedTrace?.steps[traceStepIndex]?.id;
   const {
     events: queuedEvents,
     eventHistory: queuedEventHistory,
@@ -798,11 +805,31 @@ export function EngramApp({ recordingMode = false }: EngramAppProps) {
     window.setTimeout(() => setTraceExportCopied(false), 1600);
   }, [importedTrace]);
 
+  const seekTrace = useCallback(
+    (index: number) => {
+      if (index <= tracePlayback.stepIndex) setTraceSceneEpoch((current) => current + 1);
+      tracePlayback.seek(index);
+    },
+    [tracePlayback]
+  );
+
   const openTraceInspector = useCallback(() => {
     setSelectedMemoryId(undefined);
     setSelectedRegion(undefined);
     setActivePanel("trace");
   }, []);
+
+  const openAgentTopology = useCallback(() => {
+    setSelectedMemoryId(undefined);
+    setSelectedRegion(undefined);
+    setActivePanel("topology");
+  }, []);
+
+  const seekTopologyStep = useCallback((stepId: string) => {
+    if (!importedTrace || liveTraceActive) return;
+    const index = importedTrace.steps.findIndex((step) => step.id === stepId);
+    if (index >= 0) seekTrace(index);
+  }, [importedTrace, liveTraceActive, seekTrace]);
 
   const playOrPauseTrace = useCallback(() => {
     if (tracePlayback.playing) {
@@ -814,14 +841,6 @@ export function EngramApp({ recordingMode = false }: EngramAppProps) {
     }
     tracePlayback.play();
   }, [tracePlayback]);
-
-  const seekTrace = useCallback(
-    (index: number) => {
-      if (index <= tracePlayback.stepIndex) setTraceSceneEpoch((current) => current + 1);
-      tracePlayback.seek(index);
-    },
-    [tracePlayback]
-  );
 
   const previousTraceStep = useCallback(() => {
     setTraceSceneEpoch((current) => current + 1);
@@ -853,7 +872,7 @@ export function EngramApp({ recordingMode = false }: EngramAppProps) {
       data-recording={cleanDemoMode}
       data-trace-active={Boolean(importedTrace)}
       data-workbench-open={Boolean(activePanel)}
-      data-workbench-wide={activePanel === "timeMachine" || activePanel === "integrity"}
+      data-workbench-wide={activePanel === "timeMachine" || activePanel === "integrity" || activePanel === "topology"}
     >
       <Brain3D
         events={events}
@@ -1042,6 +1061,14 @@ export function EngramApp({ recordingMode = false }: EngramAppProps) {
           trace={importedTrace}
         />
       ) : null}
+      {importedTrace && agentTopology && activePanel === "topology" ? (
+        <AgentTopologyPanel
+          currentStepId={currentTraceStepId}
+          onClose={closeSecondaryPanel}
+          onSelectStep={liveTraceActive ? undefined : seekTopologyStep}
+          topology={agentTopology}
+        />
+      ) : null}
       {traceImportOpen ? (
         <TraceImportDialog
           error={traceImportError}
@@ -1081,6 +1108,7 @@ export function EngramApp({ recordingMode = false }: EngramAppProps) {
       {importedTrace ? (
         <TracePlaybackBar
           currentStepIndex={traceStepIndex}
+          hasTopology={Boolean(agentTopology?.meaningful)}
           live={liveTraceActive}
           onExit={exitTracePlayback}
           onInspect={openTraceInspector}
@@ -1090,6 +1118,7 @@ export function EngramApp({ recordingMode = false }: EngramAppProps) {
           onRestart={restartTrace}
           onSeek={seekTrace}
           onSpeedChange={tracePlayback.setSpeed}
+          onTopology={openAgentTopology}
           playing={tracePlayback.playing}
           speed={tracePlayback.speed}
           trace={importedTrace}

@@ -14,6 +14,7 @@ import {
   stableId
 } from "@/lib/traces/adapters/helpers";
 import { mapMemoryOperation } from "@/lib/traces/adapters/memory-tools";
+import { extractTopologyContext, propagateParentAgents } from "@/lib/traces/adapters/topology";
 
 function objectType(item: Record<string, unknown>): string | undefined {
   return firstString(item.object, item.type);
@@ -60,11 +61,31 @@ export function importOpenAIAgents(input: unknown): NormalizedTrace {
     const rawOutput = parseJsonValue(firstDefined(data.output, data.result, span.output));
     const sourcePath = `items[${itemIndex}]`;
 
+    const memoryMappings = mapMemoryOperation({
+      stepId,
+      toolName: name,
+      input: rawInput,
+      output: rawOutput,
+      timestamp: startedAt,
+      sourcePath
+    });
+    const kind = normalizeKind(dataType);
+    const topology = extractTopologyContext({
+      data,
+      span,
+      input: rawInput,
+      output: rawOutput,
+      sourcePath,
+      stepId,
+      kind,
+      hasMemoryMapping: memoryMappings.length > 0
+    });
+
     return {
       id: stepId,
       ...(firstString(span.parent_id, span.parentId) ? { parentId: firstString(span.parent_id, span.parentId) } : {}),
       index: sourceIndex,
-      kind: normalizeKind(dataType),
+      kind,
       name,
       status: normalizeStatus(
         firstDefined(span.status, data.status, endedAt ? "completed" : undefined),
@@ -74,14 +95,8 @@ export function importOpenAIAgents(input: unknown): NormalizedTrace {
       ...(endedAt ? { endedAt } : {}),
       ...(sanitizeJson(rawInput) !== undefined ? { input: sanitizeJson(rawInput) } : {}),
       ...(sanitizeJson(rawOutput) !== undefined ? { output: sanitizeJson(rawOutput) } : {}),
-      memoryMappings: mapMemoryOperation({
-        stepId,
-        toolName: name,
-        input: rawInput,
-        output: rawOutput,
-        timestamp: startedAt,
-        sourcePath
-      })
+      memoryMappings,
+      ...(topology ? { topology } : {})
     };
   });
 
@@ -105,6 +120,6 @@ export function importOpenAIAgents(input: unknown): NormalizedTrace {
         : {}),
       ...(isRecord(metadata) ? { metadata } : {})
     },
-    steps: sortAndReindexSteps(steps)
+    steps: sortAndReindexSteps(propagateParentAgents(steps))
   };
 }

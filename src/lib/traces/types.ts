@@ -15,6 +15,39 @@ export type TraceStepKind =
 
 export type TraceStepStatus = "in_progress" | "completed" | "error" | "unknown";
 
+export type TraceTopologyProvenance = "observed" | "mapped" | "unknown";
+export type TraceMemoryScope = "user" | "agent" | "run" | "shared" | "unknown";
+
+export type TraceAgentRef = {
+  id: string;
+  name: string;
+  provenance: Exclude<TraceTopologyProvenance, "unknown">;
+  sourcePath: string;
+  note: string;
+};
+
+export type TraceMemoryScopeRef = {
+  scope: TraceMemoryScope;
+  storeId?: string;
+  provenance: TraceTopologyProvenance;
+  sourcePath: string;
+  note: string;
+};
+
+export type TraceHandoffRef = {
+  from?: TraceAgentRef;
+  to?: TraceAgentRef;
+  provenance: TraceTopologyProvenance;
+  sourcePath: string;
+  note: string;
+};
+
+export type TraceTopologyContext = {
+  agent?: TraceAgentRef;
+  memory?: TraceMemoryScopeRef;
+  handoff?: TraceHandoffRef;
+};
+
 export type TraceMemoryMapping =
   | {
       provenance: "observed" | "mapped";
@@ -41,6 +74,7 @@ export type NormalizedTraceStep = {
   input?: JsonValue;
   output?: JsonValue;
   memoryMappings: TraceMemoryMapping[];
+  topology?: TraceTopologyContext;
 };
 
 export type NormalizedTrace = {

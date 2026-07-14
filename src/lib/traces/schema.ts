@@ -28,6 +28,32 @@ const traceMemoryMappingSchema = z.discriminatedUnion("provenance", [
   })
 ]);
 
+const traceTopologyProvenanceSchema = z.enum(["observed", "mapped", "unknown"]);
+const traceAgentRefSchema = z.object({
+  id: z.string().min(1),
+  name: z.string().min(1),
+  provenance: z.enum(["observed", "mapped"]),
+  sourcePath: z.string().min(1),
+  note: z.string().min(1)
+});
+const traceTopologyContextSchema = z.object({
+  agent: traceAgentRefSchema.optional(),
+  memory: z.object({
+    scope: z.enum(["user", "agent", "run", "shared", "unknown"]),
+    storeId: z.string().min(1).optional(),
+    provenance: traceTopologyProvenanceSchema,
+    sourcePath: z.string().min(1),
+    note: z.string().min(1)
+  }).optional(),
+  handoff: z.object({
+    from: traceAgentRefSchema.optional(),
+    to: traceAgentRefSchema.optional(),
+    provenance: traceTopologyProvenanceSchema,
+    sourcePath: z.string().min(1),
+    note: z.string().min(1)
+  }).optional()
+});
+
 export const normalizedTraceSchema = z.object({
   schemaVersion: z.literal(1),
   trace: z.object({
@@ -55,7 +81,8 @@ export const normalizedTraceSchema = z.object({
       endedAt: z.string().min(1).optional(),
       input: jsonValueSchema.optional(),
       output: jsonValueSchema.optional(),
-      memoryMappings: z.array(traceMemoryMappingSchema)
+      memoryMappings: z.array(traceMemoryMappingSchema),
+      topology: traceTopologyContextSchema.optional()
     })
   ).max(1000)
 });

@@ -13,7 +13,7 @@ export const sampleAgentTrace = {
       trace_id: "trace_engram_memory_demo",
       started_at: "2026-07-13T18:00:00.000Z",
       ended_at: "2026-07-13T18:00:08.000Z",
-      span_data: { type: "agent", name: "Personalization agent" }
+      span_data: { type: "agent", agent_id: "coordinator", name: "Coordinator" }
     },
     memorySpan("span_store_color", "2026-07-13T18:00:01.000Z", {
       type: "store",
@@ -65,35 +65,65 @@ export const sampleAgentTrace = {
       ended_at: "2026-07-13T18:00:05.000Z",
       span_data: { type: "generation", model: "gpt-5", input: "Design a palette for me." }
     },
+    {
+      object: "trace.span",
+      id: "span_handoff",
+      trace_id: "trace_engram_memory_demo",
+      parent_id: "span_agent",
+      started_at: "2026-07-13T18:00:04.500Z",
+      ended_at: "2026-07-13T18:00:04.650Z",
+      span_data: {
+        type: "handoff",
+        name: "Delegate profile recall",
+        from_agent: { id: "coordinator", name: "Coordinator" },
+        to_agent: { id: "memory-specialist", name: "Memory Specialist" }
+      }
+    },
+    {
+      object: "trace.span",
+      id: "span_memory_agent",
+      trace_id: "trace_engram_memory_demo",
+      parent_id: "span_agent",
+      started_at: "2026-07-13T18:00:04.700Z",
+      ended_at: "2026-07-13T18:00:08.000Z",
+      span_data: { type: "agent", agent_id: "memory-specialist", name: "Memory Specialist" }
+    },
     memorySpan("span_retrieve", "2026-07-13T18:00:05.000Z", {
       type: "retrieve",
       query: "Design a palette for me.",
       ids: ["trace-memory-visual-preference"],
       retrieval: { provider: "semantic" }
-    }),
+    }, { parentId: "span_memory_agent" }),
     memorySpan("span_load", "2026-07-13T18:00:06.000Z", {
       type: "load",
       ids: ["trace-memory-visual-preference"]
-    }),
+    }, { parentId: "span_memory_agent" }),
     memorySpan("span_fire", "2026-07-13T18:00:07.000Z", {
       type: "fire",
       region: "prefrontal",
       ids: ["trace-memory-visual-preference"]
-    })
+    }, { parentId: "span_memory_agent" })
   ]
 };
 
-function memorySpan(id: string, startedAt: string, event: Record<string, unknown>) {
+function memorySpan(
+  id: string,
+  startedAt: string,
+  event: Record<string, unknown>,
+  options: { parentId?: string } = {}
+) {
   return {
     object: "trace.span",
     id,
     trace_id: "trace_engram_memory_demo",
-    parent_id: "span_agent",
+    parent_id: options.parentId ?? "span_agent",
     started_at: startedAt,
     ended_at: new Date(Date.parse(startedAt) + 350).toISOString(),
     span_data: {
       type: "custom",
       name: "engram.memory",
+      memory_scope: "shared",
+      store_id: "profile-memory",
       data: { event }
     }
   };

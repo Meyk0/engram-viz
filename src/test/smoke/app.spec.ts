@@ -392,6 +392,14 @@ test("imports and replays an observed OpenAI agent memory trace", async ({ page 
   const playback = page.getByRole("region", { name: "Trace playback controls" });
   await expect(playback).toContainText("Personalization agent");
   await expect(page.getByLabel("Chat message")).toHaveCount(0);
+  await page.getByRole("button", { name: "Inspect agent topology" }).click();
+  const topology = page.getByRole("complementary", { name: "Agent memory topology" });
+  await expect(topology).toContainText("Coordinator");
+  await expect(topology).toContainText("Memory Specialist");
+  await expect(topology).toContainText("Shared memory / profile-memory");
+  await expect(topology).toContainText("Delegate profile recall");
+  await expect(topology).toContainText("Unknown scope remains unknown");
+  await page.getByRole("button", { name: "Close agent topology" }).click();
 
   await page.getByRole("button", { name: "Next trace step" }).click();
   await expect(playback).toContainText("No memory event");
