@@ -21,17 +21,19 @@ test("loads the Engram shell", async ({ page }) => {
   await expect(page.getByLabel("Engram mode")).toBeVisible();
 });
 
-test("switches into a docked investigation workbench without covering the stage", async ({ page }) => {
+test("opens a dedicated incident workspace beside the synchronized brain", async ({ page }) => {
   await page.goto("/");
 
-  await page.getByRole("button", { name: "Investigate: Test memory history" }).click();
+  await page.getByRole("button", { name: "Incidents: Diagnose and repair a memory incident" }).click();
 
   const shell = page.locator(".engram-shell");
   const stage = page.getByRole("region", { name: "Engram 3D brain scene" });
-  const workbench = page.getByRole("complementary", { name: "Memory Time Machine" });
+  const workbench = page.getByRole("complementary", { name: "Memory Incident Workspace" });
   await expect(shell).toHaveAttribute("data-product-mode", "investigate");
   await expect(shell).toHaveAttribute("data-workbench-open", "true");
+  await expect(shell).toHaveAttribute("data-incident-open", "true");
   await expect(workbench).toBeVisible();
+  await expect(page.getByLabel("Chat message")).toHaveCount(0);
 
   await expect
     .poll(async () => {
@@ -46,17 +48,65 @@ test("switches into a docked investigation workbench without covering the stage"
 test("loads a replayable sample memory incident from an empty investigation", async ({ page }) => {
   await page.goto("/");
 
-  await page.getByRole("button", { name: "Investigate: Test memory history" }).click();
-  const timeMachine = page.getByRole("complementary", { name: "Memory Time Machine" });
-  await expect(timeMachine).toContainText("Start with a memory incident");
-  await page.getByRole("button", { name: "Load sample incident" }).click();
+  await page.getByRole("button", { name: "Incidents: Diagnose and repair a memory incident" }).click();
+  const incident = page.getByRole("complementary", { name: "Memory Incident Workspace" });
+  await expect(incident).toContainText("Start with a bad agent answer");
+  await page.getByRole("button", { name: "Load reference incident" }).click();
 
-  await expect(timeMachine).toContainText("What city do I live in now?");
-  await expect(timeMachine).toContainText("2 memories");
-  await expect(timeMachine).toContainText("1 loaded");
-  await expect(timeMachine).toContainText("replayable turn");
-  await expect(timeMachine).toContainText("User moved to San Francisco in 2022.");
-  await expect(timeMachine).toContainText("User lives in Oakland now.");
+  await expect(incident).toContainText("What city do I live in now?");
+  await expect(incident).toContainText("You live in San Francisco.");
+  await expect(incident).toContainText("Oakland");
+  await expect(incident).toContainText("A stale fact remained active");
+  await expect(incident).toContainText("Prefer the current fact");
+});
+
+test("replays a recommended incident repair and saves the proof", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "Incidents: Diagnose and repair a memory incident" }).click();
+  await page.getByRole("button", { name: "Load reference incident" }).click();
+
+  const incident = page.getByRole("complementary", { name: "Memory Incident Workspace" });
+  await incident.getByRole("button", { name: "Replay this fix" }).click();
+  await expect(incident).toContainText("Verified against the incident expectation", { timeout: 15_000 });
+  await expect(incident).toContainText("Original");
+  await expect(incident).toContainText("Branch");
+
+  const regressionDownload = page.waitForEvent("download");
+  await incident.getByRole("button", { name: "Save verified regression" }).click();
+  expect((await regressionDownload).suggestedFilename()).toMatch(/\.engram-test\.json$/);
+  await expect(incident.getByRole("button", { name: "Download regression again" })).toBeVisible();
+});
+
+test("promotes a recorded conversation answer into an incident", async ({ page }) => {
+  await page.goto("/");
+  await sendChatMessage(page, "I love the color indigo.");
+  await sendChatMessage(page, "What color do I love?");
+
+  await page.getByRole("button", { name: "Incidents: Diagnose and repair a memory incident" }).click();
+  const incident = page.getByRole("complementary", { name: "Memory Incident Workspace" });
+  await expect(incident.getByLabel("Recorded answers")).toContainText("What color do I love?");
+  await incident.getByLabel("Expected answer").fill("violet");
+  await incident.getByRole("button", { name: "Diagnose this turn" }).click();
+
+  await expect(incident).toContainText("The answer ignored available memory");
+  await expect(incident).toContainText("Expected");
+  await expect(incident).toContainText("violet");
+});
+
+test("keeps the incident narrative primary on mobile", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/");
+  await page.getByRole("button", { name: "Incidents: Diagnose and repair a memory incident" }).click();
+  await page.getByRole("button", { name: "Load reference incident" }).click();
+
+  const incident = page.getByRole("complementary", { name: "Memory Incident Workspace" });
+  const box = await incident.boundingBox();
+  expect(box).not.toBeNull();
+  expect(box!.x).toBeLessThanOrEqual(1);
+  expect(box!.width).toBeGreaterThanOrEqual(389);
+  await expect(page.getByLabel("Chat message")).toHaveCount(0);
+  await expect(incident.getByRole("button", { name: "Inspect Memory state evidence" })).toBeVisible();
+  await expect(incident.getByRole("button", { name: "Replay this fix" })).toBeVisible();
 });
 
 test("branches and replays an immutable memory checkpoint", async ({ page }) => {
@@ -67,9 +117,9 @@ test("branches and replays an immutable memory checkpoint", async ({ page }) => 
   await sendChatMessage(page, "What color do I love?");
   await expect(page.getByRole("button", { name: "Story 2" })).toBeVisible({ timeout: 12_000 });
 
-  await page.getByRole("button", { name: "Investigate: Test memory history" }).click();
-  await expect(page.getByRole("button", { name: "Time Machine 2" })).toBeVisible();
-  await page.getByRole("button", { name: "Time Machine 2" }).click();
+  await page.getByRole("button", { name: "Incidents: Diagnose and repair a memory incident" }).click();
+  await page.getByText("Advanced tools", { exact: true }).click();
+  await page.getByRole("button", { name: "Time Machine" }).click();
   const timeMachine = page.getByRole("complementary", { name: "Memory Time Machine" });
   await expect(timeMachine).toContainText("What color do I love?");
   await expect(timeMachine.getByLabel("Investigation workflow")).toContainText("Create regression");
@@ -160,10 +210,9 @@ test("opens Retrieval MRI after a memory recall", async ({ page }) => {
   await sendChatMessage(page, "I love the color indigo.");
   await expect(page.getByRole("button", { name: "Memories 1" })).toBeVisible({ timeout: 12_000 });
   await sendChatMessage(page, "What color do I love?");
-  await page.getByRole("button", { name: "Investigate: Test memory history" }).click();
-  await expect(page.getByRole("button", { name: "Retrieval MRI 1" })).toBeVisible({ timeout: 12_000 });
-
-  await page.getByRole("button", { name: "Retrieval MRI 1" }).click();
+  await page.getByRole("button", { name: "Incidents: Diagnose and repair a memory incident" }).click();
+  await page.getByText("Advanced tools", { exact: true }).click();
+  await page.getByRole("button", { name: "Retrieval MRI" }).click();
   const mri = page.getByRole("complementary", { name: "Retrieval MRI" });
   await expect(mri).toBeVisible();
   await expect(mri.getByLabel("Retrieval query")).toContainText("What color do I love?");
@@ -175,9 +224,10 @@ test("audits the current memory state with observed integrity rules", async ({ p
   await page.goto("/");
 
   await sendChatMessage(page, "I love the color indigo.");
-  await page.getByRole("button", { name: "Investigate: Test memory history" }).click();
-  const integrityButton = page.getByRole("button", { name: /^Integrity/ });
-  await expect(integrityButton).toBeVisible({ timeout: 12_000 });
+  await page.getByRole("button", { name: "Incidents: Diagnose and repair a memory incident" }).click();
+  await page.getByText("Advanced tools", { exact: true }).click();
+  const integrityButton = page.getByRole("button", { name: "Integrity" });
+  await integrityButton.click();
 
   const integrity = page.getByRole("complementary", { name: "Memory Integrity" });
   await expect(integrity).toBeVisible();
@@ -411,6 +461,26 @@ test("imports and replays an observed OpenAI agent memory trace", async ({ page 
   await expect(page.getByLabel("Demo controls")).toBeVisible();
 });
 
+test("imports an OpenAI Agents trace directly into the incident workflow", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "Incidents: Diagnose and repair a memory incident" }).click();
+  const workspace = page.getByRole("complementary", { name: "Memory Incident Workspace" });
+  await workspace.getByRole("button", { name: "Import agent trace" }).click();
+
+  const dialog = page.getByRole("dialog", { name: "Import a memory incident" });
+  await dialog.getByLabel("Expected answer").fill("Oakland");
+  await dialog.getByRole("textbox", { name: "Trace JSON", exact: true }).fill(
+    JSON.stringify(incidentTraceFixture())
+  );
+  await dialog.getByRole("button", { name: "Create incident" }).click();
+
+  await expect(dialog).toBeHidden();
+  await expect(workspace).toContainText("Unexpected answer in Incident import smoke");
+  await expect(workspace).toContainText("A stale fact remained active");
+  await expect(workspace).toContainText("What city do I live in now?");
+  await expect(workspace).toContainText("You live in San Francisco.");
+});
+
 test("opens and dismisses Dream Mode after enough memories", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 700 });
   await page.goto("/");
@@ -471,3 +541,74 @@ test("renders a nonblank brain canvas", async ({ page }) => {
     )
     .toBeGreaterThan(40);
 });
+
+function incidentTraceFixture() {
+  const oldMemory = {
+    id: "smoke-memory-sf",
+    text: "User moved to San Francisco in 2022.",
+    importance: 0.8,
+    topic: "current location",
+    kind: "location",
+    entities: ["San Francisco"],
+    region: "hippocampus",
+    created_at: "2026-07-14T10:00:00.000Z",
+    access_count: 2,
+    status: "active"
+  };
+  const currentMemory = {
+    id: "smoke-memory-oakland",
+    text: "User lives in Oakland now.",
+    importance: 0.9,
+    topic: "current location",
+    kind: "location",
+    entities: ["Oakland"],
+    region: "hippocampus",
+    created_at: "2026-07-14T10:10:00.000Z",
+    access_count: 0,
+    status: "active"
+  };
+  const memorySpan = (id: string, event: Record<string, unknown>, minute: number) => ({
+    object: "trace.span",
+    id,
+    trace_id: "trace-incident-smoke",
+    started_at: `2026-07-14T10:${String(minute).padStart(2, "0")}:00.000Z`,
+    ended_at: `2026-07-14T10:${String(minute).padStart(2, "0")}:01.000Z`,
+    span_data: { type: "custom", name: "engram.memory", data: { event } }
+  });
+
+  return {
+    items: [
+      { object: "trace", id: "trace-incident-smoke", workflow_name: "Incident import smoke" },
+      memorySpan("smoke-init", { type: "init", memories: [oldMemory, currentMemory] }, 0),
+      memorySpan("smoke-retrieve", {
+        type: "retrieve",
+        query: "What city do I live in now?",
+        ids: [oldMemory.id],
+        accessed: [oldMemory],
+        retrieval: {
+          provider: "semantic",
+          candidateCount: 2,
+          eligibleCount: 2,
+          selectedCount: 1,
+          matches: [
+            { id: oldMemory.id, rank: 1, score: 0.84, basis: "semantic", eligible: true, selected: true },
+            { id: currentMemory.id, rank: 2, score: 0.82, basis: "semantic", eligible: true, selected: false }
+          ]
+        }
+      }, 1),
+      memorySpan("smoke-load", { type: "load", ids: [oldMemory.id] }, 2),
+      {
+        object: "trace.span",
+        id: "smoke-generation",
+        trace_id: "trace-incident-smoke",
+        started_at: "2026-07-14T10:03:00.000Z",
+        ended_at: "2026-07-14T10:03:01.000Z",
+        span_data: {
+          type: "generation",
+          input: "What city do I live in now?",
+          output: "You live in San Francisco."
+        }
+      }
+    ]
+  };
+}

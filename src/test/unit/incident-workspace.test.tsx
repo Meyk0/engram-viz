@@ -2,7 +2,11 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { IncidentWorkspace } from "@/components/UI/IncidentWorkspace";
-import { createSampleMemoryIncidentCase } from "@/lib/lab/sample-incident";
+import { buildTimelineCheckpoints } from "@/lib/lab/checkpoints";
+import {
+  createSampleMemoryIncident,
+  createSampleMemoryIncidentCase
+} from "@/lib/lab/sample-incident";
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -34,6 +38,39 @@ describe("IncidentWorkspace", () => {
     await user.click(screen.getByRole("button", { name: "Import agent trace" }));
     expect(onLoadSample).toHaveBeenCalledOnce();
     expect(onImportTrace).toHaveBeenCalledOnce();
+  });
+
+  it("promotes a recorded bad answer into an incident", async () => {
+    const user = userEvent.setup();
+    const onCreateIncident = vi.fn();
+    const sample = createSampleMemoryIncident();
+    const checkpoints = buildTimelineCheckpoints(
+      [sample.entry],
+      { [sample.entry.id]: sample.record }
+    );
+
+    render(
+      <IncidentWorkspace
+        checkpoints={checkpoints}
+        onClose={vi.fn()}
+        onCreateIncident={onCreateIncident}
+        onFocus={vi.fn()}
+        onImportTrace={vi.fn()}
+        onLoadSample={vi.fn()}
+        onOpenTool={vi.fn()}
+        onSaveRegression={vi.fn()}
+      />
+    );
+
+    expect(screen.getByLabelText("Recorded answers")).toContainElement(
+      screen.getByText("What city do I live in now?")
+    );
+    const diagnose = screen.getByRole("button", { name: "Diagnose this turn" });
+    expect(diagnose).toBeDisabled();
+    await user.type(screen.getByLabelText("Expected answer"), "Oakland");
+    await user.click(diagnose);
+
+    expect(onCreateIncident).toHaveBeenCalledWith(checkpoints[0], "Oakland");
   });
 
   it("connects the observed answer to evidence and a diagnosis-specific repair", async () => {

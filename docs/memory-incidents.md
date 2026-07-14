@@ -1,0 +1,46 @@
+# Memory Incidents
+
+Engram models a bad memory-dependent answer as a versioned `MemoryIncident`. The incident is built from
+an immutable checkpoint and a replayable `TurnRecord`; it does not mutate the original session.
+
+## Workflow
+
+1. **Observe:** reconstruct four stages: memory state, retrieval, active context, and answer.
+2. **Explain:** classify the likely failure as storage, update, retrieval, ranking, context,
+   consolidation, generation, or unknown.
+3. **Intervene:** derive controlled branch mutations such as include, quarantine, replace, or supersede.
+4. **Replay:** rerun the recorded turn with the original context and the branch context.
+5. **Prove:** export the verified fixture, replay evidence, and retrieval/answer assertions as an
+   `engram.memory-regression` artifact.
+
+## Evidence Provenance
+
+- `observed`: explicitly present in a native event or recorded model output.
+- `mapped`: translated from a recognized provider/tool operation by an adapter.
+- `derived`: deterministically computed from recorded evidence.
+- `inferred`: a low-confidence interpretation that is not directly established.
+- `simulated`: produced by a controlled replay or counterfactual experiment.
+- `unavailable`: the trace did not instrument this stage; absence is not treated as failure.
+
+## Entry Paths
+
+- Promote a replayable answer from the current Engram session and provide the expected answer.
+- Import an OpenAI Agents SDK trace containing explicit question, answer, and memory operations.
+- Load the deterministic reference incident.
+
+Imported traces are parsed locally. Engram creates an incident only when it can identify both the user
+question and the observed model answer. A trace without those fields remains useful in Observe mode but
+cannot support incident replay.
+
+## Replay Boundary
+
+Replay changes only the memory context supplied to the recorded turn. It does not reproduce hidden model
+state, rerun the original retrieval system, or establish deterministic causality. The reference incident
+uses the deterministic demo provider; imported OpenAI incidents use the configured server-side provider.
+
+## Regression Boundary
+
+Verified incidents export portable `.engram-test.json` files. Checked-in artifacts are validated by
+`npm run test:regressions`, which also runs in `.github/workflows/quality.yml`. A regression artifact
+records the fixture and expected behavior; it does not claim production-provider equivalence unless its
+harness explicitly provides that integration.

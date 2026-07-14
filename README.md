@@ -10,6 +10,20 @@ answer changes when a selected memory is omitted.
 The 3D brain is Engram's visual overview. The underlying product is an event-driven memory debugger,
 trace player, and experimentation environment.
 
+## Core Workflow
+
+**Observe → explain → intervene → replay → prove**
+
+1. Start from a bad recorded answer in the current session or import an OpenAI Agents trace.
+2. Reconstruct memory state, retrieval, active context, and the final answer as one causal incident.
+3. Keep observed, adapter-mapped, derived, simulated, and unavailable evidence visibly distinct.
+4. Apply one controlled change on an immutable memory branch, then replay the same turn.
+5. Export a verified repair as a portable `.engram-test.json` regression artifact for CI.
+
+The Incident workspace owns this workflow. The brain remains visible beside it as a synchronized memory
+map; Time Machine, Integrity, Retrieval MRI, Dream review, and the educational experience remain
+available through progressive disclosure.
+
 ## What Engram Can Show
 
 - **Learn:** run a deterministic memory lifecycle and see new, working, and stable memory represented
@@ -17,10 +31,10 @@ trace player, and experimentation environment.
 - **Observe:** import recorded agent traces or stream supported OpenAI Agents SDK spans into a flight
   recorder. Inspect instrumentation coverage so missing telemetry remains a visible blind spot.
   Explicit events remain distinguished from operations mapped by an adapter.
-- **Investigate:** inspect retrieval candidates with Retrieval MRI, replay an answer with a memory
-  omitted, branch from an immutable checkpoint, scan memory integrity, review Dream proposals, and
-  follow memory movement across multiple agents. A repaired branch can be exported as a validated,
-  portable `.engram-test.json` regression artifact.
+- **Incidents:** diagnose one bad answer across memory state, retrieval, active context, and generation.
+  Test a diagnosis-specific repair in an immutable branch, compare original and replayed answers, and
+  save verified behavior as a validated, portable `.engram-test.json` regression artifact. Retrieval
+  MRI, Time Machine, Integrity, Dream review, and multi-agent topology remain available as advanced tools.
 
 ## Evidence Boundaries
 
@@ -34,6 +48,8 @@ Engram is deliberately narrow about what its evidence proves:
   deterministic causality. Sampling and uncontrolled provider behavior can also affect the result.
 - Trace completeness depends on instrumentation. An absent memory event may mean that no operation
   occurred or that the integration did not capture it.
+- Incident import refuses to treat missing context-load telemetry as a failed context load. That stage
+  remains `unavailable` until the provider or application records it.
 
 ## Status
 
@@ -52,6 +68,7 @@ distributed Vercel/platform rate limit because serverless instances do not share
 The architecture and current evidence model are described in
 [`docs/engram-lab-architecture.md`](docs/engram-lab-architecture.md). The live Agents SDK integration is
 documented in [`docs/flight-recorder.md`](docs/flight-recorder.md). See
+[`docs/memory-incidents.md`](docs/memory-incidents.md),
 [`docs/memory-telemetry-v2.md`](docs/memory-telemetry-v2.md),
 [`docs/telemetry-ingestion.md`](docs/telemetry-ingestion.md), and
 [`docs/replay-fidelity.md`](docs/replay-fidelity.md) for the production-facing contracts and their limits.

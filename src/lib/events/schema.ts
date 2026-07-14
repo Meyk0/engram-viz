@@ -153,6 +153,19 @@ export const memoryBranchMutationSchema = z.discriminatedUnion("type", [
     type: z.literal("restore"),
     memoryId: z.string().min(1),
     reason: z.string().min(1)
+  }),
+  z.object({
+    id: z.string().min(1),
+    type: z.literal("include"),
+    memoryId: z.string().min(1),
+    reason: z.string().min(1)
+  }),
+  z.object({
+    id: z.string().min(1),
+    type: z.literal("supersede"),
+    memoryId: z.string().min(1),
+    supersededByMemoryId: z.string().min(1),
+    reason: z.string().min(1)
   })
 ]);
 

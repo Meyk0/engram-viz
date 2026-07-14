@@ -21,7 +21,7 @@ import type {
   MemoryInfluenceResult
 } from "@/lib/incidents/types";
 import { applyMemoryBranch, branchContextMemories, createMemoryBranch } from "@/lib/lab/branches";
-import type { MemoryBranchReplayResult } from "@/lib/lab/types";
+import type { MemoryBranchReplayResult, MemoryCheckpoint } from "@/lib/lab/types";
 import {
   createMemoryRegressionArtifact,
   replayResultsFromBranchReplay,
@@ -31,8 +31,10 @@ import type { BrainRegion } from "@/types";
 import "./incident-workspace.css";
 
 type IncidentWorkspaceProps = {
+  checkpoints?: MemoryCheckpoint[];
   incident?: MemoryIncident;
   onClose: () => void;
+  onCreateIncident?: (checkpoint: MemoryCheckpoint, expectedAnswer: string) => void;
   onFocus: (memoryIds: string[], regions?: BrainRegion[]) => void;
   onImportTrace: () => void;
   onLoadSample: () => void;
@@ -41,8 +43,10 @@ type IncidentWorkspaceProps = {
 };
 
 export function IncidentWorkspace({
+  checkpoints = [],
   incident,
   onClose,
+  onCreateIncident,
   onFocus,
   onImportTrace,
   onLoadSample,
@@ -66,6 +70,14 @@ export function IncidentWorkspace({
   const [influenceError, setInfluenceError] = useState<string>();
   const [influenceResults, setInfluenceResults] = useState<MemoryInfluenceResult[]>([]);
   const [regressionSaved, setRegressionSaved] = useState(false);
+  const replayableCheckpoints = useMemo(
+    () => checkpoints.filter((checkpoint) => Boolean(checkpoint.turnRecord && checkpoint.answer)),
+    [checkpoints]
+  );
+  const [selectedCheckpointId, setSelectedCheckpointId] = useState<string | undefined>(
+    () => replayableCheckpoints.at(-1)?.id
+  );
+  const [expectedAnswer, setExpectedAnswer] = useState("");
 
   if (!incident) {
     return (
@@ -76,11 +88,73 @@ export function IncidentWorkspace({
           <span>Memory incident workspace</span>
           <h2>Start with a bad agent answer</h2>
           <p>
-            Load the reference incident to see the complete investigation loop, or import a real
-            agent trace with recorded memory events.
+            Select a recorded answer from this session, or import a trace from another agent run.
           </p>
+          {replayableCheckpoints.length > 0 && onCreateIncident ? (
+            <section className="incident-recorded-turns" aria-label="Recorded answers">
+              <div>
+                <strong>Recorded answers</strong>
+                <span>Choose the run that behaved incorrectly.</span>
+              </div>
+              <div className="incident-recorded-list">
+                {replayableCheckpoints.slice(-3).reverse().map((checkpoint) => (
+                  <button
+                    aria-pressed={(selectedCheckpointId ?? replayableCheckpoints.at(-1)?.id) === checkpoint.id}
+                    data-selected={(selectedCheckpointId ?? replayableCheckpoints.at(-1)?.id) === checkpoint.id}
+                    key={checkpoint.id}
+                    onClick={() => setSelectedCheckpointId(checkpoint.id)}
+                    type="button"
+                  >
+                    <strong>{checkpoint.query ?? checkpoint.turnRecord?.userMessage ?? checkpoint.label}</strong>
+                    <span>{checkpoint.answer}</span>
+                  </button>
+                ))}
+              </div>
+              <label htmlFor="incident-expected-answer">Expected answer</label>
+              <input
+                id="incident-expected-answer"
+                onChange={(event) => setExpectedAnswer(event.target.value)}
+                placeholder="What should the agent have answered?"
+                value={expectedAnswer}
+              />
+              <div className="incident-recorded-actions">
+                <button
+                  className="incident-primary-action"
+                  disabled={!expectedAnswer.trim()}
+                  onClick={() => {
+                    const checkpoint = replayableCheckpoints.find(
+                      (candidate) => candidate.id === (selectedCheckpointId ?? replayableCheckpoints.at(-1)?.id)
+                    );
+                    if (checkpoint) onCreateIncident(checkpoint, expectedAnswer.trim());
+                  }}
+                  type="button"
+                >
+                  <FileSearch size={13} /> Diagnose this turn
+                </button>
+              </div>
+            </section>
+          ) : null}
+          {checkpoints.length > 0 ? (
+            <details className="incident-empty-advanced">
+              <summary><ChevronDown size={12} /> Advanced tools</summary>
+              <div>
+                <button onClick={() => onOpenTool("timeMachine")} type="button">
+                  <GitBranch size={12} /> Time Machine
+                </button>
+                <button onClick={() => onOpenTool("integrity")} type="button">
+                  <ShieldCheck size={12} /> Integrity
+                </button>
+                {checkpoints.some((checkpoint) => Boolean(checkpoint.retrieval)) ? (
+                  <button onClick={() => onOpenTool("retrieval")} type="button">
+                    <Radar size={12} /> Retrieval MRI
+                  </button>
+                ) : null}
+              </div>
+            </details>
+          ) : null}
+          <span className="incident-empty-divider">Or start another way</span>
           <div className="incident-empty-actions">
-            <button className="incident-primary-action" type="button" onClick={onLoadSample}>
+            <button type="button" onClick={onLoadSample}>
               <Play size={14} /> Load reference incident
             </button>
             <button type="button" onClick={onImportTrace}>

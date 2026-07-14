@@ -56,9 +56,10 @@ import {
 } from "@/lib/timeline";
 import type { EngramViewMode } from "@/lib/semantic/types";
 import type { TurnRecord } from "@/lib/evidence/types";
+import { buildMemoryIncident } from "@/lib/incidents/build";
 import { buildMemoryIncidentFromTrace } from "@/lib/incidents/from-trace";
 import type { MemoryIncident } from "@/lib/incidents/types";
-import type { EngramProductMode } from "@/lib/lab/types";
+import type { EngramProductMode, MemoryCheckpoint } from "@/lib/lab/types";
 import { buildTimelineCheckpoints, buildTraceCheckpoints } from "@/lib/lab/checkpoints";
 import { resolveBrainFocus } from "@/lib/lab/brain-focus";
 import { createSampleMemoryIncident, createSampleMemoryIncidentCase } from "@/lib/lab/sample-incident";
@@ -821,6 +822,26 @@ export function EngramApp({ recordingMode = false }: EngramAppProps) {
     setIncidentFocusPulseKey((current) => current + 1);
   }, []);
 
+  const createIncidentFromCheckpoint = useCallback((checkpoint: MemoryCheckpoint, expectedAnswer: string) => {
+    const incident = buildMemoryIncident({ checkpoint, expectedAnswer });
+    setActiveIncident(incident);
+    setProductMode("investigate");
+    setActivePanel("incident");
+    setIncidentFocusMemoryIds(incident.diagnosis.memoryIds);
+    setIncidentFocusRegions([
+      ...new Set(
+        incident.diagnosis.memoryIds.flatMap((id) => {
+          const memory = incident.memories.find((candidate) => candidate.id === id);
+          return memory ? [memory.region] : [];
+        })
+      ),
+      ...(incident.diagnosis.stage === "retrieval" || incident.diagnosis.stage === "active_context"
+        ? ["prefrontal" as const]
+        : [])
+    ]);
+    setIncidentFocusPulseKey((current) => current + 1);
+  }, []);
+
   const openIncidentTool = useCallback((tool: "timeMachine" | "integrity" | "retrieval" | "trace") => {
     if (tool === "trace" && !importedTrace) {
       openTraceImport();
@@ -1107,8 +1128,10 @@ export function EngramApp({ recordingMode = false }: EngramAppProps) {
       {activePanel === "incident" ? (
         <IncidentWorkspace
           key={activeIncident?.id ?? "empty-incident"}
+          checkpoints={memoryCheckpoints}
           incident={activeIncident}
           onClose={closeSecondaryPanel}
+          onCreateIncident={createIncidentFromCheckpoint}
           onFocus={focusIncidentEvidence}
           onImportTrace={openIncidentTraceImport}
           onLoadSample={loadSampleIncident}

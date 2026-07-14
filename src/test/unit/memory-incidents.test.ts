@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { memoryBranchReplayRequestSchema } from "@/lib/events/schema";
 import { buildIncidentInterventions } from "@/lib/incidents/interventions";
 import { applyMemoryBranch, branchContextMemories, createMemoryBranch } from "@/lib/lab/branches";
 import { createSampleMemoryIncidentCase } from "@/lib/lab/sample-incident";
@@ -57,6 +58,11 @@ describe("memory incidents", () => {
     expect(materialized.diff.supersededMemoryIds).toEqual(["sample-memory-san-francisco"]);
     expect(materialized.diff.includedMemoryIds).toEqual(["sample-memory-oakland"]);
     expect(context.map((memory) => memory.id)).toEqual(["sample-memory-oakland"]);
+    expect(memoryBranchReplayRequestSchema.safeParse({
+      record: incident.record,
+      branch,
+      branchContextMemories: context
+    }).success).toBe(true);
     expect(incident.record.retrievedMemories.map((memory) => memory.id)).toEqual([
       "sample-memory-san-francisco"
     ]);

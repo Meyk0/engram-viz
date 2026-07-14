@@ -63,7 +63,7 @@ describe("POST /api/causal-xray", () => {
       new Error("upstream secret: account and request details")
     );
 
-    const response = await POST(ablationRequest());
+    const response = await POST(ablationRequest(["mem-color"], "openai"));
     const body = (await response.json()) as { error: string };
 
     expect(response.status).toBe(502);
@@ -72,7 +72,10 @@ describe("POST /api/causal-xray", () => {
   });
 });
 
-function ablationRequest(excludedMemoryIds = ["mem-color"]): Request {
+function ablationRequest(
+  excludedMemoryIds = ["mem-color"],
+  provider: "demo" | "openai" = "demo"
+): Request {
   const body: CausalAblationRequest = {
     record: {
       version: 1,
@@ -102,7 +105,7 @@ function ablationRequest(excludedMemoryIds = ["mem-color"]): Request {
       ],
       events: [],
       originalAnswer: "Your favorite color is indigo.",
-      provider: { id: "demo" }
+      provider: { id: provider }
     },
     excludedMemoryIds
   };

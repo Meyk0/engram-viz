@@ -37,7 +37,7 @@ describe("ProductModeControl", () => {
 
     expect(screen.getByRole("button", { name: /Learn:/ })).toHaveAttribute("aria-current", "page");
     await user.click(screen.getByRole("button", { name: /Observe:/ }));
-    await user.click(screen.getByRole("button", { name: /Investigate:/ }));
+    await user.click(screen.getByRole("button", { name: /Incidents:/ }));
 
     expect(onModeChange).toHaveBeenNthCalledWith(1, "observe");
     expect(onModeChange).toHaveBeenNthCalledWith(2, "investigate");
