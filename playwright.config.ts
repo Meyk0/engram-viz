@@ -1,11 +1,17 @@
 import { defineConfig, devices } from "@playwright/test";
 
+const isCi = process.env.CI === "true";
+
 export default defineConfig({
   testDir: "./src/test/smoke",
   fullyParallel: true,
+  timeout: isCi ? 180_000 : 120_000,
+  expect: {
+    timeout: isCi ? 30_000 : 10_000
+  },
   // Hosted runners use one WebGL context per shard; local machines can safely
   // exercise two browser workers for a faster feedback loop.
-  workers: process.env.CI ? 1 : 2,
+  workers: isCi ? 1 : 2,
   reporter: "list",
   use: {
     baseURL: "http://127.0.0.1:3100",

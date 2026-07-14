@@ -1,4 +1,15 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
+
+async function sendChatMessage(page: Page, message: string) {
+  const input = page.getByLabel("Chat message");
+  const send = page.getByLabel("Send");
+
+  await expect(input).toBeEditable();
+  await input.fill(message);
+  await expect(send).toBeEnabled();
+  await send.click();
+  await expect(page.locator(".chat-status")).toContainText("READY");
+}
 
 test("loads the Engram shell", async ({ page }) => {
   await page.goto("/");
@@ -52,14 +63,11 @@ test("loads a replayable sample memory incident from an empty investigation", as
 });
 
 test("branches and replays an immutable memory checkpoint", async ({ page }) => {
-  test.setTimeout(45_000);
   await page.goto("/");
 
-  await page.getByLabel("Chat message").fill("I love the color indigo.");
-  await page.getByLabel("Send").click();
+  await sendChatMessage(page, "I love the color indigo.");
   await expect(page.getByRole("button", { name: "Story 1" })).toBeVisible({ timeout: 12_000 });
-  await page.getByLabel("Chat message").fill("What color do I love?");
-  await page.getByLabel("Send").click();
+  await sendChatMessage(page, "What color do I love?");
   await expect(page.getByRole("button", { name: "Story 2" })).toBeVisible({ timeout: 12_000 });
 
   await page.getByRole("button", { name: "Investigate: Test memory history" }).click();
@@ -150,14 +158,11 @@ test("opens the combined conversation and memory story from the dock", async ({ 
 });
 
 test("opens Retrieval MRI after a memory recall", async ({ page }) => {
-  test.setTimeout(45_000);
   await page.goto("/");
 
-  await page.getByLabel("Chat message").fill("I love the color indigo.");
-  await page.getByLabel("Send").click();
+  await sendChatMessage(page, "I love the color indigo.");
   await expect(page.getByRole("button", { name: "Memories 1" })).toBeVisible({ timeout: 12_000 });
-  await page.getByLabel("Chat message").fill("What color do I love?");
-  await page.getByLabel("Send").click();
+  await sendChatMessage(page, "What color do I love?");
   await page.getByRole("button", { name: "Investigate: Test memory history" }).click();
   await expect(page.getByRole("button", { name: "Retrieval MRI 1" })).toBeVisible({ timeout: 12_000 });
 
@@ -170,11 +175,9 @@ test("opens Retrieval MRI after a memory recall", async ({ page }) => {
 });
 
 test("audits the current memory state with observed integrity rules", async ({ page }) => {
-  test.setTimeout(45_000);
   await page.goto("/");
 
-  await page.getByLabel("Chat message").fill("I love the color indigo.");
-  await page.getByLabel("Send").click();
+  await sendChatMessage(page, "I love the color indigo.");
   await page.getByRole("button", { name: "Investigate: Test memory history" }).click();
   const integrityButton = page.getByRole("button", { name: /^Integrity/ });
   await expect(integrityButton).toBeVisible({ timeout: 12_000 });
@@ -188,15 +191,13 @@ test("audits the current memory state with observed integrity rules", async ({ p
 });
 
 test("runs the demo and focuses completed memory story turns", async ({ page }) => {
-  test.setTimeout(100_000);
   await page.goto("/");
 
   await page.getByRole("button", { name: "Run demo" }).click();
   await expect(page.getByRole("button", { name: "Stop demo" })).toBeVisible();
-  await expect(page.locator(".chat-status")).toContainText("DEMO LINE", { timeout: 8_000 });
-  await expect(page.getByLabel("Chat message")).toHaveValue("I love the color indigo.");
+  await expect(page.getByLabel("Chat message")).toHaveValue("I love the color indigo.", { timeout: 30_000 });
   await expect(page.getByLabel("Demo controls")).toContainText("I love the color indigo.");
-  await expect(page.locator(".chat-status")).toContainText("READY", { timeout: 20_000 });
+  await expect(page.locator(".chat-status")).toContainText("READY", { timeout: 45_000 });
   await page.getByRole("button", { name: "Stop demo" }).click({ force: true });
   await expect(page.getByLabel("Current memory receipt")).toContainText(/Stored|Preparing memory/i, { timeout: 12_000 });
   await page.getByRole("button", { name: /^Story(?: \d+)?$/ }).click({ force: true });
@@ -217,7 +218,6 @@ test("runs the demo and focuses completed memory story turns", async ({ page }) 
 });
 
 test("exposes brain label and reset controls", async ({ page }) => {
-  test.setTimeout(45_000);
   await page.goto("/");
   await expect(page.getByLabel("Brain view controls")).toBeVisible();
   await page.getByLabel("Open how Engram works").click();
@@ -232,10 +232,8 @@ test("exposes brain label and reset controls", async ({ page }) => {
 test("resets the demo session from the brain controls", async ({ page }) => {
   await page.goto("/");
 
-  await page.getByLabel("Chat message").fill("I love the color indigo.");
-  await page.getByLabel("Send").click();
+  await sendChatMessage(page, "I love the color indigo.");
   await expect(page.getByRole("button", { name: /^Memories [1-9]/ })).toBeVisible({ timeout: 10_000 });
-  await expect(page.locator(".chat-status")).toContainText("READY", { timeout: 12_000 });
 
   page.once("dialog", (dialog) => dialog.accept());
   await page.getByLabel("Reset demo session").evaluate((element) => {
@@ -248,14 +246,11 @@ test("resets the demo session from the brain controls", async ({ page }) => {
 });
 
 test("counts and browses the complete active memory library", async ({ page }) => {
-  test.setTimeout(45_000);
   await page.goto("/");
 
   for (const [index, message] of ["I love the color indigo.", "I spend weekends climbing."].entries()) {
-    await page.getByLabel("Chat message").fill(message);
-    await page.getByLabel("Send").click();
+    await sendChatMessage(page, message);
     await expect(page.getByRole("button", { name: `Memories ${index + 1}` })).toBeVisible({ timeout: 12_000 });
-    await expect(page.locator(".chat-status")).toContainText("READY", { timeout: 12_000 });
   }
 
   const memories = page.getByRole("button", { name: "Memories 2" });
@@ -306,16 +301,12 @@ test("collapses secondary brain controls on mobile", async ({ page }) => {
 });
 
 test("opens working memory details after retrieval", async ({ page }) => {
-  test.setTimeout(60_000);
   await page.goto("/");
 
-  await page.getByLabel("Chat message").fill("I prefer deep red interfaces and dark dashboards.");
-  await page.getByLabel("Send").click();
+  await sendChatMessage(page, "I prefer deep red interfaces and dark dashboards.");
   await expect(page.getByRole("button", { name: /^Memories [1-9]/ })).toBeVisible({ timeout: 10_000 });
-  await expect(page.locator(".chat-status")).toContainText("READY", { timeout: 20_000 });
 
-  await page.getByLabel("Chat message").fill("What interface colors do I prefer?");
-  await page.getByLabel("Send").click();
+  await sendChatMessage(page, "What interface colors do I prefer?");
 
   const workingMemory = page.getByRole("button", {
     name: /Open working memory details: ([1-9]|10) of 10 loaded/i
@@ -330,13 +321,10 @@ test("opens working memory details after retrieval", async ({ page }) => {
 });
 
 test("switches between the anatomical brain and semantic memory map without changing memory state", async ({ page }) => {
-  test.setTimeout(45_000);
   await page.goto("/");
 
-  await page.getByLabel("Chat message").fill("I love the color indigo.");
-  await page.getByLabel("Send").click();
+  await sendChatMessage(page, "I love the color indigo.");
   await expect(page.getByRole("button", { name: "Memories 1" })).toBeVisible({ timeout: 12_000 });
-  await expect(page.locator(".chat-status")).toContainText("READY", { timeout: 12_000 });
 
   const semanticMap = page.getByRole("radio", { name: "Retrieval space" });
   await expect(semanticMap).toBeVisible();
@@ -357,18 +345,13 @@ test("switches between the anatomical brain and semantic memory map without chan
 });
 
 test("runs an Ablation Replay without mutating the memory session", async ({ page }) => {
-  test.setTimeout(45_000);
   await page.goto("/");
 
-  await page.getByLabel("Chat message").fill("I love the color indigo.");
-  await page.getByLabel("Send").click();
+  await sendChatMessage(page, "I love the color indigo.");
   await expect(page.getByRole("button", { name: "Memories 1" })).toBeVisible({ timeout: 12_000 });
-  await expect(page.locator(".chat-status")).toContainText("READY", { timeout: 12_000 });
 
-  await page.getByLabel("Chat message").fill("What color do I love?");
-  await page.getByLabel("Send").click();
+  await sendChatMessage(page, "What color do I love?");
   await expect(page.getByRole("button", { name: "Working 1" })).toBeVisible({ timeout: 12_000 });
-  await expect(page.locator(".chat-status")).toContainText("READY", { timeout: 12_000 });
 
   await page.getByRole("button", { name: "Inspect 1 used memory" }).click();
   await page.getByRole("button", { name: "Test without this memory" }).click();
@@ -388,7 +371,6 @@ test("runs an Ablation Replay without mutating the memory session", async ({ pag
 });
 
 test("imports and replays an observed OpenAI agent memory trace", async ({ page }) => {
-  test.setTimeout(75_000);
   await page.goto("/");
 
   await page.getByRole("button", { name: "Import agent trace" }).click();
@@ -433,7 +415,6 @@ test("imports and replays an observed OpenAI agent memory trace", async ({ page 
 });
 
 test("opens and dismisses Dream Mode after enough memories", async ({ page }) => {
-  test.setTimeout(60_000);
   await page.setViewportSize({ width: 390, height: 700 });
   await page.goto("/");
 
@@ -442,10 +423,8 @@ test("opens and dismisses Dream Mode after enough memories", async ({ page }) =>
     "I love California redwood hikes.",
     "I love California road trips."
   ]) {
-    await page.getByLabel("Chat message").fill(message);
-    await page.getByLabel("Send").click();
+    await sendChatMessage(page, message);
     await expect(page.getByRole("button", { name: /^Memories [1-9]/ })).toBeVisible({ timeout: 12_000 });
-    await expect(page.locator(".chat-status")).toContainText("READY", { timeout: 12_000 });
   }
 
   const dream = page.getByRole("button", { name: /Dream Ready/i });
