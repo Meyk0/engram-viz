@@ -553,6 +553,10 @@ describe("/api/chat", () => {
     expect(retrieveChunk.event.retrieval).toEqual({
       provider: "semantic",
       reason: "Mock semantic retriever matched visual style intent.",
+      candidateCount: 1,
+      eligibleCount: 1,
+      selectedCount: 1,
+      limit: 3,
       matches: [
         expect.objectContaining({
           basis: "semantic",

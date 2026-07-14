@@ -141,7 +141,7 @@ test("exposes brain thumbnail metadata", async ({ page }) => {
 
 test("opens the combined conversation and memory story from the dock", async ({ page }) => {
   await page.goto("/");
-  await page.getByRole("button", { name: "Story" }).click();
+  await page.getByRole("button", { name: "Story", exact: true }).click();
   await expect(page.getByRole("complementary", { name: "Memory story" })).toBeVisible();
 });
 
@@ -194,7 +194,7 @@ test("runs the demo and focuses completed memory story turns", async ({ page }) 
   await expect(page.locator(".chat-status")).toContainText("READY", { timeout: 20_000 });
   await page.getByRole("button", { name: "Stop demo" }).click({ force: true });
   await expect(page.getByLabel("Current memory receipt")).toContainText(/Stored|Preparing memory/i, { timeout: 12_000 });
-  await page.getByRole("button", { name: "Story" }).click({ force: true });
+  await page.getByRole("button", { name: /^Story(?: \d+)?$/ }).click({ force: true });
   const timeline = page.getByRole("complementary", { name: "Memory story" });
   await expect(timeline).toBeVisible();
   await expect(page.getByLabel("Timeline turn 1")).toBeVisible({ timeout: 12_000 });
@@ -207,7 +207,7 @@ test("runs the demo and focuses completed memory story turns", async ({ page }) 
   await page.getByRole("button", { name: "Run demo" }).click();
   await expect(page.getByRole("button", { name: "Story 2" })).toBeVisible({ timeout: 20_000 });
   await page.getByRole("button", { name: "Stop demo" }).click({ force: true });
-  await page.getByRole("button", { name: "Story" }).click({ force: true });
+  await page.getByRole("button", { name: /^Story(?: \d+)?$/ }).click({ force: true });
   await expect(page.getByLabel("Timeline turn 2")).toBeVisible({ timeout: 12_000 });
 });
 
@@ -333,7 +333,7 @@ test("switches between the anatomical brain and semantic memory map without chan
   await expect(page.getByRole("button", { name: "Memories 1" })).toBeVisible({ timeout: 12_000 });
   await expect(page.locator(".chat-status")).toContainText("READY", { timeout: 12_000 });
 
-  const semanticMap = page.getByRole("radio", { name: "Semantic map" });
+  const semanticMap = page.getByRole("radio", { name: "Retrieval space" });
   await expect(semanticMap).toBeVisible();
   await semanticMap.click();
 
@@ -345,8 +345,8 @@ test("switches between the anatomical brain and semantic memory map without chan
   await expect(page.getByRole("button", { name: "Memories 1" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Explain New Memories" })).toHaveCount(0);
 
-  await page.getByRole("radio", { name: "Brain model" }).click();
-  await expect(page.getByRole("radio", { name: "Brain model" })).toBeChecked();
+  await page.getByRole("radio", { name: "Brain" }).click();
+  await expect(page.getByRole("radio", { name: "Brain" })).toBeChecked();
   await expect(page.getByRole("button", { name: "Explain New Memories" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Memories 1" })).toBeVisible();
 });
@@ -374,8 +374,9 @@ test("runs a Causal X-Ray without mutating the memory session", async ({ page })
   await page.getByRole("button", { name: "Run without this memory" }).click();
   await expect(page.getByRole("region", { name: "Baseline rerun" })).toBeVisible({ timeout: 12_000 });
   await expect(page.getByRole("region", { name: "Answer without memory" })).toBeVisible();
-  await expect(page.getByRole("meter", { name: "Estimated influence" })).toBeVisible();
-  await expect(xray).toContainText("not proof of causality");
+  await expect(page.getByLabel("Replay evidence")).toContainText("Runs2");
+  await expect(page.getByLabel("Replay evidence")).toContainText("Text difference");
+  await expect(xray).toContainText("does not prove hidden model causality");
   await expect(page.getByRole("button", { name: "Memories 1" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Story 2" })).toBeVisible();
 });
