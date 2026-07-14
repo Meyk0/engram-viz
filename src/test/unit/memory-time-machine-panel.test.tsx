@@ -31,6 +31,7 @@ describe("MemoryTimeMachinePanel", () => {
   it("branches an immutable checkpoint and renders observed replay evidence", async () => {
     const user = userEvent.setup();
     const onFocusMemoryIds = vi.fn();
+    const onSaveRegression = vi.fn();
     Element.prototype.scrollIntoView = vi.fn();
     vi.spyOn(globalThis, "fetch").mockResolvedValue(
       new Response(JSON.stringify(replayResult), {
@@ -44,6 +45,7 @@ describe("MemoryTimeMachinePanel", () => {
         checkpoints={[checkpoint]}
         onClose={vi.fn()}
         onFocusMemoryIds={onFocusMemoryIds}
+        onSaveRegression={onSaveRegression}
       />
     );
 
@@ -65,6 +67,29 @@ describe("MemoryTimeMachinePanel", () => {
     expect(globalThis.fetch).toHaveBeenCalledTimes(1);
     const body = JSON.parse(String(vi.mocked(globalThis.fetch).mock.calls[0]?.[1]?.body));
     expect(body.branchContextMemories).toEqual([]);
+
+    await user.click(screen.getByRole("button", { name: "Save regression" }));
+    expect(onSaveRegression).toHaveBeenCalledOnce();
+    expect(onSaveRegression.mock.calls[0]?.[0]).toMatchObject({
+      kind: "engram.memory-regression",
+      version: 1,
+      evidence: {
+        causalClaim: false,
+        basis: "recorded-and-replayed"
+      },
+      assertions: {
+        retrieval: {
+          mustRetrieve: [],
+          mustNotRetrieve: [memory.id],
+          maxLoaded: 0
+        },
+        answer: {
+          contains: [],
+          notContains: []
+        }
+      }
+    });
+    expect(screen.getByText("Regression saved")).toBeVisible();
   });
 
   it("labels trace checkpoints as state only", () => {

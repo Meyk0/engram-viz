@@ -46,7 +46,7 @@ describe("turn evidence", () => {
     expect(recordChunk.record.userMessage).toBe("What color do I love?");
     expect(recordChunk.record.retrievedMemories).toHaveLength(1);
     expect(recordChunk.record.retrieval?.matches?.[0]).toMatchObject({ rank: 1, selected: true });
-    expect(recordChunk.record.originalAnswer).toContain("1 prior memory trace");
+    expect(recordChunk.record.originalAnswer).toContain("I love the color indigo.");
     expect(recordChunk.record.events.some((event) => event.type === "fire")).toBe(true);
   });
 });

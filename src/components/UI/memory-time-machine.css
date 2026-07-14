@@ -364,6 +364,49 @@
   line-height: 1.5;
 }
 
+.time-machine-regression-action {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(20, 241, 149, 0.12);
+}
+
+.time-machine-regression-action strong,
+.time-machine-regression-action span {
+  display: block;
+}
+
+.time-machine-regression-action strong {
+  color: rgba(222, 248, 238, 0.86);
+  font-size: 8px;
+}
+
+.time-machine-regression-action span {
+  margin-top: 4px;
+  color: rgba(210, 228, 255, 0.38);
+  font-size: 7px;
+  line-height: 1.45;
+}
+
+.time-machine-regression-action button {
+  display: inline-flex;
+  min-height: 30px;
+  align-items: center;
+  gap: 5px;
+  padding: 0 9px;
+  border: 1px solid rgba(20, 241, 149, 0.26);
+  border-radius: 4px;
+  background: rgba(20, 241, 149, 0.07);
+  color: rgba(206, 255, 232, 0.84);
+  cursor: pointer;
+  font-size: 7px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
 @media (max-width: 760px) {
   .time-machine-compare,
   .time-machine-answer-grid {
@@ -372,6 +415,14 @@
 
   .time-machine-replay {
     grid-template-columns: 1fr;
+  }
+
+  .time-machine-regression-action {
+    grid-template-columns: 1fr;
+  }
+
+  .time-machine-regression-action button {
+    justify-content: center;
   }
 
   .time-machine-replay > button {

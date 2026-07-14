@@ -67,6 +67,10 @@ test("branches and replays an immutable memory checkpoint", async ({ page }) => 
     "The answer changed",
     { timeout: 12_000 }
   );
+  const regressionDownload = page.waitForEvent("download");
+  await timeMachine.getByRole("button", { name: "Save regression" }).click();
+  await expect(timeMachine).toContainText("Regression saved");
+  expect((await regressionDownload).suggestedFilename()).toMatch(/\.engram-test\.json$/);
   await expect(page.getByRole("button", { name: "Memories 1" })).toBeVisible();
 });
 

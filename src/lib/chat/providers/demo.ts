@@ -4,15 +4,27 @@ export class DemoChatProvider implements ChatProviderClient {
   readonly id = "demo" as const;
 
   async *streamTurn(input: ChatTurnInput): AsyncIterable<ProviderChunk> {
-    const memoryPhrase =
-      input.retrievedMemories.length > 0
-        ? `I connected this to ${input.retrievedMemories.length} prior memory trace${input.retrievedMemories.length === 1 ? "" : "s"}. `
-        : "I do not have a matching prior memory yet. ";
+    const answer = deterministicMemoryAnswer(input);
 
     yield {
       kind: "text",
-      delta: `${memoryPhrase}I will keep tracking how this changes the memory state.`
+      delta: answer
     };
     yield { kind: "done" };
   }
+}
+
+function deterministicMemoryAnswer(input: ChatTurnInput) {
+  if (input.retrievedMemories.length === 0) {
+    return "I do not have a matching prior memory yet. This offline demo only answers from memory evidence that was retrieved for the turn.";
+  }
+
+  if (input.retrievedMemories.length === 1) {
+    return `Based on the retrieved memory: ${input.retrievedMemories[0]!.text}`;
+  }
+
+  const evidence = input.retrievedMemories
+    .map((memory) => `- ${memory.text}`)
+    .join("\n");
+  return `Based on ${input.retrievedMemories.length} retrieved memories:\n${evidence}`;
 }

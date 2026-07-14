@@ -57,6 +57,10 @@ import type { TurnRecord } from "@/lib/evidence/types";
 import type { EngramProductMode } from "@/lib/lab/types";
 import { buildTimelineCheckpoints, buildTraceCheckpoints } from "@/lib/lab/checkpoints";
 import { createSampleMemoryIncident } from "@/lib/lab/sample-incident";
+import {
+  serializeMemoryRegressionArtifact,
+  type MemoryRegressionArtifact
+} from "@/lib/regressions";
 import { buildMemoryLineage } from "@/lib/lineage/build";
 import { scanMemoryIntegrity } from "@/lib/integrity/scan";
 import { buildAgentTopology } from "@/lib/topology/build";
@@ -831,6 +835,18 @@ export function EngramApp({ recordingMode = false }: EngramAppProps) {
     window.setTimeout(() => setTraceExportCopied(false), 1600);
   }, [importedTrace]);
 
+  const saveMemoryRegression = useCallback((artifact: MemoryRegressionArtifact) => {
+    const blob = new Blob([serializeMemoryRegressionArtifact(artifact)], {
+      type: "application/json"
+    });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = `${safeFileName(artifact.title)}.engram-test.json`;
+    anchor.click();
+    window.setTimeout(() => URL.revokeObjectURL(url), 0);
+  }, []);
+
   const seekTrace = useCallback(
     (index: number) => {
       if (index <= tracePlayback.stepIndex) setTraceSceneEpoch((current) => current + 1);
@@ -1061,6 +1077,7 @@ export function EngramApp({ recordingMode = false }: EngramAppProps) {
           onFocusMemoryIds={setTimeMachineFocusMemoryIds}
           onLoadSampleIncident={loadSampleIncident}
           onReturnToLearn={returnToLearn}
+          onSaveRegression={saveMemoryRegression}
         />
       ) : null}
       {activePanel === "integrity" ? (

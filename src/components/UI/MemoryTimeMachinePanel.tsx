@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { GitBranch, Play, Replace, RotateCcw, ShieldOff, X } from "lucide-react";
+import { Download, GitBranch, Play, Replace, RotateCcw, ShieldOff, X } from "lucide-react";
 import { memoryBranchReplayResultSchema } from "@/lib/events/schema";
 import {
   applyMemoryBranch,
@@ -14,6 +14,11 @@ import type {
   MemoryBranchReplayResult,
   MemoryCheckpoint
 } from "@/lib/lab/types";
+import {
+  createMemoryRegressionArtifact,
+  replayResultsFromBranchReplay
+} from "@/lib/regressions";
+import type { MemoryRegressionArtifact } from "@/lib/regressions";
 import type { EngramMemory } from "@/types";
 import { IncidentWorkbenchEmptyState } from "@/components/UI/IncidentWorkbenchEmptyState";
 import "./memory-time-machine.css";
@@ -25,6 +30,7 @@ type MemoryTimeMachinePanelProps = {
   onReturnToLearn?: () => void;
   onClose: () => void;
   onFocusMemoryIds: (ids: string[]) => void;
+  onSaveRegression?: (artifact: MemoryRegressionArtifact) => void;
 };
 
 export function MemoryTimeMachinePanel({
@@ -33,7 +39,8 @@ export function MemoryTimeMachinePanel({
   onLoadSampleIncident,
   onReturnToLearn,
   onClose,
-  onFocusMemoryIds
+  onFocusMemoryIds,
+  onSaveRegression
 }: MemoryTimeMachinePanelProps) {
   const [checkpointId, setCheckpointId] = useState<string>();
   const [branchState, setBranchState] = useState<{ checkpointId: string; branch: MemoryBranch }>();
@@ -42,6 +49,7 @@ export function MemoryTimeMachinePanel({
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string>();
   const [result, setResult] = useState<MemoryBranchReplayResult>();
+  const [regressionSaved, setRegressionSaved] = useState(false);
   const resultRef = useRef<HTMLElement>(null);
   const latestCheckpointId = checkpoints.at(-1)?.id;
   const resolvedCheckpointId = checkpoints.some((checkpoint) => checkpoint.id === checkpointId)
@@ -104,6 +112,7 @@ export function MemoryTimeMachinePanel({
       mutations
     }) });
     setResult(undefined);
+    setRegressionSaved(false);
     setError(undefined);
     onFocusMemoryIds(focusIds);
   }
@@ -177,6 +186,7 @@ export function MemoryTimeMachinePanel({
         throw new Error(readError(payload) ?? "Branch replay failed.");
       }
       setResult(memoryBranchReplayResultSchema.parse(payload));
+      setRegressionSaved(false);
       onFocusMemoryIds(changedMemoryIds);
     } catch (replayError) {
       setError(replayError instanceof Error ? replayError.message : "Branch replay failed.");
@@ -192,8 +202,38 @@ export function MemoryTimeMachinePanel({
     setEditingMemoryId(undefined);
     setReplacementDraft("");
     setResult(undefined);
+    setRegressionSaved(false);
     setError(undefined);
     onFocusMemoryIds(nextCheckpoint?.loadedMemoryIds ?? []);
+  }
+
+  function saveRegression() {
+    if (!checkpoint || !branch || !materialized || !result || !onSaveRegression) return;
+    const branchMemoryIds = new Set(result.branchMemoryIds);
+    const memoryFixture = uniqueMemories([
+      ...checkpoint.memories,
+      ...materialized.memories
+    ]);
+    const artifact = createMemoryRegressionArtifact({
+      checkpoint,
+      title: `Regression: ${checkpoint.label}`,
+      description: `Protect the observed branch behavior after ${branch.mutations.length} memory edit${branch.mutations.length === 1 ? "" : "s"}.`,
+      memoryFixture,
+      replayResults: replayResultsFromBranchReplay(result),
+      assertions: {
+        retrieval: {
+          mustRetrieve: result.branchMemoryIds,
+          mustNotRetrieve: result.baselineMemoryIds.filter((id) => !branchMemoryIds.has(id)),
+          maxLoaded: result.branchMemoryIds.length
+        }
+      },
+      metadata: {
+        branchId: branch.id,
+        evidenceBoundary: "single-controlled-context-replay"
+      }
+    });
+    onSaveRegression(artifact);
+    setRegressionSaved(true);
   }
 
   return (
@@ -297,7 +337,14 @@ export function MemoryTimeMachinePanel({
             {error ? <p className="time-machine-error">{error}</p> : null}
           </section>
 
-          {result ? <ReplayComparison ref={resultRef} result={result} /> : null}
+          {result ? (
+            <ReplayComparison
+              ref={resultRef}
+              onSaveRegression={onSaveRegression ? saveRegression : undefined}
+              regressionSaved={regressionSaved}
+              result={result}
+            />
+          ) : null}
         </div>
       ) : onLoadSampleIncident && onReturnToLearn ? (
         <IncidentWorkbenchEmptyState
@@ -355,10 +402,14 @@ function MemorySummary({ memory, loaded }: { memory: EngramMemory; loaded: boole
 
 function ReplayComparison({
   ref,
-  result
+  result,
+  onSaveRegression,
+  regressionSaved
 }: {
   ref: React.Ref<HTMLElement>;
   result: MemoryBranchReplayResult;
+  onSaveRegression?: () => void;
+  regressionSaved: boolean;
 }) {
   return (
     <section ref={ref} className="time-machine-result" data-outcome={result.comparison.outcome} aria-label="Branch replay result">
@@ -382,8 +433,25 @@ function ReplayComparison({
         </article>
       </div>
       <p className="time-machine-caveat">{result.caveat}</p>
+      {onSaveRegression ? (
+        <div className="time-machine-regression-action">
+          <div>
+            <strong>{regressionSaved ? "Regression saved" : "Keep this repair reproducible"}</strong>
+            <span>
+              Export the frozen memory fixture, turn input, replay evidence, and retrieval expectations as a portable test.
+            </span>
+          </div>
+          <button type="button" onClick={onSaveRegression}>
+            <Download size={12} /> {regressionSaved ? "Download again" : "Save regression"}
+          </button>
+        </div>
+      ) : null}
     </section>
   );
+}
+
+function uniqueMemories(memories: EngramMemory[]) {
+  return [...new Map(memories.map((memory) => [memory.id, memory])).values()];
 }
 
 function mutationId(type: "quarantine" | "replace", memoryId: string) {
