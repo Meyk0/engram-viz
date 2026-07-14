@@ -164,6 +164,24 @@ test("opens Retrieval MRI after a memory recall", async ({ page }) => {
   await expect(mri).toContainText(/color indigo/i);
 });
 
+test("audits the current memory state with observed integrity rules", async ({ page }) => {
+  test.setTimeout(45_000);
+  await page.goto("/");
+
+  await page.getByLabel("Chat message").fill("I love the color indigo.");
+  await page.getByLabel("Send").click();
+  const integrityButton = page.getByRole("button", { name: /^Integrity/ });
+  await expect(integrityButton).toBeVisible({ timeout: 12_000 });
+  await integrityButton.click();
+
+  const integrity = page.getByRole("complementary", { name: "Memory Integrity" });
+  await expect(integrity).toBeVisible();
+  await expect(integrity).toContainText("Deterministic rule scan");
+  await expect(integrity).toContainText("Risk points");
+  await expect(integrity).toContainText(/Observed rule evidence|No rule violations found/);
+  await expect(integrity).toContainText("not a probability");
+});
+
 test("runs the demo and focuses completed memory story turns", async ({ page }) => {
   test.setTimeout(60_000);
   await page.goto("/");
@@ -416,6 +434,8 @@ test("opens and dismisses Dream Mode after enough memories", async ({ page }) =>
   await expect(dreamPanel).toBeVisible({ timeout: 12_000 });
   await expect(page.getByText(/Dream review complete|Model-reviewed memories/)).toBeVisible();
   await expect(dreamPanel).toContainText("Nothing changes until you apply it");
+  await expect(dreamPanel.getByLabel("Dream benchmark")).toContainText("Projected benchmark");
+  await expect(dreamPanel.getByLabel("Dream benchmark")).toContainText(/est. retained/i);
   await expect(page.getByLabel("Current memory receipt")).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Apply dream" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Keep current memories" })).toBeVisible();

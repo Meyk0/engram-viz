@@ -60,6 +60,20 @@ describe("MemoryTimeMachinePanel", () => {
     expect(screen.getByText(/State-only checkpoint/)).toBeVisible();
     expect(screen.getByRole("button", { name: "Replay branch" })).toBeDisabled();
   });
+
+  it("seeds a quarantine branch from an integrity finding", () => {
+    render(
+      <MemoryTimeMachinePanel
+        checkpoints={[checkpoint]}
+        initialQuarantineMemoryIds={[memory.id]}
+        onClose={vi.fn()}
+        onFocusMemoryIds={vi.fn()}
+      />
+    );
+
+    expect(screen.getByText("Quarantined from branch")).toBeVisible();
+    expect(screen.getByRole("button", { name: "Replay branch" })).toBeEnabled();
+  });
 });
 
 const memory = {

@@ -1,0 +1,179 @@
+.memory-integrity-panel {
+  display: flex;
+  flex-direction: column;
+  color: rgba(226, 238, 255, 0.9);
+}
+
+.integrity-header {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 14px 16px;
+  border-bottom: 1px solid rgba(249, 115, 22, 0.1);
+}
+
+.integrity-eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: rgba(249, 115, 22, 0.78);
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.integrity-header h2 {
+  margin: 5px 0 0;
+  color: rgba(235, 245, 255, 0.94);
+  font-size: 14px;
+  font-weight: 620;
+  letter-spacing: 0;
+}
+
+.integrity-header > button {
+  display: grid;
+  width: 28px;
+  height: 28px;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 1px solid rgba(249, 115, 22, 0.16);
+  border-radius: 6px;
+  background: rgba(249, 115, 22, 0.04);
+  color: rgba(255, 172, 116, 0.72);
+  cursor: pointer;
+}
+
+.integrity-scroll {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.integrity-summary {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: start;
+  padding: 14px 16px;
+  border-bottom: 1px solid rgba(0, 212, 255, 0.07);
+  background: rgba(20, 241, 149, 0.018);
+}
+
+.integrity-summary[data-status="attention"] { background: rgba(249, 115, 22, 0.025); }
+.integrity-summary[data-status="review"] { background: rgba(251, 191, 36, 0.022); }
+.integrity-summary-mark { color: rgba(20, 241, 149, 0.8); }
+.integrity-summary[data-status="attention"] .integrity-summary-mark { color: rgba(249, 115, 22, 0.86); }
+.integrity-summary[data-status="review"] .integrity-summary-mark { color: rgba(251, 191, 36, 0.82); }
+
+.integrity-summary span,
+.integrity-section-heading,
+.integrity-recommendation strong {
+  color: rgba(202, 221, 240, 0.42);
+  font-size: 7px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.integrity-summary strong {
+  display: block;
+  margin-top: 4px;
+  color: rgba(237, 246, 255, 0.9);
+  font-size: 12px;
+}
+
+.integrity-summary p {
+  margin: 5px 0 0;
+  color: rgba(210, 229, 246, 0.48);
+  font-size: 8px;
+  line-height: 1.45;
+}
+
+.integrity-summary dl {
+  display: flex;
+  gap: 6px;
+  margin: 0;
+}
+
+.integrity-summary dl div {
+  min-width: 54px;
+  padding: 7px;
+  border: 1px solid rgba(0, 212, 255, 0.08);
+  border-radius: 4px;
+  background: rgba(2, 5, 18, 0.48);
+}
+
+.integrity-summary dt { color: rgba(202, 221, 240, 0.34); font-size: 6px; text-transform: uppercase; }
+.integrity-summary dd { margin: 4px 0 0; color: rgba(236, 244, 255, 0.82); font-size: 12px; }
+
+.integrity-score-note,
+.integrity-caveat {
+  margin: 0;
+  padding: 9px 16px;
+  color: rgba(202, 221, 240, 0.36);
+  font-size: 7px;
+  line-height: 1.5;
+}
+
+.integrity-findings { padding: 4px 12px 12px; }
+.integrity-section-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 9px 3px; }
+.integrity-section-heading span { display: flex; align-items: center; gap: 6px; }
+.integrity-section-heading b { color: rgba(232, 241, 250, 0.62); }
+.integrity-findings > ol { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+
+.integrity-finding {
+  padding: 10px;
+  border: 1px solid rgba(0, 212, 255, 0.08);
+  border-left: 2px solid rgba(160, 184, 210, 0.42);
+  border-radius: 0 6px 6px 0;
+  background: rgba(3, 6, 20, 0.56);
+}
+
+.integrity-finding[data-severity="critical"] { border-left-color: rgba(255, 78, 105, 0.88); }
+.integrity-finding[data-severity="high"] { border-left-color: rgba(249, 115, 22, 0.86); }
+.integrity-finding[data-severity="medium"] { border-left-color: rgba(251, 191, 36, 0.78); }
+
+.integrity-finding > header { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.integrity-finding > header span { color: rgba(249, 115, 22, 0.76); font-size: 7px; font-weight: 700; text-transform: uppercase; }
+.integrity-finding > header b { color: rgba(20, 241, 149, 0.58); font-size: 6px; font-weight: 650; letter-spacing: 0.08em; text-transform: uppercase; }
+.integrity-finding h3 { margin: 7px 0 0; color: rgba(235, 244, 255, 0.9); font-size: 10px; letter-spacing: 0; }
+.integrity-finding > p { margin: 5px 0 0; color: rgba(210, 228, 245, 0.52); font-size: 8px; line-height: 1.45; }
+
+.integrity-evidence-list { display: grid; gap: 5px; margin-top: 8px; }
+.integrity-evidence-list article { padding: 7px; border: 1px solid rgba(0, 212, 255, 0.07); border-radius: 4px; background: rgba(0, 0, 0, 0.16); }
+.integrity-evidence-list article > div { display: flex; justify-content: space-between; gap: 8px; }
+.integrity-evidence-list span { color: rgba(0, 212, 255, 0.48); font-size: 6px; text-transform: uppercase; }
+.integrity-evidence-list code { color: rgba(202, 221, 240, 0.34); font-size: 6px; }
+.integrity-evidence-list q { display: block; margin-top: 5px; color: rgba(226, 237, 248, 0.72); font-size: 8px; line-height: 1.4; overflow-wrap: anywhere; }
+.integrity-evidence-list button,
+.integrity-focus {
+  display: inline-flex;
+  min-height: 24px;
+  align-items: center;
+  gap: 4px;
+  margin-top: 7px;
+  padding: 0 7px;
+  border: 1px solid rgba(168, 85, 247, 0.16);
+  border-radius: 4px;
+  background: rgba(168, 85, 247, 0.04);
+  color: rgba(219, 199, 255, 0.66);
+  cursor: pointer;
+  font-size: 7px;
+}
+
+.integrity-recommendation { display: grid; gap: 3px; margin-top: 8px; }
+.integrity-recommendation span { color: rgba(213, 231, 246, 0.58); font-size: 8px; line-height: 1.4; }
+.integrity-focus { border-color: rgba(0, 212, 255, 0.14); background: rgba(0, 212, 255, 0.035); color: rgba(167, 230, 245, 0.66); }
+
+.integrity-empty { display: grid; place-items: center; gap: 6px; padding: 34px 16px; color: rgba(20, 241, 149, 0.72); text-align: center; }
+.integrity-empty strong { color: rgba(232, 244, 255, 0.82); font-size: 10px; }
+.integrity-empty p { max-width: 280px; margin: 0; color: rgba(205, 225, 242, 0.42); font-size: 8px; line-height: 1.5; }
+.integrity-caveat { border-top: 1px solid rgba(0, 212, 255, 0.06); }
+
+@media (max-width: 680px) {
+  .integrity-summary { grid-template-columns: auto minmax(0, 1fr); }
+  .integrity-summary dl { grid-column: 1 / -1; }
+}

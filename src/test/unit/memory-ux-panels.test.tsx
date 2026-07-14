@@ -193,6 +193,29 @@ describe("memory UX panels", () => {
     expect(onSelect).toHaveBeenCalledWith("retrieval");
   });
 
+  it("opens Memory Integrity with its actionable finding count", async () => {
+    const onSelect = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <SecondaryDock
+        activeContextCount={0}
+        activePanel={null}
+        hasActiveContext={false}
+        hasMemoryDetails
+        hasRegionDetails={false}
+        integrityAvailable
+        integrityCount={2}
+        memoryCount={3}
+        onSelect={onSelect}
+        regionCount={0}
+        timelineCount={1}
+      />
+    );
+
+    await user.click(screen.getByRole("button", { name: "Integrity 2" }));
+    expect(onSelect).toHaveBeenCalledWith("integrity");
+  });
+
   it("runs or stops the demo from a single compact guide", async () => {
     const onRunDemo = vi.fn();
     const onStopDemo = vi.fn();
@@ -319,6 +342,8 @@ describe("memory UX panels", () => {
     expect(screen.getByText("Before")).toBeVisible();
     expect(screen.getByText("After")).toBeVisible();
     expect(screen.getByText("User likes indigo and dark dashboard interfaces.")).toBeVisible();
+    expect(screen.getByLabelText("Dream benchmark")).toHaveTextContent("Projected benchmark");
+    expect(screen.getByLabelText("Dream benchmark")).toHaveTextContent(/est. retained/i);
 
     await user.click(screen.getByRole("button", { name: "Apply dream" }));
     await user.click(screen.getByRole("button", { name: "Keep current memories" }));

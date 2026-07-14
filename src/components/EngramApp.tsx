@@ -28,6 +28,7 @@ import { HowItWorksPanel } from "@/components/UI/HowItWorksPanel";
 import { MemoryTimelinePanel } from "@/components/UI/MemoryTimelinePanel";
 import { MemoryTimeMachinePanel } from "@/components/UI/MemoryTimeMachinePanel";
 import { MemoryInspector } from "@/components/UI/MemoryInspector";
+import { MemoryIntegrityPanel } from "@/components/UI/MemoryIntegrityPanel";
 import { ProductModeControl } from "@/components/UI/ProductModeControl";
 import { RealityModeControl } from "@/components/UI/RealityModeControl";
 import { RegionInspector } from "@/components/UI/RegionInspector";
@@ -54,6 +55,7 @@ import type { TurnRecord } from "@/lib/evidence/types";
 import type { EngramProductMode } from "@/lib/lab/types";
 import { buildTimelineCheckpoints, buildTraceCheckpoints } from "@/lib/lab/checkpoints";
 import { buildMemoryLineage } from "@/lib/lineage/build";
+import { scanMemoryIntegrity } from "@/lib/integrity/scan";
 import { createEngramTraceBundle } from "@/lib/traces/export";
 import { importAgentTrace } from "@/lib/traces/import";
 import { sampleAgentTrace } from "@/lib/traces/sample";
@@ -104,6 +106,8 @@ export function EngramApp({ recordingMode = false }: EngramAppProps) {
   const [traceImportError, setTraceImportError] = useState<string | null>(null);
   const [traceSceneEpoch, setTraceSceneEpoch] = useState(0);
   const [timeMachineFocusMemoryIds, setTimeMachineFocusMemoryIds] = useState<string[]>([]);
+  const [timeMachineSeedMemoryIds, setTimeMachineSeedMemoryIds] = useState<string[]>([]);
+  const [integrityFocusMemoryIds, setIntegrityFocusMemoryIds] = useState<string[]>([]);
   const [traceExportCopied, setTraceExportCopied] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const activeTimelineEntryId = useRef<string | undefined>(undefined);
@@ -222,6 +226,14 @@ export function EngramApp({ recordingMode = false }: EngramAppProps) {
     () => getDreamEligibleMemories(eventHistory, activeMemories),
     [activeMemories, eventHistory]
   );
+  const integrityReport = useMemo(
+    () => scanMemoryIntegrity({
+      memories,
+      loadedMemoryIds,
+      now: memories.at(-1)?.last_accessed ?? memories.at(-1)?.created_at ?? new Date(0)
+    }),
+    [loadedMemoryIds, memories]
+  );
 
   const onChunk = useCallback(
     (chunk: StreamChunk) => {
@@ -274,6 +286,10 @@ export function EngramApp({ recordingMode = false }: EngramAppProps) {
     ? effectiveTimelineFocus.memoryIds
     : activePanel === "timeMachine"
       ? timeMachineFocusMemoryIds
+    : activePanel === "integrity"
+      ? integrityFocusMemoryIds.length > 0
+        ? integrityFocusMemoryIds
+        : integrityReport.findings.flatMap((finding) => finding.memoryIds)
     : activePanel === "lineage" && lineageGraph
       ? lineageGraph.relatedMemoryIds
     : activePanel === "xray" && causalMemoryId
@@ -289,6 +305,10 @@ export function EngramApp({ recordingMode = false }: EngramAppProps) {
       ? [...new Set(timeMachineFocusMemoryIds
           .map((id) => memories.find((memory) => memory.id === id)?.region)
           .filter((region): region is BrainRegion => Boolean(region)))]
+    : activePanel === "integrity" && brainFocusMemoryIds.length > 0
+      ? [...new Set(brainFocusMemoryIds
+          .map((id) => memories.find((memory) => memory.id === id)?.region)
+          .filter((region): region is BrainRegion => Boolean(region)))]
     : activePanel === "lineage" && lineageGraph
       ? [...new Set(lineageGraph.nodes.flatMap((node) => node.region ?? []))]
     : activePanel === "xray"
@@ -302,6 +322,8 @@ export function EngramApp({ recordingMode = false }: EngramAppProps) {
     ? timelineFocusPulseKey
     : activePanel === "timeMachine" && timeMachineFocusMemoryIds.length > 0
       ? `time-machine-${timeMachineFocusMemoryIds.join(".")}`
+    : activePanel === "integrity" && brainFocusMemoryIds.length > 0
+      ? `integrity-${brainFocusMemoryIds.join(".")}`
     : activePanel === "lineage" && lineageMemoryId
       ? `lineage-${lineageMemoryId}`
     : activePanel === "xray" && causalMemoryId
@@ -325,6 +347,8 @@ export function EngramApp({ recordingMode = false }: EngramAppProps) {
     setCausalMemoryId(undefined);
     setLineageMemoryId(undefined);
     setTimeMachineFocusMemoryIds([]);
+    setTimeMachineSeedMemoryIds([]);
+    setIntegrityFocusMemoryIds([]);
     setTraceExportCopied(false);
     resetCausalXRay();
     if (productMode === "investigate") setProductMode("learn");
@@ -676,6 +700,11 @@ export function EngramApp({ recordingMode = false }: EngramAppProps) {
 
       const nextPanel = activePanel === panel ? null : panel;
       setActivePanel(nextPanel);
+      if (nextPanel === "integrity" || nextPanel === "timeMachine") {
+        setProductMode("investigate");
+      }
+      if (nextPanel === "timeMachine") setTimeMachineSeedMemoryIds([]);
+      if (nextPanel === "integrity") setIntegrityFocusMemoryIds([]);
       if (nextPanel !== "memory") {
         setSelectedMemoryId(undefined);
       }
@@ -735,10 +764,18 @@ export function EngramApp({ recordingMode = false }: EngramAppProps) {
         return;
       }
 
-      setActivePanel("timeMachine");
+      setActivePanel(memories.length > 0 ? "integrity" : "timeMachine");
     },
-    [importedTrace, liveRecorder]
+    [importedTrace, liveRecorder, memories.length]
   );
+
+  const openIntegrityTimeMachine = useCallback((memoryIds: string[]) => {
+    setTimeMachineSeedMemoryIds(memoryIds);
+    setTimeMachineFocusMemoryIds(memoryIds);
+    setIntegrityFocusMemoryIds([]);
+    setProductMode("investigate");
+    setActivePanel("timeMachine");
+  }, []);
 
   const exportTrace = useCallback(() => {
     if (!importedTrace) return;
@@ -816,7 +853,7 @@ export function EngramApp({ recordingMode = false }: EngramAppProps) {
       data-recording={cleanDemoMode}
       data-trace-active={Boolean(importedTrace)}
       data-workbench-open={Boolean(activePanel)}
-      data-workbench-wide={activePanel === "timeMachine"}
+      data-workbench-wide={activePanel === "timeMachine" || activePanel === "integrity"}
     >
       <Brain3D
         events={events}
@@ -968,8 +1005,18 @@ export function EngramApp({ recordingMode = false }: EngramAppProps) {
       {activePanel === "timeMachine" ? (
         <MemoryTimeMachinePanel
           checkpoints={memoryCheckpoints}
+          initialQuarantineMemoryIds={timeMachineSeedMemoryIds}
           onClose={closeSecondaryPanel}
           onFocusMemoryIds={setTimeMachineFocusMemoryIds}
+        />
+      ) : null}
+      {activePanel === "integrity" ? (
+        <MemoryIntegrityPanel
+          onClose={closeSecondaryPanel}
+          onFocusMemoryIds={setIntegrityFocusMemoryIds}
+          onOpenTimeMachine={openIntegrityTimeMachine}
+          report={integrityReport}
+          timeMachineAvailable={memoryCheckpoints.length > 0}
         />
       ) : null}
       <HowItWorksPanel onClose={closeSecondaryPanel} open={activePanel === "help"} />
@@ -1023,6 +1070,8 @@ export function EngramApp({ recordingMode = false }: EngramAppProps) {
           onSelect={onDockSelect}
           hasRegionDetails={regionDetailCount > 0}
           hasRetrieval={Boolean(latestRetrieve)}
+          integrityAvailable={memories.length > 0}
+          integrityCount={integrityReport.findings.filter((finding) => finding.severity !== "info").length}
           regionCount={regionDetailCount}
           retrievalCount={latestRetrieve?.retrieval?.candidateCount ?? latestRetrieve?.ids.length ?? 0}
           checkpointCount={memoryCheckpoints.length}

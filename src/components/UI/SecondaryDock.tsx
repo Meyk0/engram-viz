@@ -1,4 +1,4 @@
-import { Activity, BrainCircuit, GitBranch, History, MapPin, MoonStar, ScanSearch } from "lucide-react";
+import { Activity, BrainCircuit, GitBranch, History, MapPin, MoonStar, ScanSearch, ShieldCheck } from "lucide-react";
 import type { ReactNode } from "react";
 
 export type SecondaryPanel =
@@ -12,6 +12,7 @@ export type SecondaryPanel =
   | "lineage"
   | "trace"
   | "retrieval"
+  | "integrity"
   | "timeMachine";
 
 type SecondaryDockProps = {
@@ -24,6 +25,8 @@ type SecondaryDockProps = {
   hasMemoryDetails: boolean;
   hasRegionDetails: boolean;
   hasRetrieval?: boolean;
+  integrityAvailable?: boolean;
+  integrityCount?: number;
   memoryCount: number;
   onSelect: (panel: SecondaryPanel) => void;
   regionCount: number;
@@ -42,6 +45,8 @@ export function SecondaryDock({
   hasMemoryDetails,
   hasRegionDetails,
   hasRetrieval = false,
+  integrityAvailable = false,
+  integrityCount = 0,
   memoryCount,
   onSelect,
   regionCount,
@@ -70,6 +75,17 @@ export function SecondaryDock({
             icon: <GitBranch size={14} />,
             id: "timeMachine" as const,
             label: "Time Machine"
+          }
+        ]
+      : []),
+    ...(integrityAvailable
+      ? [
+          {
+            count: integrityCount,
+            badge: integrityCount === 0 ? "Clear" : undefined,
+            icon: <ShieldCheck size={14} />,
+            id: "integrity" as const,
+            label: "Integrity"
           }
         ]
       : []),

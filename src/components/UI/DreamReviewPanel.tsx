@@ -1,5 +1,7 @@
 import { GitMerge, Lightbulb, MoonStar, Replace, X } from "lucide-react";
 import type { ReactNode } from "react";
+import { benchmarkDreamProposal } from "@/lib/integrity/dream-benchmark";
+import type { DreamBenchmark } from "@/lib/integrity/types";
 import type { DreamOperation, DreamProposal, EngramMemory } from "@/types";
 
 type DreamReviewPanelProps = {
@@ -28,6 +30,7 @@ export function DreamReviewPanel({
   const beforeById = new Map(beforeMemories.map((memory) => [memory.id, memory]));
   const operationCount = proposal?.operations.length ?? 0;
   const canApply = Boolean(proposal && proposal.status === "proposed" && operationCount > 0);
+  const benchmark = proposal ? benchmarkDreamProposal(beforeMemories, proposal) : undefined;
 
   return (
     <aside className="secondary-panel secondary-panel-right dream-review-panel" aria-label="Dream review">
@@ -65,6 +68,7 @@ export function DreamReviewPanel({
       </div>
 
       <div className="dream-operation-list">
+        {benchmark && proposal?.status === "proposed" ? <DreamBenchmarkStrip benchmark={benchmark} /> : null}
         {proposal?.operations.map((operation) => (
           <DreamOperationCard beforeById={beforeById} key={operation.id} operation={operation} />
         ))}
@@ -94,6 +98,37 @@ export function DreamReviewPanel({
         </div>
       ) : null}
     </aside>
+  );
+}
+
+function DreamBenchmarkStrip({ benchmark }: { benchmark: DreamBenchmark }) {
+  const metrics = [
+    { label: "Active", before: benchmark.before.activeMemories, after: benchmark.after.activeMemories },
+    { label: "Duplicates", before: benchmark.before.duplicatePairs, after: benchmark.after.duplicatePairs },
+    { label: "Conflicts", before: benchmark.before.conflictPairs, after: benchmark.after.conflictPairs },
+    { label: "Est. tokens", before: benchmark.before.estimatedContextTokens, after: benchmark.after.estimatedContextTokens }
+  ];
+
+  return (
+    <section className="dream-benchmark" data-verdict={benchmark.verdict} aria-label="Dream benchmark">
+      <header>
+        <div>
+          <span>Projected benchmark</span>
+          <strong>{benchmark.verdict === "improved" ? "Cleaner proposed state" : benchmark.verdict === "regressed" ? "Review regression" : "No measured change"}</strong>
+        </div>
+        <b>{Math.round(benchmark.estimatedInformationRetention * 100)}% est. retained</b>
+      </header>
+      <div className="dream-benchmark-grid">
+        {metrics.map((metric) => (
+          <div key={metric.label}>
+            <span>{metric.label}</span>
+            <strong>{metric.before} <i aria-hidden="true">to</i> {metric.after}</strong>
+          </div>
+        ))}
+      </div>
+      <ul>{benchmark.observations.map((observation) => <li key={observation}>{observation}</li>)}</ul>
+      <p>{benchmark.caveat}</p>
+    </section>
   );
 }
 

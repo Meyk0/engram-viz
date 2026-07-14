@@ -19,12 +19,14 @@ import "./memory-time-machine.css";
 
 type MemoryTimeMachinePanelProps = {
   checkpoints: MemoryCheckpoint[];
+  initialQuarantineMemoryIds?: string[];
   onClose: () => void;
   onFocusMemoryIds: (ids: string[]) => void;
 };
 
 export function MemoryTimeMachinePanel({
   checkpoints,
+  initialQuarantineMemoryIds = [],
   onClose,
   onFocusMemoryIds
 }: MemoryTimeMachinePanelProps) {
@@ -45,6 +47,7 @@ export function MemoryTimeMachinePanel({
     () => checkpoints.find((candidate) => candidate.id === resolvedCheckpointId),
     [checkpoints, resolvedCheckpointId]
   );
+  const initialQuarantineKey = initialQuarantineMemoryIds.slice().sort().join("|");
   const branch = useMemo(() => {
     if (!checkpoint) return undefined;
     if (branchState?.checkpointId === checkpoint.id) return branchState.branch;
@@ -52,9 +55,17 @@ export function MemoryTimeMachinePanel({
       checkpoint,
       id: `branch-${checkpoint.id}`,
       title: `Branch from ${checkpoint.label}`,
-      createdAt: checkpoint.createdAt
+      createdAt: checkpoint.createdAt,
+      mutations: initialQuarantineKey.split("|").filter(Boolean)
+        .filter((memoryId) => checkpoint.memories.some((memory) => memory.id === memoryId))
+        .map((memoryId) => ({
+          id: mutationId("quarantine", memoryId),
+          type: "quarantine" as const,
+          memoryId,
+          reason: "Seeded from Memory Integrity review"
+        }))
     });
-  }, [branchState, checkpoint]);
+  }, [branchState, checkpoint, initialQuarantineKey]);
 
   const materialized = useMemo<MaterializedMemoryBranch | undefined>(() => {
     if (!checkpoint || !branch) return undefined;
