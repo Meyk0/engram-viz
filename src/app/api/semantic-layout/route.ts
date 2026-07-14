@@ -10,10 +10,14 @@ import {
 import { semanticMemoryText } from "@/lib/semantic/text";
 import type { SemanticLayoutRequest } from "@/lib/semantic/types";
 import { createRequestDeadline } from "@/lib/request-signal";
+import { checkApiRateLimit } from "@/lib/api-rate-limit";
 
 export const runtime = "nodejs";
 
 export async function POST(request: Request) {
+  const limited = checkApiRateLimit(request, { scope: "semantic-layout", limit: 20 });
+  if (limited) return limited;
+
   const contentLength = Number(request.headers.get("content-length") ?? 0);
   if (Number.isFinite(contentLength) && contentLength > MAX_SEMANTIC_REQUEST_BYTES) {
     return errorResponse("Semantic layout request is too large.", 413);

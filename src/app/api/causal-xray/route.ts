@@ -9,10 +9,14 @@ import {
   causalAblationResultSchema
 } from "@/lib/events/schema";
 import { createRequestDeadline } from "@/lib/request-signal";
+import { checkApiRateLimit } from "@/lib/api-rate-limit";
 
 export const runtime = "nodejs";
 
 export async function POST(request: Request) {
+  const limited = checkApiRateLimit(request, { scope: "causal-xray", limit: 8 });
+  if (limited) return limited;
+
   const contentLength = Number(request.headers.get("content-length") ?? 0);
   if (
     Number.isFinite(contentLength) &&

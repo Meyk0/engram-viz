@@ -45,6 +45,10 @@ ingestion, and optional server-only Supabase persistence. Engram still has no en
 distributed quota service, or managed retention policy. Deterministic demo mode and mocked providers keep
 normal tests repeatable.
 
+Model-backed routes enforce request-size limits, provider deadlines, cancellation, and a bounded
+process-local per-client rate limit. Deployments with meaningful traffic should also configure a
+distributed Vercel/platform rate limit because serverless instances do not share in-memory counters.
+
 The architecture and current evidence model are described in
 [`docs/engram-lab-architecture.md`](docs/engram-lab-architecture.md). The live Agents SDK integration is
 documented in [`docs/flight-recorder.md`](docs/flight-recorder.md). See

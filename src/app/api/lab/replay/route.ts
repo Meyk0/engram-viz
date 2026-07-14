@@ -9,10 +9,14 @@ import {
   runMemoryBranchReplay
 } from "@/lib/lab/replay";
 import { createRequestDeadline } from "@/lib/request-signal";
+import { checkApiRateLimit } from "@/lib/api-rate-limit";
 
 export const runtime = "nodejs";
 
 export async function POST(request: Request) {
+  const limited = checkApiRateLimit(request, { scope: "branch-replay", limit: 8 });
+  if (limited) return limited;
+
   const contentLength = Number(request.headers.get("content-length") ?? 0);
   if (Number.isFinite(contentLength) && contentLength > MAX_MEMORY_BRANCH_REPLAY_REQUEST_BYTES) {
     return errorResponse("Memory branch replay request is too large.", 413);

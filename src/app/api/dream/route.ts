@@ -3,12 +3,16 @@ import { configuredDreamPlanner } from "@/lib/memory/planner-config";
 import { readBoundedJson, RequestBodyError } from "@/lib/http";
 import type { EngramMemory } from "@/types";
 import { createRequestDeadline } from "@/lib/request-signal";
+import { checkApiRateLimit } from "@/lib/api-rate-limit";
 
 export const runtime = "nodejs";
 const MAX_DREAM_REQUEST_BYTES = 256_000;
 const MAX_DREAM_MEMORIES = 200;
 
 export async function POST(request: Request) {
+  const limited = checkApiRateLimit(request, { scope: "dream", limit: 8 });
+  if (limited) return limited;
+
   let rawBody: unknown;
   try {
     rawBody = await readBoundedJson(request, MAX_DREAM_REQUEST_BYTES);

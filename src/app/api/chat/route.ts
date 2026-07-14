@@ -4,6 +4,7 @@ import { encodeSseChunk } from "@/lib/events/sse";
 import { readBoundedJson, RequestBodyError } from "@/lib/http";
 import { InMemoryMemoryStore } from "@/lib/memory/store-interface";
 import { createRequestDeadline } from "@/lib/request-signal";
+import { checkApiRateLimit } from "@/lib/api-rate-limit";
 import type { ChatMessage, EngramMemory, StreamChunk } from "@/types";
 
 export const runtime = "nodejs";
@@ -12,6 +13,9 @@ const MAX_CHAT_MESSAGE_CHARS = 12_000;
 const MAX_CHAT_HISTORY_ITEMS = 100;
 
 export async function POST(request: Request) {
+  const limited = checkApiRateLimit(request, { scope: "chat", limit: 30 });
+  if (limited) return limited;
+
   let rawBody: unknown;
   try {
     rawBody = await readBoundedJson(request, MAX_CHAT_REQUEST_BYTES);
