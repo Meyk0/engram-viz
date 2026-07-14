@@ -419,6 +419,13 @@ test("imports and replays an observed OpenAI agent memory trace", async ({ page 
   await expect(topology).toContainText("Unknown scope remains unknown");
   await page.getByRole("button", { name: "Close agent topology" }).click();
 
+  await page.getByRole("button", { name: "Inspect instrumentation coverage" }).click();
+  const coverage = page.getByRole("complementary", { name: "Instrumentation coverage" });
+  await expect(coverage).toContainText("What this trace can support");
+  await expect(coverage).toContainText("Explicit memory operations");
+  await expect(coverage).toContainText("Missing telemetry is a blind spot");
+  await page.getByRole("button", { name: "Close instrumentation coverage" }).click();
+
   await page.getByRole("button", { name: "Next trace step" }).click();
   await expect(playback).toContainText("No memory event");
   await page.getByRole("button", { name: "Next trace step" }).click();

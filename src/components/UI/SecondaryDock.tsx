@@ -13,6 +13,7 @@ export type SecondaryPanel =
   | "trace"
   | "retrieval"
   | "integrity"
+  | "coverage"
   | "topology"
   | "timeMachine";
 

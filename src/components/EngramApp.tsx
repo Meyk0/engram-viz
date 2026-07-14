@@ -26,6 +26,7 @@ import { DreamReviewPanel } from "@/components/UI/DreamReviewPanel";
 import { MemoryLibraryPanel } from "@/components/UI/MemoryLibraryPanel";
 import { MemoryLineagePanel } from "@/components/UI/MemoryLineagePanel";
 import { HowItWorksPanel } from "@/components/UI/HowItWorksPanel";
+import { InstrumentationCoveragePanel } from "@/components/UI/InstrumentationCoveragePanel";
 import { MemoryTimelinePanel } from "@/components/UI/MemoryTimelinePanel";
 import { MemoryTimeMachinePanel } from "@/components/UI/MemoryTimeMachinePanel";
 import { MemoryInspector } from "@/components/UI/MemoryInspector";
@@ -850,6 +851,12 @@ export function EngramApp({ recordingMode = false }: EngramAppProps) {
     setActivePanel("topology");
   }, []);
 
+  const openInstrumentationCoverage = useCallback(() => {
+    setSelectedMemoryId(undefined);
+    setSelectedRegion(undefined);
+    setActivePanel("coverage");
+  }, []);
+
   const seekTopologyStep = useCallback((stepId: string) => {
     if (!importedTrace || liveTraceActive) return;
     const index = importedTrace.steps.findIndex((step) => step.id === stepId);
@@ -1096,6 +1103,12 @@ export function EngramApp({ recordingMode = false }: EngramAppProps) {
           topology={agentTopology}
         />
       ) : null}
+      {importedTrace && activePanel === "coverage" ? (
+        <InstrumentationCoveragePanel
+          onClose={closeSecondaryPanel}
+          trace={importedTrace}
+        />
+      ) : null}
       {traceImportOpen ? (
         <TraceImportDialog
           error={traceImportError}
@@ -1137,6 +1150,7 @@ export function EngramApp({ recordingMode = false }: EngramAppProps) {
           currentStepIndex={traceStepIndex}
           hasTopology={Boolean(agentTopology?.meaningful)}
           live={liveTraceActive}
+          onCoverage={openInstrumentationCoverage}
           onExit={exitTracePlayback}
           onInspect={openTraceInspector}
           onNext={tracePlayback.next}

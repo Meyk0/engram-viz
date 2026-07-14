@@ -9,6 +9,7 @@ import {
   Play,
   RotateCcw,
   Radio,
+  ScanSearch,
   X
 } from "lucide-react";
 import type { NormalizedTrace, NormalizedTraceStep } from "@/lib/traces/types";
@@ -19,6 +20,7 @@ export type TracePlaybackSpeed = 0.5 | 1 | 2;
 export type TracePlaybackBarProps = {
   currentStepIndex: number;
   onExit: () => void;
+  onCoverage?: () => void;
   onInspect: () => void;
   onNext: () => void;
   onPlayPause: () => void;
@@ -39,6 +41,7 @@ const SPEEDS: TracePlaybackSpeed[] = [0.5, 1, 2];
 export function TracePlaybackBar({
   currentStepIndex,
   onExit,
+  onCoverage,
   onInspect,
   onNext,
   onPlayPause,
@@ -78,6 +81,11 @@ export function TracePlaybackBar({
           </span>
         </div>
         <div className="trace-playback-actions">
+          {onCoverage ? (
+            <button type="button" onClick={onCoverage} aria-label="Inspect instrumentation coverage">
+              <ScanSearch aria-hidden="true" size={14} /><span>Coverage</span>
+            </button>
+          ) : null}
           {hasTopology && onTopology ? (
             <button type="button" onClick={onTopology} aria-label="Inspect agent topology">
               <Network aria-hidden="true" size={14} /><span>Topology</span>
@@ -154,6 +162,12 @@ export function TracePlaybackBar({
       </div>
 
       <div className="trace-playback-actions">
+        {onCoverage ? (
+          <button type="button" onClick={onCoverage} aria-label="Inspect instrumentation coverage">
+            <ScanSearch aria-hidden="true" size={14} />
+            <span>Coverage</span>
+          </button>
+        ) : null}
         {hasTopology && onTopology ? (
           <button type="button" onClick={onTopology} aria-label="Inspect agent topology">
             <Network aria-hidden="true" size={14} />

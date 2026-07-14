@@ -116,6 +116,7 @@ describe("TraceImportDialog", () => {
 describe("TracePlaybackBar", () => {
   it("controls playback, seeking, speed, inspection, and exit", async () => {
     const callbacks = {
+      onCoverage: vi.fn(),
       onExit: vi.fn(),
       onInspect: vi.fn(),
       onNext: vi.fn(),
@@ -147,6 +148,7 @@ describe("TracePlaybackBar", () => {
     await user.click(screen.getByRole("button", { name: "Restart trace" }));
     await user.click(screen.getByRole("radio", { name: "2x" }));
     await user.click(screen.getByRole("button", { name: "Inspect trace" }));
+    await user.click(screen.getByRole("button", { name: "Inspect instrumentation coverage" }));
     await user.click(screen.getByRole("button", { name: "Exit trace playback" }));
     fireEvent.change(screen.getByRole("slider", { name: "Trace position" }), { target: { value: "3" } });
 
@@ -156,6 +158,7 @@ describe("TracePlaybackBar", () => {
     expect(callbacks.onRestart).toHaveBeenCalledTimes(1);
     expect(callbacks.onSpeedChange).toHaveBeenCalledWith(2);
     expect(callbacks.onInspect).toHaveBeenCalledTimes(1);
+    expect(callbacks.onCoverage).toHaveBeenCalledTimes(1);
     expect(callbacks.onExit).toHaveBeenCalledTimes(1);
     expect(callbacks.onSeek).toHaveBeenCalledWith(2);
   });
