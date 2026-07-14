@@ -83,11 +83,17 @@ export function validateBranchReplay(request: MemoryBranchReplayRequest): void {
   );
   const quarantineIds = new Set(
     request.branch.mutations
-      .filter((mutation) => mutation.type === "quarantine")
+      .filter((mutation) => mutation.type === "quarantine" || mutation.type === "supersede")
       .map((mutation) => mutation.memoryId)
   );
+  const includedIds = request.branch.mutations.flatMap((mutation) => {
+    if (mutation.type === "include") return [mutation.memoryId];
+    if (mutation.type === "supersede") return [mutation.supersededByMemoryId];
+    return [];
+  });
   const allowedIds = new Set([
     ...originalIds,
+    ...includedIds,
     ...[...replacementByOriginal.entries()]
       .filter(([originalId]) => originalIds.has(originalId))
       .map(([, replacementId]) => replacementId)
@@ -104,6 +110,9 @@ export function validateBranchReplay(request: MemoryBranchReplayRequest): void {
   }
   if ([...quarantineIds].some((id) => branchIds.includes(id))) {
     throw new MemoryBranchReplayValidationError("Quarantined memories cannot remain in branch context.");
+  }
+  if (includedIds.some((id) => !branchIds.includes(id))) {
+    throw new MemoryBranchReplayValidationError("Included memories must be present in branch context.");
   }
   for (const [originalId, replacementId] of replacementByOriginal) {
     if (!originalIds.has(originalId)) continue;

@@ -37,6 +37,8 @@ export function applyMemoryBranch(
   const quarantined = new Set<string>();
   const replaced = new Set<string>();
   const added = new Set<string>();
+  const included = new Set<string>();
+  const superseded = new Set<string>();
 
   for (const mutation of branch.mutations) {
     if (!byId.has(mutation.memoryId) && mutation.type !== "restore") {
@@ -59,8 +61,37 @@ export function applyMemoryBranch(
       continue;
     }
 
+    if (mutation.type === "include") {
+      included.add(mutation.memoryId);
+      continue;
+    }
+
+    if (mutation.type === "supersede") {
+      const successor = byId.get(mutation.supersededByMemoryId);
+      const stale = byId.get(mutation.memoryId);
+      if (!successor || !stale) {
+        throw new Error("A supersession must reference two memories in the checkpoint.");
+      }
+      byId.set(mutation.memoryId, {
+        ...stale,
+        status: "superseded",
+        retiredReason: "corrected"
+      });
+      byId.set(mutation.supersededByMemoryId, {
+        ...successor,
+        status: "active",
+        supersedes: [...new Set([...(successor.supersedes ?? []), mutation.memoryId])]
+      });
+      quarantined.add(mutation.memoryId);
+      superseded.add(mutation.memoryId);
+      included.add(mutation.supersededByMemoryId);
+      continue;
+    }
+
     quarantined.delete(mutation.memoryId);
     replaced.delete(mutation.memoryId);
+    included.delete(mutation.memoryId);
+    superseded.delete(mutation.memoryId);
     for (const [id, memory] of byId) {
       if (memory.supersedes?.includes(mutation.memoryId) && added.has(id)) {
         byId.delete(id);
@@ -72,7 +103,7 @@ export function applyMemoryBranch(
   const memories = [...byId.values()].filter((memory) => !quarantined.has(memory.id));
   const memoryIds = new Set(memories.map((memory) => memory.id));
   const loadedMemoryIds = checkpoint.loadedMemoryIds.filter((id) => memoryIds.has(id));
-  const changed = new Set([...quarantined, ...added]);
+  const changed = new Set([...quarantined, ...added, ...included, ...superseded]);
 
   return deepFreeze({
     checkpoint,
@@ -83,6 +114,8 @@ export function applyMemoryBranch(
       quarantinedMemoryIds: [...quarantined],
       replacedMemoryIds: [...replaced],
       addedMemoryIds: [...added],
+      includedMemoryIds: [...included],
+      supersededMemoryIds: [...superseded],
       unchangedMemoryIds: checkpoint.memories
         .map((memory) => memory.id)
         .filter((id) => !changed.has(id))
@@ -124,8 +157,21 @@ export function branchContextMemories(
       )
       .map((mutation) => [mutation.memoryId, mutation.replacement])
   );
+  const excludedIds = new Set(
+    branch.mutations
+      .filter((mutation) => mutation.type === "quarantine" || mutation.type === "supersede")
+      .map((mutation) => mutation.memoryId)
+  );
+  const includedIds = new Set(
+    branch.mutations.flatMap((mutation) => {
+      if (mutation.type === "include") return [mutation.memoryId];
+      if (mutation.type === "supersede") return [mutation.supersededByMemoryId];
+      return [];
+    })
+  );
 
-  return record.retrievedMemories.flatMap((memory) => {
+  const baseline = record.retrievedMemories.flatMap((memory) => {
+    if (excludedIds.has(memory.id)) return [];
     const replacement = replacements.get(memory.id);
     if (replacement && materializedById.has(replacement.id)) {
       return [structuredClone(replacement)];
@@ -134,6 +180,13 @@ export function branchContextMemories(
     const current = materializedById.get(memory.id);
     return current ? [structuredClone(current)] : [];
   });
+
+  const presentIds = new Set(baseline.map((memory) => memory.id));
+  const additions = [...includedIds].flatMap((id) => {
+    const memory = materializedById.get(id);
+    return memory && !presentIds.has(id) ? [structuredClone(memory)] : [];
+  });
+  return [...baseline, ...additions];
 }
 
 function stableHash(value: string): string {

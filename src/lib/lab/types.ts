@@ -47,6 +47,19 @@ export type MemoryBranchMutation =
       type: "restore";
       memoryId: string;
       reason: string;
+    }
+  | {
+      id: string;
+      type: "include";
+      memoryId: string;
+      reason: string;
+    }
+  | {
+      id: string;
+      type: "supersede";
+      memoryId: string;
+      supersededByMemoryId: string;
+      reason: string;
     };
 
 export type MemoryBranch = {
@@ -62,6 +75,8 @@ export type MemoryBranchDiff = {
   quarantinedMemoryIds: string[];
   replacedMemoryIds: string[];
   addedMemoryIds: string[];
+  includedMemoryIds: string[];
+  supersededMemoryIds: string[];
   unchangedMemoryIds: string[];
 };
 

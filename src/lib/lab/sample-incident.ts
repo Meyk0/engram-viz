@@ -1,4 +1,7 @@
 import type { TurnRecord } from "@/lib/evidence/types";
+import { buildMemoryIncident } from "@/lib/incidents/build";
+import type { MemoryIncident } from "@/lib/incidents/types";
+import { buildTimelineCheckpoints } from "@/lib/lab/checkpoints";
 import type { MemoryTimelineEntry } from "@/lib/timeline";
 import type { EngramEvent, EngramMemory } from "@/types";
 
@@ -120,4 +123,20 @@ export function createSampleMemoryIncident(): {
       provider: { id: "demo" }
     }
   };
+}
+
+export function createSampleMemoryIncidentCase(): MemoryIncident {
+  const sample = createSampleMemoryIncident();
+  const checkpoint = buildTimelineCheckpoints(
+    [sample.entry],
+    { [sample.entry.id]: sample.record }
+  )[0];
+  if (!checkpoint) throw new Error("The sample incident checkpoint could not be created.");
+
+  return buildMemoryIncident({
+    checkpoint,
+    expectedAnswer: "Oakland",
+    title: "Agent used an outdated location",
+    id: "incident-current-city"
+  });
 }
