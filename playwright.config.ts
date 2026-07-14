@@ -3,9 +3,9 @@ import { defineConfig, devices } from "@playwright/test";
 export default defineConfig({
   testDir: "./src/test/smoke",
   fullyParallel: true,
-  // Concurrent WebGL scenes compete heavily for CPU/GPU time in CI and make
-  // animation-driven assertions flaky without improving coverage.
-  workers: 2,
+  // Hosted runners use one WebGL context per shard; local machines can safely
+  // exercise two browser workers for a faster feedback loop.
+  workers: process.env.CI ? 1 : 2,
   reporter: "list",
   use: {
     baseURL: "http://127.0.0.1:3100",
