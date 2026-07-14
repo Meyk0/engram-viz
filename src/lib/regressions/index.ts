@@ -5,6 +5,8 @@ export {
   replayResultsFromBranchReplay,
   serializeMemoryRegressionArtifact
 } from "@/lib/regressions/artifact";
+export * from "@/lib/regressions/engram-executor";
+export * from "@/lib/regressions/run";
 export {
   memoryRegressionArtifactSchema,
   memoryRegressionObservationSchema
@@ -15,4 +17,3 @@ export type {
   MemoryRegressionObservation,
   MemoryRegressionReplayResult
 } from "@/lib/regressions/types";
-

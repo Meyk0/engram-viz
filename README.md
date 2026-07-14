@@ -15,10 +15,12 @@ trace player, and experimentation environment.
 - **Learn:** run a deterministic memory lifecycle and see new, working, and stable memory represented
   through an anatomical metaphor.
 - **Observe:** import recorded agent traces or stream supported OpenAI Agents SDK spans into a flight
-  recorder. Explicit events remain distinguished from operations mapped by an adapter.
+  recorder. Inspect instrumentation coverage so missing telemetry remains a visible blind spot.
+  Explicit events remain distinguished from operations mapped by an adapter.
 - **Investigate:** inspect retrieval candidates with Retrieval MRI, replay an answer with a memory
   omitted, branch from an immutable checkpoint, scan memory integrity, review Dream proposals, and
-  follow memory movement across multiple agents.
+  follow memory movement across multiple agents. A repaired branch can be exported as a validated,
+  portable `.engram-test.json` regression artifact.
 
 ## Evidence Boundaries
 
@@ -35,14 +37,19 @@ Engram is deliberately narrow about what its evidence proves:
 
 ## Status
 
-Engram is an advanced engineering prototype, not a production telemetry service. Session and live-trace
-state are currently process-local; there is no login, durable persistence, tenant isolation, or
-production-grade ingestion guarantee. Deterministic demo mode and mocked providers keep normal tests
-repeatable.
+Engram is an advanced engineering prototype, not a hosted production telemetry service. The interactive
+chat session and legacy live flight-recorder channel remain process-local. The provider-neutral telemetry
+v2 path adds hashed bearer-key authentication, fixed tenant/project boundaries, idempotent cursor-based
+ingestion, and optional server-only Supabase persistence. Engram still has no end-user login, billing,
+distributed quota service, or managed retention policy. Deterministic demo mode and mocked providers keep
+normal tests repeatable.
 
 The architecture and current evidence model are described in
 [`docs/engram-lab-architecture.md`](docs/engram-lab-architecture.md). The live Agents SDK integration is
-documented in [`docs/flight-recorder.md`](docs/flight-recorder.md).
+documented in [`docs/flight-recorder.md`](docs/flight-recorder.md). See
+[`docs/memory-telemetry-v2.md`](docs/memory-telemetry-v2.md),
+[`docs/telemetry-ingestion.md`](docs/telemetry-ingestion.md), and
+[`docs/replay-fidelity.md`](docs/replay-fidelity.md) for the production-facing contracts and their limits.
 
 ## Development
 
@@ -86,6 +93,7 @@ OpenAI calls are server-side only. Normal tests use mocked providers and do not 
 npm run typecheck
 npm run lint
 npm test
+npm run test:regressions
 npm run eval:memory
 npm run build
 npm run smoke
@@ -93,6 +101,9 @@ npm run smoke
 
 `npm run eval:memory` runs deterministic memory scenarios covering storage decisions, retrieval
 relevance, correction behavior, and consolidation without calling a live model.
+
+`npm run test:regressions` validates checked-in portable regression artifacts against Engram's named
+lexical/demo harness. It does not claim to replay a production vector store or model provider.
 
 ## Provider Direction
 
