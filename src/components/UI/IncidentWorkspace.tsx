@@ -3,6 +3,7 @@ import {
   ArrowRight,
   Check,
   ChevronDown,
+  Clipboard,
   Download,
   FileSearch,
   FlaskConical,
@@ -14,7 +15,10 @@ import {
   X
 } from "lucide-react";
 import { causalAblationResultSchema, memoryBranchReplayResultSchema } from "@/lib/events/schema";
+import type { LocalIncidentTraceStatus } from "@/hooks/useLocalIncidentTraces";
 import { buildIncidentInterventions } from "@/lib/incidents/interventions";
+import { answerSupportsExpectation, expectedAnswerFragments } from "@/lib/incidents/expectations";
+import { buildSourceRemediationRecipe } from "@/lib/incidents/remediation";
 import type {
   MemoryIncident,
   MemoryIncidentIntervention,
@@ -22,6 +26,7 @@ import type {
 } from "@/lib/incidents/types";
 import { applyMemoryBranch, branchContextMemories, createMemoryBranch } from "@/lib/lab/branches";
 import type { MemoryBranchReplayResult, MemoryCheckpoint } from "@/lib/lab/types";
+import type { NormalizedTrace } from "@/lib/traces/types";
 import {
   createMemoryRegressionArtifact,
   replayResultsFromBranchReplay,
@@ -33,8 +38,12 @@ import "./incident-workspace.css";
 type IncidentWorkspaceProps = {
   checkpoints?: MemoryCheckpoint[];
   incident?: MemoryIncident;
+  localTraceError?: string;
+  localTraceStatus?: LocalIncidentTraceStatus;
+  localTraces?: NormalizedTrace[];
   onClose: () => void;
   onCreateIncident?: (checkpoint: MemoryCheckpoint, expectedAnswer: string) => void;
+  onCreateTraceIncident?: (trace: NormalizedTrace, expectedAnswer: string) => void;
   onFocus: (memoryIds: string[], regions?: BrainRegion[]) => void;
   onImportTrace: () => void;
   onLoadSample: () => void;
@@ -45,8 +54,12 @@ type IncidentWorkspaceProps = {
 export function IncidentWorkspace({
   checkpoints = [],
   incident,
+  localTraceError,
+  localTraceStatus = "unavailable",
+  localTraces = [],
   onClose,
   onCreateIncident,
+  onCreateTraceIncident,
   onFocus,
   onImportTrace,
   onLoadSample,
@@ -78,6 +91,8 @@ export function IncidentWorkspace({
     () => replayableCheckpoints.at(-1)?.id
   );
   const [expectedAnswer, setExpectedAnswer] = useState("");
+  const [selectedTraceId, setSelectedTraceId] = useState<string | undefined>();
+  const [recipeCopied, setRecipeCopied] = useState(false);
 
   if (!incident) {
     return (
@@ -88,8 +103,67 @@ export function IncidentWorkspace({
           <span>Memory incident workspace</span>
           <h2>Start with a bad agent answer</h2>
           <p>
-            Select a recorded answer from this session, or import a trace from another agent run.
+            Select a captured answer, state what should have happened, and Engram will reconstruct the memory failure.
           </p>
+          {localTraceStatus !== "unavailable" ? (
+            <section className="incident-recorded-turns" aria-label="Captured agent turns">
+              <div>
+                <strong>Captured agent turns</strong>
+                <span>Live from the local Engram SDK.</span>
+              </div>
+              {localTraces.length > 0 && onCreateTraceIncident ? (
+                <div className="incident-recorded-list">
+                  {localTraces.slice(-5).reverse().map((trace) => (
+                    <button
+                      aria-pressed={(selectedTraceId ?? localTraces.at(-1)?.trace.id) === trace.trace.id}
+                      data-selected={(selectedTraceId ?? localTraces.at(-1)?.trace.id) === trace.trace.id}
+                      key={trace.trace.id}
+                      onClick={() => setSelectedTraceId(trace.trace.id)}
+                      type="button"
+                    >
+                      <strong>{trace.trace.name}</strong>
+                      <span>{traceAnswerPreview(trace)}</span>
+                      <small>{trace.trace.source.provider} · {trace.steps.length} recorded steps</small>
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <p className="incident-capture-status">
+                  {localTraceStatus === "loading"
+                    ? "Checking for captured turns..."
+                    : localTraceStatus === "error"
+                      ? localTraceError ?? "Capture is temporarily unavailable."
+                      : "Waiting for your agent. Run it with the Engram SDK, then return here."}
+                </p>
+              )}
+              {localTraces.length > 0 && onCreateTraceIncident ? (
+                <>
+                  <label htmlFor="incident-local-expected-answer">Expected answer evidence</label>
+                  <input
+                    id="incident-local-expected-answer"
+                    onChange={(event) => setExpectedAnswer(event.target.value)}
+                    placeholder="Key fact the answer should contain, e.g. Oakland"
+                    value={expectedAnswer}
+                  />
+                  <div className="incident-recorded-actions">
+                    <button
+                      className="incident-primary-action"
+                      disabled={!expectedAnswer.trim()}
+                      onClick={() => {
+                        const trace = localTraces.find(
+                          (candidate) => candidate.trace.id === (selectedTraceId ?? localTraces.at(-1)?.trace.id)
+                        );
+                        if (trace) onCreateTraceIncident(trace, expectedAnswer.trim());
+                      }}
+                      type="button"
+                    >
+                      <FileSearch size={13} /> Diagnose captured turn
+                    </button>
+                  </div>
+                </>
+              ) : null}
+            </section>
+          ) : null}
           {replayableCheckpoints.length > 0 && onCreateIncident ? (
             <section className="incident-recorded-turns" aria-label="Recorded answers">
               <div>
@@ -110,11 +184,11 @@ export function IncidentWorkspace({
                   </button>
                 ))}
               </div>
-              <label htmlFor="incident-expected-answer">Expected answer</label>
+              <label htmlFor="incident-expected-answer">Expected answer evidence</label>
               <input
                 id="incident-expected-answer"
                 onChange={(event) => setExpectedAnswer(event.target.value)}
-                placeholder="What should the agent have answered?"
+                placeholder="Key fact the answer should contain, e.g. Oakland"
                 value={expectedAnswer}
               />
               <div className="incident-recorded-actions">
@@ -191,9 +265,12 @@ export function IncidentWorkspace({
       })
     : undefined;
   const materialized = branch ? applyMemoryBranch(incident.checkpoint, branch) : undefined;
+  const remediationRecipe = selectedIntervention
+    ? buildSourceRemediationRecipe(incident, selectedIntervention)
+    : undefined;
   const replayVerified = replayResult
     ? incident.expectedAnswer
-      ? contains(replayResult.branchAnswer, incident.expectedAnswer)
+      ? answerSupportsExpectation(replayResult.branchAnswer, incident.expectedAnswer)
       : replayResult.changed
     : false;
   const currentStep = regressionSaved ? 5 : replayResult ? 4 : selectedIntervention ? 3 : 2;
@@ -297,7 +374,7 @@ export function IncidentWorkspace({
           maxLoaded: replayResult.branchMemoryIds.length
         },
         answer: {
-          contains: incident.expectedAnswer ? [incident.expectedAnswer] : [],
+          contains: incident.expectedAnswer ? expectedAnswerFragments(incident.expectedAnswer) : [],
           notContains: removedMemories.flatMap((memory) => memory.entities ?? []).slice(0, 5)
         }
       },
@@ -464,6 +541,31 @@ export function IncidentWorkspace({
           {replayError ? <p className="incident-error">{replayError}</p> : null}
         </section>
 
+        {remediationRecipe ? (
+          <section className="incident-section incident-source-repair" aria-labelledby="incident-source-repair-title">
+            <SectionHeading
+              eyebrow="Source-safe"
+              title={remediationRecipe.title}
+              detail={remediationRecipe.summary}
+            />
+            <div className="incident-source-repair-heading" id="incident-source-repair-title">
+              <span>{remediationRecipe.provider}</span>
+              <button
+                onClick={() => {
+                  void navigator.clipboard.writeText(remediationRecipe.code);
+                  setRecipeCopied(true);
+                  window.setTimeout(() => setRecipeCopied(false), 1_500);
+                }}
+                type="button"
+              >
+                <Clipboard size={12} /> {recipeCopied ? "Copied" : "Copy recipe"}
+              </button>
+            </div>
+            <pre><code>{remediationRecipe.code}</code></pre>
+            <p>{remediationRecipe.warning}</p>
+          </section>
+        ) : null}
+
         {replayResult ? (
           <section className="incident-section incident-replay" aria-labelledby="incident-replay-title">
             <SectionHeading
@@ -531,10 +633,35 @@ export function IncidentWorkspace({
 function WorkspaceHeader({ onClose }: { onClose: () => void }) {
   return (
     <header className="incident-workspace-header">
-      <div><FileSearch size={13} /><span>Memory incident</span></div>
+      <div><FileSearch size={13} /><span>Engram / Memory incident</span><small>Recorded evidence · isolated branches</small></div>
       <button type="button" onClick={onClose} aria-label="Close incident workspace"><X size={15} /></button>
     </header>
   );
+}
+
+function traceAnswerPreview(trace: NormalizedTrace) {
+  for (let index = trace.steps.length - 1; index >= 0; index -= 1) {
+    const text = jsonText(trace.steps[index]?.output);
+    if (text) return text;
+  }
+  return "No answer captured";
+}
+
+function jsonText(value: unknown): string | undefined {
+  if (typeof value === "string") return value.trim() || undefined;
+  if (Array.isArray(value)) {
+    for (let index = value.length - 1; index >= 0; index -= 1) {
+      const text = jsonText(value[index]);
+      if (text) return text;
+    }
+  }
+  if (value && typeof value === "object") {
+    for (const key of ["content", "text", "answer", "output"]) {
+      const text = jsonText((value as Record<string, unknown>)[key]);
+      if (text) return text;
+    }
+  }
+  return undefined;
 }
 
 function WorkflowProgress({ current }: { current: number }) {
@@ -574,10 +701,6 @@ function formatContextDiff(result: MemoryBranchReplayResult) {
   const removed = [...before].filter((id) => !after.has(id));
   const added = [...after].filter((id) => !before.has(id));
   return `${removed.length ? `-${removed.join(", -")}` : "no removals"} · ${added.length ? `+${added.join(", +")}` : "no additions"}`;
-}
-
-function contains(value: string, expected: string) {
-  return value.toLocaleLowerCase().includes(expected.toLocaleLowerCase());
 }
 
 function uniqueMemories<T extends { id: string }>(memories: T[]) {

@@ -17,6 +17,7 @@ import { useSemanticLayout } from "@/hooks/useSemanticLayout";
 import { useLiveTraceRecorder } from "@/hooks/useLiveTraceRecorder";
 import { useTracePlayback } from "@/hooks/useTracePlayback";
 import { useGuidedDemoPlayback } from "@/hooks/useGuidedDemoPlayback";
+import { useLocalIncidentTraces } from "@/hooks/useLocalIncidentTraces";
 import { Brain3D } from "@/components/Brain/Brain3D";
 import { ActiveContextPanel } from "@/components/UI/ActiveContextPanel";
 import { AgentTopologyPanel } from "@/components/UI/AgentTopologyPanel";
@@ -126,6 +127,16 @@ export function EngramApp({ recordingMode = false }: EngramAppProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const activeTimelineEntryId = useRef<string | undefined>(undefined);
   const turnInFlight = useRef(false);
+  const localIncidentTraces = useLocalIncidentTraces(productMode === "investigate");
+
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get("mode") !== "incidents") return;
+    const frame = window.requestAnimationFrame(() => {
+      setProductMode("investigate");
+      setActivePanel("incident");
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, []);
   const {
     error: causalError,
     pending: causalPending,
@@ -842,6 +853,31 @@ export function EngramApp({ recordingMode = false }: EngramAppProps) {
     setIncidentFocusPulseKey((current) => current + 1);
   }, []);
 
+  const createIncidentFromLocalTrace = useCallback((trace: NormalizedTrace, expectedAnswer: string) => {
+    const incident = buildMemoryIncidentFromTrace(trace, { expectedAnswer });
+    if (isStreaming) cancel();
+    clearConversationState();
+    tracePlayback.restart();
+    incident.checkpoint.events.forEach(pushEvent);
+    setActiveIncident(incident);
+    setProductMode("investigate");
+    setActivePanel("incident");
+    setIncidentFocusMemoryIds(incident.diagnosis.memoryIds);
+    setIncidentFocusRegions([
+      ...new Set(
+        incident.diagnosis.memoryIds.flatMap((id) => {
+          const memory = incident.memories.find((candidate) => candidate.id === id);
+          return memory ? [memory.region] : [];
+        })
+      ),
+      ...(incident.diagnosis.stage === "retrieval" || incident.diagnosis.stage === "active_context"
+        ? ["prefrontal" as const]
+        : [])
+    ]);
+    setIncidentFocusPulseKey((current) => current + 1);
+    setTraceSceneEpoch((current) => current + 1);
+  }, [cancel, clearConversationState, isStreaming, pushEvent, tracePlayback]);
+
   const openIncidentTool = useCallback((tool: "timeMachine" | "integrity" | "retrieval" | "trace") => {
     if (tool === "trace" && !importedTrace) {
       openTraceImport();
@@ -1130,8 +1166,12 @@ export function EngramApp({ recordingMode = false }: EngramAppProps) {
           key={activeIncident?.id ?? "empty-incident"}
           checkpoints={memoryCheckpoints}
           incident={activeIncident}
+          localTraceError={localIncidentTraces.error}
+          localTraceStatus={localIncidentTraces.status}
+          localTraces={localIncidentTraces.traces}
           onClose={closeSecondaryPanel}
           onCreateIncident={createIncidentFromCheckpoint}
+          onCreateTraceIncident={createIncidentFromLocalTrace}
           onFocus={focusIncidentEvidence}
           onImportTrace={openIncidentTraceImport}
           onLoadSample={loadSampleIncident}

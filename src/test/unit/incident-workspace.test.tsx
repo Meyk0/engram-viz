@@ -13,6 +13,47 @@ afterEach(() => {
 });
 
 describe("IncidentWorkspace", () => {
+  it("promotes a locally captured SDK turn into an incident", async () => {
+    const user = userEvent.setup();
+    const onCreateTraceIncident = vi.fn();
+    const trace = {
+      schemaVersion: 1 as const,
+      trace: {
+        id: "trace-local",
+        name: "What city do I live in now?",
+        source: { provider: "openai", format: "engram.telemetry.v2" }
+      },
+      steps: [{
+        id: "answer",
+        index: 0,
+        kind: "model" as const,
+        name: "openai",
+        status: "completed" as const,
+        output: { role: "assistant", content: "You live in San Francisco." },
+        memoryMappings: []
+      }]
+    };
+
+    render(
+      <IncidentWorkspace
+        localTraceStatus="ready"
+        localTraces={[trace]}
+        onClose={vi.fn()}
+        onCreateTraceIncident={onCreateTraceIncident}
+        onFocus={vi.fn()}
+        onImportTrace={vi.fn()}
+        onLoadSample={vi.fn()}
+        onOpenTool={vi.fn()}
+        onSaveRegression={vi.fn()}
+      />
+    );
+
+    expect(screen.getByLabelText("Captured agent turns")).toHaveTextContent("You live in San Francisco.");
+    await user.type(screen.getByLabelText("Expected answer evidence"), "You live in Oakland.");
+    await user.click(screen.getByRole("button", { name: "Diagnose captured turn" }));
+    expect(onCreateTraceIncident).toHaveBeenCalledWith(trace, "You live in Oakland.");
+  });
+
   it("presents one clear entry path while preserving trace import", async () => {
     const user = userEvent.setup();
     const onLoadSample = vi.fn();
@@ -67,7 +108,7 @@ describe("IncidentWorkspace", () => {
     );
     const diagnose = screen.getByRole("button", { name: "Diagnose this turn" });
     expect(diagnose).toBeDisabled();
-    await user.type(screen.getByLabelText("Expected answer"), "Oakland");
+    await user.type(screen.getByLabelText("Expected answer evidence"), "Oakland");
     await user.click(diagnose);
 
     expect(onCreateIncident).toHaveBeenCalledWith(checkpoints[0], "Oakland");

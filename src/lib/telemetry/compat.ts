@@ -171,6 +171,8 @@ function telemetryMemoryToEngram(memory: TelemetryMemoryRef, timestamp: string):
   return {
     id: memory.id,
     text: typeof memory.content === "string" ? memory.content : JSON.stringify(memory.content ?? "Imported memory"),
+    ...(memory.provider ? { provider: memory.provider } : {}),
+    ...(memory.storeId ? { storeId: memory.storeId } : {}),
     importance: numberMetadata(metadata.importance, 0.5),
     region,
     created_at: stringMetadata(metadata.createdAt, timestamp),

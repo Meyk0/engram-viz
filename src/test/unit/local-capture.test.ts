@@ -81,6 +81,7 @@ describe("local agent capture", () => {
 
     expect(incident.question).toBe("What city do I live in now?");
     expect(incident.record.retrievedMemories.map((memory) => memory.id)).toEqual(["memory-sf"]);
+    expect(incident.record.retrievedMemories[0]?.provider).toBe("mem0");
     expect(incident.memories.map((memory) => memory.id)).toContain("memory-oak");
     expect(incident.evidence.find((item) => item.stage === "retrieval")?.origin).toBe("observed");
     expect(incident.evidence.find((item) => item.stage === "active_context")?.origin).toBe("observed");

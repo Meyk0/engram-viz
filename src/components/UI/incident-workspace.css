@@ -34,6 +34,14 @@
   text-transform: uppercase;
 }
 
+.incident-workspace-header > div small {
+  margin-left: 8px;
+  color: rgba(173, 199, 228, 0.34);
+  font-size: 7px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+}
+
 .incident-workspace-header button,
 .incident-workspace button {
   border: 1px solid rgba(0, 212, 255, 0.14);
@@ -828,7 +836,8 @@
 }
 
 .incident-recorded-list strong,
-.incident-recorded-list span {
+.incident-recorded-list span,
+.incident-recorded-list small {
   max-width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -845,6 +854,72 @@
   color: rgba(173, 195, 222, 0.46);
   font-family: Inter, ui-sans-serif, system-ui, sans-serif;
   font-size: 8px;
+}
+
+.incident-recorded-list small {
+  margin-top: 5px;
+  color: rgba(95, 204, 236, 0.42);
+  font-size: 7px;
+  letter-spacing: 0.05em;
+}
+
+.incident-capture-status {
+  margin: 2px 0 0;
+  color: rgba(174, 200, 229, 0.54);
+  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+  font-size: 9px;
+  line-height: 1.5;
+}
+
+.incident-source-repair {
+  border-color: rgba(20, 241, 149, 0.14);
+}
+
+.incident-source-repair-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.incident-source-repair-heading > span {
+  color: rgba(20, 241, 149, 0.72);
+  font-size: 7px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.incident-source-repair-heading button {
+  display: inline-flex;
+  min-height: 28px;
+  align-items: center;
+  gap: 6px;
+  padding: 0 9px;
+  font-size: 7px;
+}
+
+.incident-source-repair pre {
+  max-width: 100%;
+  margin: 8px 0 0;
+  padding: 11px;
+  overflow-x: auto;
+  border: 1px solid rgba(20, 241, 149, 0.1);
+  border-radius: 5px;
+  background: rgba(1, 7, 14, 0.82);
+  color: rgba(194, 236, 219, 0.75);
+  font-size: 8px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+}
+
+.incident-source-repair > p:last-child {
+  margin: 8px 0 0;
+  color: rgba(245, 177, 111, 0.58);
+  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+  font-size: 8px;
+  line-height: 1.45;
 }
 
 .incident-recorded-turns > label {

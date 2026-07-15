@@ -5,6 +5,8 @@ export const brainRegionSchema = z.enum(["prefrontal", "hippocampus", "temporal"
 export const engramMemorySchema = z.object({
   id: z.string().min(1),
   text: z.string().min(1),
+  provider: z.string().min(1).optional(),
+  storeId: z.string().min(1).optional(),
   importance: z.number().min(0).max(1),
   topic: z.string().min(1).optional(),
   kind: z.string().min(1).optional(),

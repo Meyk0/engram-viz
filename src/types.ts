@@ -65,6 +65,8 @@ export type DreamProposal = {
 export type EngramMemory = {
   id: string;
   text: string;
+  provider?: string;
+  storeId?: string;
   importance: number;
   topic?: string;
   kind?: string;
