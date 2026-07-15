@@ -360,8 +360,10 @@ function diagnosis(
 function findStaleSelection(selected: EngramMemory[], ignored: EngramMemory[]) {
   for (const stale of selected) {
     const newer = ignored
-      .filter((candidate) => sameMemorySubject(stale, candidate))
-      .filter((candidate) => Date.parse(candidate.created_at) > Date.parse(stale.created_at))
+      .filter((candidate) =>
+        candidate.supersedes?.includes(stale.id) ||
+        (sameMemorySubject(stale, candidate) && Date.parse(candidate.created_at) > Date.parse(stale.created_at))
+      )
       .sort((left, right) => Date.parse(right.created_at) - Date.parse(left.created_at))[0];
     if (newer) return { stale, newer };
   }

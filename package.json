@@ -1,18 +1,24 @@
 {
   "name": "engram-viz",
   "version": "0.1.0",
-  "description": "A 3D brain visualizer that makes LLM memory visible in real time.",
+  "description": "Open-source memory reliability and replay for AI agents.",
   "private": true,
+  "workspaces": [
+    "packages/*"
+  ],
   "directories": {
     "doc": "docs"
   },
   "scripts": {
+    "predev": "npm run build:packages",
     "dev": "next dev",
+    "engram": "node packages/cli/bin/engram.mjs",
+    "build:packages": "npm run build --workspaces --if-present",
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run",
+    "test": "npm run build:packages && vitest run",
     "eval:memory": "vitest run src/test/unit/memory-evals.test.ts --reporter=verbose",
     "test:regressions": "vitest run src/test/unit/checked-memory-regressions.test.ts --reporter=verbose",
     "test:watch": "vitest",
@@ -26,6 +32,9 @@
   "keywords": [
     "llm",
     "memory",
+    "observability",
+    "reliability",
+    "replay",
     "threejs",
     "visualization"
   ],
@@ -37,6 +46,7 @@
   },
   "homepage": "https://github.com/Meyk0/engram-viz#readme",
   "dependencies": {
+    "@engramviz/core": "*",
     "@react-three/drei": "^10.7.7",
     "@react-three/fiber": "^9.6.1",
     "@react-three/postprocessing": "^3.0.4",

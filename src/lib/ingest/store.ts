@@ -7,6 +7,7 @@ import type {
   TelemetryReadResult,
   TelemetryTenantContext
 } from "@/lib/ingest/types";
+import { FileMemoryTelemetryStore } from "@/lib/ingest/file-store";
 
 const TELEMETRY_TABLE = "memory_telemetry_events";
 const DEFAULT_MEMORY_CAPACITY = 10_000;
@@ -34,6 +35,7 @@ export type SupabaseMemoryTelemetryStoreOptions = {
 };
 
 export type MemoryTelemetryStoreEnvironment = {
+  ENGRAM_LOCAL_DATA_DIR?: string;
   SUPABASE_URL?: string;
   SUPABASE_SECRET_KEY?: string;
   SUPABASE_SERVICE_ROLE_KEY?: string;
@@ -374,9 +376,20 @@ export function createMemoryTelemetryStoreFromEnv(
   options: MemoryTelemetryStoreFromEnvOptions = {}
 ): MemoryTelemetryStore {
   const env = options.env ?? process.env;
+  const localDirectory = env.ENGRAM_LOCAL_DATA_DIR?.trim();
   const url = env.SUPABASE_URL?.trim();
   const secretKey = env.SUPABASE_SECRET_KEY?.trim() ||
     env.SUPABASE_SERVICE_ROLE_KEY?.trim();
+
+  if (localDirectory && (url || secretKey)) {
+    throw new MemoryTelemetryStoreConfigurationError(
+      "Choose either ENGRAM_LOCAL_DATA_DIR or Supabase telemetry storage, not both."
+    );
+  }
+
+  if (localDirectory) {
+    return new FileMemoryTelemetryStore({ directory: localDirectory, now: options.now });
+  }
 
   if (url && secretKey) {
     return createSupabaseMemoryTelemetryStore({

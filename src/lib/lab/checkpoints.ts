@@ -76,7 +76,16 @@ export function latestLoadedMemoryIds(events: readonly EngramEvent[]): string[] 
 }
 
 function materializeMemories(events: readonly EngramEvent[]) {
-  return getVisibleMemories([...events].reverse()).map((memory) => structuredClone(memory));
+  const memories = new Map(
+    getVisibleMemories([...events].reverse()).map((memory) => [memory.id, structuredClone(memory)])
+  );
+  // Forensic checkpoints retain an inactive memory if the provider still retrieved it.
+  // The live brain remains filtered to active memories, while an incident can explain stale selection.
+  for (const event of events) {
+    if (event.type !== "retrieve") continue;
+    for (const memory of event.accessed ?? []) memories.set(memory.id, structuredClone(memory));
+  }
+  return [...memories.values()];
 }
 
 function compactLabel(value: string) {
@@ -93,4 +102,3 @@ function deepFreeze<T>(value: T): T {
   Object.values(value).forEach(deepFreeze);
   return Object.freeze(value);
 }
-

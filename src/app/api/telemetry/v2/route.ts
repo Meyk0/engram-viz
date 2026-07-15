@@ -4,7 +4,7 @@ import {
   parseTelemetryIngestKeys,
   TelemetryIngestAuthConfigurationError
 } from "@/lib/ingest/auth";
-import { createMemoryTelemetryStoreFromEnv } from "@/lib/ingest/store";
+import { getMemoryTelemetryStore } from "@/lib/ingest/runtime";
 import type { MemoryTelemetryStore, TelemetryTenantContext } from "@/lib/ingest/types";
 import { parseMemoryTelemetryEvent } from "@/lib/telemetry";
 
@@ -113,11 +113,7 @@ export function createTelemetryV2Handlers(dependencies: TelemetryIngestDependenc
   return { GET, OPTIONS, POST };
 }
 
-const globalStore = globalThis as typeof globalThis & {
-  __engramMemoryTelemetryStore?: MemoryTelemetryStore;
-};
-const defaultStore = globalStore.__engramMemoryTelemetryStore ?? createMemoryTelemetryStoreFromEnv();
-globalStore.__engramMemoryTelemetryStore = defaultStore;
+const defaultStore = getMemoryTelemetryStore();
 
 const handlers = createTelemetryV2Handlers({
   store: defaultStore,
