@@ -57,6 +57,13 @@ export type CaptureMutation = {
   reason?: string;
 };
 
+export type CaptureEvidence = {
+  level?: "observed" | "mapped";
+  adapter?: string;
+  sourcePath?: string;
+  note?: string;
+};
+
 type TurnCallbackResult = string | { output: string };
 
 const activeTurnStorage = new AsyncLocalStorage<EngramTurn>();
@@ -181,15 +188,15 @@ export class EngramTurn {
     this.metadata = options.metadata;
   }
 
-  store(memory: CaptureMemory) {
-    return this.memoryEvent("store", { memory: normalizeMemory(memory) });
+  store(memory: CaptureMemory, evidence?: CaptureEvidence) {
+    return this.memoryEvent("store", { memory: normalizeMemory(memory) }, evidence);
   }
 
-  update(memory: CaptureMemory, mutation: CaptureMutation = {}) {
-    return this.memoryEvent("update", { memory: normalizeMemory(memory), mutation });
+  update(memory: CaptureMemory, mutation: CaptureMutation = {}, evidence?: CaptureEvidence) {
+    return this.memoryEvent("update", { memory: normalizeMemory(memory), mutation }, evidence);
   }
 
-  retrieve(input: CaptureRetrieval) {
+  retrieve(input: CaptureRetrieval, evidence?: CaptureEvidence) {
     const selectedIds = input.selectedIds ?? input.candidates?.filter((candidate) => candidate.selected).map((candidate) => candidate.memoryId) ?? [];
     return this.memoryEvent("retrieve", {
       memoryIds: selectedIds,
@@ -199,32 +206,32 @@ export class EngramTurn {
         ...(input.candidates ? { candidates: input.candidates } : {}),
         selectedIds
       }
-    });
+    }, evidence);
   }
 
-  load(memoryIds: readonly string[]) {
+  load(memoryIds: readonly string[], evidence?: CaptureEvidence) {
     const ids = uniqueIds(memoryIds);
     if (ids.length === 0) return Promise.resolve(undefined);
-    return this.memoryEvent("load", { memoryIds: ids, retrieval: { loadedIds: ids } });
+    return this.memoryEvent("load", { memoryIds: ids, retrieval: { loadedIds: ids } }, evidence);
   }
 
-  supersede(memoryIds: readonly string[], reason?: string) {
+  supersede(memoryIds: readonly string[], reason?: string, evidence?: CaptureEvidence) {
     const ids = uniqueIds(memoryIds);
     return this.memoryEvent("supersede", {
       memoryIds: ids,
       ...(reason ? { mutation: { sourceMemoryIds: ids, reason } } : {})
-    });
+    }, evidence);
   }
 
-  delete(memoryIds: readonly string[], reason?: string) {
+  delete(memoryIds: readonly string[], reason?: string, evidence?: CaptureEvidence) {
     const ids = uniqueIds(memoryIds);
     return this.memoryEvent("delete", {
       memoryIds: ids,
       ...(reason ? { mutation: { sourceMemoryIds: ids, reason } } : {})
-    });
+    }, evidence);
   }
 
-  summarize(memory: CaptureMemory, sourceMemoryIds: readonly string[], reason?: string) {
+  summarize(memory: CaptureMemory, sourceMemoryIds: readonly string[], reason?: string, evidence?: CaptureEvidence) {
     return this.memoryEvent("summarize", {
       memory: normalizeMemory({ ...memory, tier: memory.tier ?? "semantic" }),
       mutation: {
@@ -232,7 +239,7 @@ export class EngramTurn {
         targetMemoryIds: [memory.id],
         ...(reason ? { reason } : {})
       }
-    });
+    }, evidence);
   }
 
   complete(output: string) {
@@ -261,7 +268,8 @@ export class EngramTurn {
 
   private async memoryEvent(
     operation: MemoryTelemetryOperation,
-    fields: Partial<Pick<MemoryTelemetryEvent, "memory" | "memoryIds" | "retrieval" | "mutation">>
+    fields: Partial<Pick<MemoryTelemetryEvent, "memory" | "memoryIds" | "retrieval" | "mutation">>,
+    evidence: CaptureEvidence = {}
   ) {
     const sequence = this.sequence;
     this.sequence += 1;
@@ -276,9 +284,10 @@ export class EngramTurn {
       operation,
       ...fields,
       evidence: {
-        level: "observed",
-        adapter: this.client._adapterName(),
-        sourcePath: `EngramTurn.${operation}`
+        level: evidence.level ?? "observed",
+        adapter: evidence.adapter ?? this.client._adapterName(),
+        sourcePath: evidence.sourcePath ?? `EngramTurn.${operation}`,
+        ...(evidence.note ? { note: evidence.note } : {})
       }
     };
     const emitted = await this.client.emit(event);

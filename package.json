@@ -13,7 +13,7 @@
     "predev": "npm run build:packages",
     "dev": "next dev",
     "engram": "npm run build:packages && node packages/cli/bin/engram.mjs",
-    "build:packages": "npm run build --workspaces --if-present",
+    "build:packages": "npm run build -w @engramviz/core && npm run build -w @engramviz/sdk && npm run build -w @engramviz/adapter-mem0 && npm run build -w @engramviz/cli",
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
@@ -47,6 +47,7 @@
   "homepage": "https://github.com/Meyk0/engram-viz#readme",
   "dependencies": {
     "@engramviz/core": "*",
+    "@engramviz/adapter-mem0": "*",
     "@engramviz/sdk": "*",
     "@react-three/drei": "^10.7.7",
     "@react-three/fiber": "^9.6.1",
