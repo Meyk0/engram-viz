@@ -25,8 +25,8 @@ jobs:
       - run: node scripts/verify-release-version.mjs "${GITHUB_REF_NAME#v}"
       - run: npm test
       - run: npm run test:distribution
-      - run: npm publish --workspace @engramviz/core --access public --provenance
-      - run: npm publish --workspace @engramviz/sdk --access public --provenance
-      - run: npm publish --workspace @engramviz/adapter-mem0 --access public --provenance
-      - run: npm publish --workspace @engramviz/studio --access public --provenance
-      - run: npm publish --workspace @engramviz/cli --access public --provenance
+      - run: node scripts/publish-package.mjs @engramviz/core "${GITHUB_REF_NAME#v}"
+      - run: node scripts/publish-package.mjs @engramviz/sdk "${GITHUB_REF_NAME#v}"
+      - run: node scripts/publish-package.mjs @engramviz/adapter-mem0 "${GITHUB_REF_NAME#v}"
+      - run: node scripts/publish-package.mjs @engramviz/studio "${GITHUB_REF_NAME#v}"
+      - run: node scripts/publish-package.mjs @engramviz/cli "${GITHUB_REF_NAME#v}"

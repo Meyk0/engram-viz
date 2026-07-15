@@ -16,7 +16,7 @@ Engram publishes five packages from one synchronized version:
 4. Run `npm run test:distribution` on the release commit.
 5. Push a matching tag such as `v0.1.0`.
 
-The workflow rejects a tag that does not match every package version. It runs deterministic tests and the clean-room packed-package test, builds the platform-neutral standalone Studio on the GitHub Linux runner, and publishes packages in dependency order with npm provenance.
+The workflow rejects a tag that does not match every package version. It runs deterministic tests and the clean-room packed-package test, builds the platform-neutral standalone Studio on the GitHub Linux runner, and publishes packages in dependency order with npm provenance. Versions already present in npm are skipped so retried workflows and bootstrap release tags are safe.
 
 ## Versioning
 
