@@ -1,8 +1,16 @@
-# Mem0 Adapter
+---
+title: "Mem0 adapter"
+description: "Instrument Mem0 operations while preserving the distinction between retrieval and active context."
+icon: "database"
+---
 
 `@engramviz/adapter-mem0` wraps a Mem0-like JavaScript client without importing a specific Mem0 distribution. It supports current Platform and OSS response containers for `add`, `search`, `update`, `delete`, and `deleteAll`.
 
-The workspace package is publish-ready but has not had its first npm release yet. Use it through the repository workspace while developing the integration.
+Install the published SDK and adapter packages:
+
+```bash
+npm install @engramviz/sdk @engramviz/adapter-mem0
+```
 
 ## Setup
 
@@ -45,4 +53,4 @@ If `deleteAll` does not return affected memory IDs, Engram reports an instrument
 
 An incident repair can generate a Mem0-oriented operation recipe. Engram never calls the real Mem0 client from the Incident workspace. Review and apply provider changes in the owning application, then rerun the exported regression against that version.
 
-See [`../../examples/mem0-stale-correction`](../../examples/mem0-stale-correction) for the deterministic reference incident.
+See the [stale-location example](/examples/stale-location) for the deterministic reference incident.

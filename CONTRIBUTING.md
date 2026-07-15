@@ -30,13 +30,13 @@ Changes to package distribution or the CLI must also pass `npm run test:distribu
 - Replays are behavioral experiments and must retain `causalClaim: false`.
 - Provider mutations require explicit developer review; incident branches do not silently change source stores.
 
-Read [`docs/evidence-model.md`](docs/evidence-model.md) before changing trace, incident, replay, or regression behavior.
+Read [`docs/concepts/evidence-model.mdx`](docs/concepts/evidence-model.mdx) before changing trace, incident, replay, or regression behavior.
 
 ## Adapter contributions
 
 Adapters must preserve provider IDs, source paths, ranks/scores when available, and instrumentation gaps when concrete operations cannot be established. Include deterministic fixtures and tests; live-provider tests must remain opt-in.
 
-See [`docs/adapters/authoring.md`](docs/adapters/authoring.md).
+See [`docs/instrument/custom-adapters.mdx`](docs/instrument/custom-adapters.mdx).
 
 ## Pull requests
 

@@ -1,4 +1,8 @@
-# Authenticated telemetry ingestion
+---
+title: "Telemetry ingestion"
+description: "Configure authenticated local or deployed collection for Memory Telemetry v2 and Turn Envelope v1."
+icon: "cloud-upload"
+---
 
 Engram telemetry v2 can be sent to `POST /api/telemetry/v2` and resumed with
 `GET /api/telemetry/v2?after=<cursor>&limit=<count>`. Every request is bound to
@@ -68,7 +72,7 @@ The migration enables RLS, revokes all table privileges from `anon` and
 `authenticated`, and grants only `SELECT` and `INSERT` to `service_role`.
 There are intentionally no browser policies. Current Supabase projects require
 explicit Data API grants for new tables, so the service-role grant is part of
-the migration: <https://supabase.com/docs/guides/api/securing-your-api>.
+the migration in the [Supabase API security guide](https://supabase.com/docs/guides/api/securing-your-api).
 
 ## Browser and operational boundaries
 

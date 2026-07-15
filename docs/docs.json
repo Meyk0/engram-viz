@@ -1,0 +1,135 @@
+{
+  "$schema": "https://mintlify.com/docs.json",
+  "theme": "maple",
+  "name": "Engram",
+  "description": "Open-source memory reliability for AI agents. Capture, explain, replay, and test memory-dependent behavior.",
+  "colors": {
+    "primary": "#00D4FF",
+    "light": "#5CE7FF",
+    "dark": "#0891B2"
+  },
+  "appearance": {
+    "default": "dark",
+    "strict": false
+  },
+  "icons": {
+    "library": "lucide"
+  },
+  "background": {
+    "decoration": "grid"
+  },
+  "styling": {
+    "eyebrows": "breadcrumbs",
+    "codeblocks": "dark"
+  },
+  "navigation": {
+    "groups": [
+      {
+        "group": "Getting started",
+        "icon": "rocket",
+        "pages": [
+          "index",
+          "quickstart",
+          "concepts/memory-lifecycle",
+          "concepts/architecture",
+          "concepts/evidence-model"
+        ]
+      },
+      {
+        "group": "Instrument your agent",
+        "icon": "plug",
+        "pages": [
+          "instrument/typescript-sdk",
+          "instrument/mem0",
+          "instrument/custom-adapters"
+        ]
+      },
+      {
+        "group": "Investigate and prove",
+        "icon": "scan-search",
+        "pages": [
+          "investigate/incidents",
+          "investigate/replay-fidelity",
+          "investigate/regression-tests"
+        ]
+      },
+      {
+        "group": "Examples",
+        "icon": "braces",
+        "pages": [
+          "examples/stale-location",
+          "examples/mem0-openai"
+        ]
+      },
+      {
+        "group": "Reference",
+        "icon": "book-open",
+        "pages": [
+          "reference/cli",
+          "reference/packages",
+          "reference/telemetry",
+          "reference/telemetry-ingestion"
+        ]
+      },
+      {
+        "group": "Deep dives",
+        "icon": "microscope",
+        "pages": [
+          "deep-dives/live-memory-architecture",
+          "deep-dives/flight-recorder",
+          "deep-dives/eval-harness",
+          "deep-dives/design-reference",
+          "deep-dives/releases"
+        ]
+      }
+    ]
+  },
+  "navbar": {
+    "links": [
+      {
+        "type": "github",
+        "href": "https://github.com/Meyk0/engram-viz"
+      },
+      {
+        "label": "npm",
+        "href": "https://www.npmjs.com/org/engramviz"
+      }
+    ],
+    "primary": {
+      "type": "button",
+      "label": "Open Engram",
+      "href": "https://engramviz.com"
+    }
+  },
+  "footer": {
+    "socials": {
+      "github": "https://github.com/Meyk0/engram-viz",
+      "website": "https://engramviz.com"
+    },
+    "links": [
+      {
+        "header": "Project",
+        "items": [
+          {
+            "label": "GitHub",
+            "href": "https://github.com/Meyk0/engram-viz"
+          },
+          {
+            "label": "npm packages",
+            "href": "https://www.npmjs.com/org/engramviz"
+          },
+          {
+            "label": "MIT license",
+            "href": "https://github.com/Meyk0/engram-viz/blob/main/LICENSE"
+          }
+        ]
+      }
+    ]
+  },
+  "interaction": {
+    "drilldown": false
+  },
+  "seo": {
+    "indexing": "navigable"
+  }
+}

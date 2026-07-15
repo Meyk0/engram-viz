@@ -1,0 +1,39 @@
+---
+title: "Mem0 and OpenAI"
+description: "Exercise real Mem0 OSS retrieval, Engram capture, and the OpenAI Responses API with developer-owned credentials."
+icon: "sparkles"
+---
+
+The opt-in `examples/mem0-openai` project runs the real Mem0 OSS client and OpenAI Responses API. Normal Engram tests never invoke this paid integration.
+
+## Requirements
+
+- `OPENAI_API_KEY`
+- An explicit `OPENAI_MODEL`
+- Engram Studio running locally
+
+## Run the example
+
+From the Engram repository:
+
+```bash
+npm install
+npm run engram -- init --project mem0-openai
+npm run engram -- dev
+```
+
+In another terminal:
+
+```bash
+export OPENAI_API_KEY="..."
+export OPENAI_MODEL="..."
+npm run engram -- run -- node examples/mem0-openai/demo.mjs
+```
+
+The script stores San Francisco, applies an Oakland correction, retrieves memories, explicitly reports the records loaded into context, and asks OpenAI for the current city.
+
+<Warning>
+Use a developer-owned API key through the environment. Never commit credentials to the example, `.engram` configuration, or a regression artifact.
+</Warning>
+
+The example uses `store: false` for the OpenAI response and keeps Mem0's local `.mem0` data outside version control.

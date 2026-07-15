@@ -1,0 +1,43 @@
+---
+title: "Stale-location incident"
+description: "Run a deterministic memory failure from capture through diagnosis, replay, and regression."
+icon: "map-pin-off"
+---
+
+The repository includes a credential-free reference incident that stores an old city, records a correction, and deliberately retrieves the stale record.
+
+## Clone and start Studio
+
+```bash
+git clone https://github.com/Meyk0/engram-viz.git
+cd engram-viz
+npm install
+npm run engram -- init --project stale-location-demo
+npm run engram -- dev
+```
+
+In another terminal:
+
+```bash
+npm run engram -- run -- node examples/mem0-stale-correction/demo.mjs
+```
+
+## Diagnose the answer
+
+1. Open `http://localhost:3100/?mode=incidents`.
+2. Select the recorded `What city do I live in now?` turn.
+3. Enter `Oakland` as expected answer evidence.
+4. Review why the stale San Francisco memory was selected.
+5. Apply the proposed branch repair.
+6. Replay the frozen turn.
+7. Export the passing regression artifact.
+
+## Run the checked-in regression
+
+```bash
+npm run engram -- test \
+  regressions/current-city.engram-test.json \
+  --executor examples/mem0-stale-correction/regression-executor.mjs
+```
+
+The example is intentionally deterministic. It tests Engram's incident workflow without claiming equivalence to a live memory provider or model.

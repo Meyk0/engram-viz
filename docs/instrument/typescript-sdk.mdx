@@ -1,0 +1,87 @@
+---
+title: "TypeScript SDK"
+description: "Capture observable memory operations and correlate them with one agent turn."
+icon: "code-xml"
+---
+
+`@engramviz/sdk` provides a fail-open TypeScript client around the application boundary where memory becomes model context.
+
+## Install
+
+```bash
+npm install @engramviz/sdk
+npm install --save-dev @engramviz/cli
+```
+
+Initialize the project and run the agent through the CLI so the SDK receives its local capture environment:
+
+```bash
+npx engram init --project my-agent
+npx engram run -- npm run my-agent
+```
+
+## Create a client
+
+```ts
+import { EngramClient } from "@engramviz/sdk";
+
+const engram = new EngramClient({
+  adapter: "my-memory-layer",
+  onError: (error) => console.warn("Engram capture failed", error)
+});
+```
+
+By default the client reads `ENGRAM_URL`, `ENGRAM_TOKEN`, and `ENGRAM_PROJECT_ID` from the environment.
+
+## Capture a turn
+
+```ts
+const answer = await engram.withTurn(
+  {
+    input: userMessage,
+    provider: { id: "openai", model: process.env.OPENAI_MODEL },
+    metadata: { route: "support-agent" }
+  },
+  async (turn) => {
+    const results = await memory.search(userMessage);
+
+    await turn.retrieve({
+      query: userMessage,
+      candidates: results.map((result, index) => ({
+        memoryId: result.id,
+        rank: index + 1,
+        score: result.score,
+        selected: result.selected
+      })),
+      selectedIds: results.filter((result) => result.selected).map((result) => result.id)
+    });
+
+    const loadedIds = addMemoriesToPrompt(results);
+    await turn.load(loadedIds);
+
+    return callModel();
+  }
+);
+```
+
+The callback must return either a string or `{ output: string }`. Engram records the completed or failed turn envelope and correlates it with all memory event IDs emitted inside the callback.
+
+## Turn methods
+
+| Method | Use when |
+| --- | --- |
+| `turn.store(memory)` | A provider created a concrete memory record |
+| `turn.retrieve(input)` | A provider returned or selected retrieval candidates |
+| `turn.load(memoryIds)` | The application placed those IDs into model context |
+| `turn.update(memory)` | A provider changed a memory record |
+| `turn.supersede(memoryIds)` | Older records became inactive or stale |
+| `turn.delete(memoryIds)` | Concrete records were deleted |
+| `turn.summarize(memory, sourceIds)` | Source memories produced a semantic target |
+
+## Delivery behavior
+
+Capture is fail-open by default. Network or collector failures are sent to `onError` and do not fail the agent turn. Set `strict: true` only when telemetry delivery is part of a test or CI contract.
+
+<Warning>
+Do not emit a completed `store`, `delete`, or `summarize` event from a provider acknowledgement that lacks concrete memory IDs. Surface an instrumentation gap instead.
+</Warning>

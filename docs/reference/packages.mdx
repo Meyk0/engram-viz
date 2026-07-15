@@ -1,0 +1,46 @@
+---
+title: "Package reference"
+description: "Choose the Engram package needed for contracts, capture, providers, Studio, or command-line workflows."
+icon: "package-open"
+---
+
+Engram publishes five synchronized npm packages.
+
+| Package | Purpose |
+| --- | --- |
+| [`@engramviz/core`](https://www.npmjs.com/package/@engramviz/core) | Provider-neutral telemetry, turn contracts, schemas, and HTTP transport |
+| [`@engramviz/sdk`](https://www.npmjs.com/package/@engramviz/sdk) | Fail-open TypeScript turn and memory capture |
+| [`@engramviz/adapter-mem0`](https://www.npmjs.com/package/@engramviz/adapter-mem0) | Evidence-preserving wrapper for Mem0-like clients |
+| [`@engramviz/studio`](https://www.npmjs.com/package/@engramviz/studio) | Prebuilt standalone local Studio runtime and visual assets |
+| [`@engramviz/cli`](https://www.npmjs.com/package/@engramviz/cli) | Local setup, Studio launcher, import, diagnostics, and regression runner |
+
+All packages require Node.js 20 or newer and currently share version `0.1.0`.
+
+## Typical application install
+
+```bash
+npm install @engramviz/sdk
+npm install --save-dev @engramviz/cli
+```
+
+Add the adapter only when using Mem0:
+
+```bash
+npm install @engramviz/adapter-mem0
+```
+
+The CLI installs the Studio runtime transitively. Most applications do not need to install `@engramviz/core` or `@engramviz/studio` directly.
+
+## Direct contract usage
+
+Adapter and collector authors can import schemas and types from core:
+
+```ts
+import {
+  MemoryTelemetryClient,
+  memoryTelemetryEventSchema,
+  type MemoryTelemetryEvent
+} from "@engramviz/core";
+```
+
+See [Memory Telemetry v2](/reference/telemetry) before emitting provider-neutral operations directly.

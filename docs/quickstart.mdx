@@ -1,0 +1,122 @@
+---
+title: "Quickstart"
+description: "Capture a memory-dependent agent turn and inspect it in Engram Studio."
+icon: "rocket"
+---
+
+This guide adds local Engram capture to a Node.js agent. It does not require an Engram account, database, or hosted collector.
+
+## Requirements
+
+- Node.js 20 or newer
+- A Node.js agent or script that calls a memory system
+- macOS, Linux, or Windows
+
+## 1. Install Engram
+
+From your agent repository:
+
+```bash
+npm install --save-dev @engramviz/cli
+npm install @engramviz/sdk
+```
+
+If the agent uses Mem0, also install the adapter:
+
+```bash
+npm install @engramviz/adapter-mem0
+```
+
+## 2. Initialize local capture
+
+```bash
+npx engram init --project my-agent
+```
+
+Engram creates `.engram/config.json` with a local project ID and ingest token. The CLI adds the config and local capture data to `.gitignore`.
+
+Start Studio in one terminal:
+
+```bash
+npx engram dev
+```
+
+Studio is available at `http://localhost:3100/?mode=incidents`.
+
+## 3. Instrument one turn
+
+Wrap the application boundary that retrieves memory, constructs model context, and returns the answer:
+
+```ts
+import { EngramClient } from "@engramviz/sdk";
+
+const engram = new EngramClient({
+  adapter: "my-memory-layer",
+  onError: console.error
+});
+
+const answer = await engram.withTurn(
+  {
+    input: "What city do I live in now?",
+    provider: { id: "openai", model: process.env.OPENAI_MODEL }
+  },
+  async (turn) => {
+    const candidates = await retrieveMemories("What city do I live in now?");
+
+    await turn.retrieve({
+      query: "What city do I live in now?",
+      candidates,
+      selectedIds: candidates
+        .filter((candidate) => candidate.selected)
+        .map((candidate) => candidate.memoryId)
+    });
+
+    const loadedIds = buildPrompt(candidates);
+    await turn.load(loadedIds);
+
+    return generateAnswer();
+  }
+);
+```
+
+<Warning>
+Call `turn.load` only after the application actually places those memories into model input. Retrieval candidates and active context are different evidence.
+</Warning>
+
+Capture memory mutations where they occur with `turn.store`, `turn.update`, `turn.supersede`, `turn.delete`, or `turn.summarize`.
+
+## 4. Run the agent with capture
+
+In another terminal:
+
+```bash
+npx engram run -- npm run my-agent
+```
+
+`engram run` injects only the agent-side values `ENGRAM_URL`, `ENGRAM_TOKEN`, and `ENGRAM_PROJECT_ID`. It does not expose Studio's server-only key map or local data path.
+
+Verify the setup at any time:
+
+```bash
+npx engram doctor
+```
+
+## 5. Inspect the turn
+
+Open the **Incidents** workspace and select the captured answer. Engram separates:
+
+1. Memory state before the question
+2. Retrieval candidates and selection
+3. Memories loaded into active context
+4. The recorded answer
+
+From there, provide expected answer evidence, test a branch-local repair, replay the frozen turn, and export the verified behavior as a regression.
+
+<CardGroup cols={2}>
+  <Card title="Instrument the SDK" icon="code-xml" href="/instrument/typescript-sdk">
+    Review every capture method and the fail-open delivery model.
+  </Card>
+  <Card title="Run the reference incident" icon="flask-conical" href="/examples/stale-location">
+    See the complete incident-to-regression workflow without live credentials.
+  </Card>
+</CardGroup>

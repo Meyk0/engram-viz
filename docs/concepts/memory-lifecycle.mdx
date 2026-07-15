@@ -1,0 +1,58 @@
+---
+title: "Memory lifecycle"
+description: "How Engram maps operational AI memory events to new memory, active context, and stable knowledge."
+icon: "workflow"
+---
+
+Engram uses a brain metaphor to make memory operations legible, but the underlying data model is operational rather than anatomical.
+
+| Operation | System meaning | Engram visualization |
+| --- | --- | --- |
+| `store` | A durable record was created | New memory in the hippocampus |
+| `retrieve` | The memory system returned or selected candidates | Retrieval path toward working memory |
+| `load` | The application placed memory IDs into model input | Active context in the prefrontal cortex |
+| `update` / `supersede` | A fact changed or an older record became stale | Versioned memory transition |
+| `summarize` | Multiple records became a semantic summary | Stable knowledge in the temporal cortex |
+
+## Retrieval is not context
+
+A memory provider can return ten candidates while the prompt builder loads only two. Engram therefore requires separate evidence:
+
+```ts
+await turn.retrieve({
+  query,
+  candidates,
+  selectedIds: ["memory-current-city"]
+});
+
+await turn.load(["memory-current-city"]);
+```
+
+`retrieve` proves which records the application received or selected. `load` proves which records the instrumented application says it placed into model context.
+
+## Corrections preserve history
+
+When a user says, “Actually, I live in Oakland now,” a robust memory system should not silently erase all evidence that San Francisco was previously stored. It should preserve the update relationship and prefer the current fact during retrieval.
+
+Engram represents that distinction with `update` and `supersede` operations. Incident branches can test a corrected state without mutating the original provider.
+
+## Consolidation creates stable knowledge
+
+Repeated or related episodic records may be summarized into a semantic memory. Engram records the source and target IDs:
+
+```ts
+await turn.summarize(
+  {
+    id: "memory-bay-area-history",
+    content: "User has lived in the Bay Area and currently lives in Oakland."
+  },
+  ["memory-san-francisco", "memory-oakland"],
+  "Consolidated location history"
+);
+```
+
+The visualization maps this semantic target to stable knowledge. It does not claim that production AI memory systems literally reproduce human temporal-lobe behavior.
+
+<Info>
+The anatomical labels are an educational interface. Memory Telemetry v2 contains tiers, scopes, operations, and evidence metadata—not brain regions.
+</Info>

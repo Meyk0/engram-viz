@@ -1,0 +1,59 @@
+---
+title: "Portable regression tests"
+description: "Turn a verified memory incident into executable retrieval, context, and answer assertions."
+icon: "badge-check"
+---
+
+A verified incident exports an `engram.memory-regression` artifact. The artifact freezes the relevant memory fixture and declares observable assertions without claiming access to hidden model reasoning.
+
+## Run with an executor
+
+Your project owns the executor boundary:
+
+```js
+export default async function run(fixture) {
+  const result = await runAgentVersionUnderTest({
+    memories: fixture.memories,
+    messages: [
+      ...fixture.input.history,
+      { role: "user", content: fixture.input.userMessage }
+    ]
+  });
+
+  return {
+    answer: result.answer,
+    retrievedMemoryIds: result.retrievedMemoryIds,
+    loadedMemoryIds: result.loadedMemoryIds
+  };
+}
+```
+
+Execute the artifact:
+
+```bash
+npx engram test incident.engram-test.json \
+  --executor ./engram-regression.mjs
+```
+
+The command exits nonzero when a required or forbidden retrieval, active-context capacity, or answer-text assertion fails.
+
+## Check a recorded observation
+
+When another system already produced the result, compare it directly:
+
+```bash
+npx engram test incident.engram-test.json \
+  --observation ./latest-observation.json
+```
+
+## Run in CI
+
+```yaml
+- run: npm ci
+- run: npx engram test regressions/current-city.engram-test.json \
+    --executor ./test/engram-executor.mjs
+```
+
+<Info>
+An artifact proves that the configured executor passed observable assertions. Production equivalence exists only when the executor calls the production-equivalent retrieval and generation stack.
+</Info>

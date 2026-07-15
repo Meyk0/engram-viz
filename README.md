@@ -12,6 +12,8 @@ It captures memory operations around an agent turn, reconstructs the visible mem
 
 The 3D brain is a synchronized evidence map and educational surface. The dedicated Incident workspace is where the debugging workflow happens.
 
+Start with the [Engram documentation](docs/index.mdx) or go directly to the [npm quickstart](docs/quickstart.mdx).
+
 ## Flagship Workflow
 
 The included reference incident models a common production failure:
@@ -67,9 +69,7 @@ The repository contains five distributable workspace packages:
 - `@engramviz/studio`: prebuilt standalone local workbench and visual assets.
 - `@engramviz/cli`: local Studio, import, diagnostics, and regression commands.
 
-They are linked by this npm workspace and are publish-ready, but **have not been released to npm yet**. Until the first tagged release, use the source quickstart above. Package tarballs are tested in a clean external project by `npm run test:distribution`.
-
-After the first package release, the clean-project flow will be:
+All five packages are published under the [`@engramviz`](https://www.npmjs.com/org/engramviz) npm scope and tested in a clean external project by `npm run test:distribution`. The clean-project flow is:
 
 ```bash
 npm install --save-dev @engramviz/cli
@@ -124,7 +124,7 @@ const mem0 = instrumentMem0(rawMem0, engram, {
 });
 ```
 
-See [`docs/quickstart.md`](docs/quickstart.md) and [`docs/adapters/mem0.md`](docs/adapters/mem0.md) for the full integration path.
+See the [quickstart](docs/quickstart.mdx) and [Mem0 adapter guide](docs/instrument/mem0.mdx) for the full integration path.
 
 The opt-in [`examples/mem0-openai`](examples/mem0-openai) example exercises the real Mem0 OSS client and OpenAI Responses API with developer-owned credentials. Normal tests never make those paid calls.
 
@@ -149,7 +149,7 @@ A memory being loaded proves it was available in context. It does not prove that
 
 Engram does not silently mutate the source memory provider. Incident repairs are isolated branches. For Mem0, the workspace can produce a reviewable source-operation recipe, but applying it to the real store remains an explicit developer action.
 
-Read [`docs/evidence-model.md`](docs/evidence-model.md) before interpreting a replay or regression report.
+Read the [evidence model](docs/concepts/evidence-model.mdx) before interpreting a replay or regression report.
 
 ## Architecture
 
@@ -171,7 +171,7 @@ Normalized trace -> checkpoint -> incident
         +--> portable .engram-test.json
 ```
 
-The local store is session/development infrastructure, not a managed production backend. There is no login, billing, distributed retention service, or automatic source-provider mutation. See [`docs/engram-lab-architecture.md`](docs/engram-lab-architecture.md).
+The local store is session/development infrastructure, not a managed production backend. There is no login, billing, distributed retention service, or automatic source-provider mutation. See the [architecture guide](docs/concepts/architecture.mdx).
 
 ## Verification
 
