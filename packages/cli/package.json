@@ -5,9 +5,22 @@
   "type": "module",
   "bin": { "engram": "./bin/engram.mjs" },
   "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": { ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" } },
   "files": ["bin", "dist"],
   "scripts": { "build": "tsc -p tsconfig.json" },
-  "dependencies": { "@engramviz/core": "*" },
+  "dependencies": {
+    "@engramviz/core": "^0.1.0",
+    "@engramviz/studio": "^0.1.0"
+  },
   "engines": { "node": ">=20" },
+  "publishConfig": { "access": "public", "provenance": true },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Meyk0/engram-viz.git",
+    "directory": "packages/cli"
+  },
+  "homepage": "https://github.com/Meyk0/engram-viz#readme",
+  "bugs": { "url": "https://github.com/Meyk0/engram-viz/issues" },
   "license": "MIT"
 }

@@ -6,9 +6,11 @@ import { promisify } from "node:util";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   initializeEngramProject,
+  localAgentEnvironment,
   localStudioEnvironment,
   readEngramConfig
 } from "../../../packages/cli/src/config";
+import { formatShellEnvironment } from "../../../packages/cli/src/environment";
 import { importCaptureBundle } from "../../../packages/cli/src/import";
 import { runRegressionFile } from "../../../packages/cli/src/regression";
 
@@ -40,6 +42,43 @@ describe("@engramviz/cli", () => {
       ENGRAM_PROJECT_ID: "location-agent"
     });
     expect(JSON.parse(environment.ENGRAM_INGEST_KEYS_JSON)[0].tokenSha256).toMatch(/^[a-f0-9]{64}$/);
+    expect(localAgentEnvironment(first.config, 3199)).toEqual({
+      ENGRAM_URL: "http://localhost:3199",
+      ENGRAM_TOKEN: first.config.token,
+      ENGRAM_PROJECT_ID: "location-agent"
+    });
+  });
+
+  it("formats a sourceable local agent environment without leaking server-only variables", async () => {
+    const root = await temporaryDirectory();
+    const { config } = await initializeEngramProject(root, "Quoted Agent");
+    const environment = localAgentEnvironment({ ...config, token: "value'with-quote" }, 3100);
+
+    expect(formatShellEnvironment(environment)).toBe([
+      "export ENGRAM_URL='http://localhost:3100'",
+      "export ENGRAM_TOKEN='value'\"'\"'with-quote'",
+      "export ENGRAM_PROJECT_ID='quoted-agent'",
+      ""
+    ].join("\n"));
+    expect(formatShellEnvironment(environment)).not.toContain("ENGRAM_INGEST_KEYS_JSON");
+  });
+
+  it("runs an agent command with local capture variables injected", async () => {
+    const root = await temporaryDirectory();
+    await initializeEngramProject(root, "Run Agent");
+    const cli = path.join(process.cwd(), "packages", "cli", "bin", "engram.mjs");
+    const { stdout } = await execFile(process.execPath, [
+      cli,
+      "run",
+      "--port",
+      "3198",
+      "--",
+      process.execPath,
+      "-e",
+      "process.stdout.write([process.env.ENGRAM_URL, process.env.ENGRAM_PROJECT_ID, Boolean(process.env.ENGRAM_TOKEN)].join('|'))"
+    ], { cwd: root });
+
+    expect(stdout).toBe("http://localhost:3198|run-agent|true");
   });
 
   it("imports validated telemetry before its associated turn", async () => {

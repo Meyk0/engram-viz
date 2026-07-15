@@ -13,6 +13,16 @@
     }
   },
   "files": ["dist"],
+  "sideEffects": false,
+  "engines": { "node": ">=20" },
+  "publishConfig": { "access": "public", "provenance": true },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Meyk0/engram-viz.git",
+    "directory": "packages/core"
+  },
+  "homepage": "https://github.com/Meyk0/engram-viz#readme",
+  "bugs": { "url": "https://github.com/Meyk0/engram-viz/issues" },
   "scripts": {
     "build": "tsc -p tsconfig.json"
   },

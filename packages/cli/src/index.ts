@@ -2,11 +2,24 @@ import { spawn } from "node:child_process";
 import { access } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { isStudioRuntimeReady, startStudio } from "@engramviz/studio";
 import { importCaptureBundle } from "./import.js";
-import { initializeEngramProject, localStudioEnvironment, readEngramConfig } from "./config.js";
+import {
+  initializeEngramProject,
+  localAgentEnvironment,
+  localStudioEnvironment,
+  readEngramConfig
+} from "./config.js";
+import { formatShellEnvironment } from "./environment.js";
 import { runRegressionFile } from "./regression.js";
 
-export { initializeEngramProject, localStudioEnvironment, readEngramConfig } from "./config.js";
+export {
+  initializeEngramProject,
+  localAgentEnvironment,
+  localStudioEnvironment,
+  readEngramConfig
+} from "./config.js";
+export { formatShellEnvironment } from "./environment.js";
 export { importCaptureBundle } from "./import.js";
 export { runRegressionFile } from "./regression.js";
 
@@ -26,6 +39,19 @@ export async function runCli(args: string[]) {
   }
   if (command === "dev") {
     await dev(cwd, numberFlag(args, "--port", 3100));
+    return;
+  }
+  if (command === "env") {
+    const config = await readEngramConfig(cwd);
+    const environment = localAgentEnvironment(config, numberFlag(args, "--port", 3100));
+    const format = stringFlag(args, "--format") ?? "shell";
+    if (format === "json") process.stdout.write(`${JSON.stringify(environment, null, 2)}\n`);
+    else if (format === "shell") process.stdout.write(formatShellEnvironment(environment));
+    else throw new Error("--format must be shell or json.");
+    return;
+  }
+  if (command === "run") {
+    await runAgentCommand(cwd, args, numberFlag(args, "--port", 3100));
     return;
   }
   if (command === "import") {
@@ -83,11 +109,17 @@ async function doctor(cwd: string, port: number) {
 
 async function dev(cwd: string, port: number) {
   const { config } = await initializeEngramProject(cwd);
-  const repositoryRoot = path.resolve(fileURLToPath(new URL("../../..", import.meta.url)));
-  await access(path.join(repositoryRoot, "package.json"));
   const environment = localStudioEnvironment(config, cwd, port);
   process.stdout.write(`Engram Studio: http://localhost:${port}/?mode=incidents\n`);
   process.stdout.write(`SDK: ENGRAM_URL=${environment.ENGRAM_URL} ENGRAM_PROJECT_ID=${config.projectId}\n`);
+  if (await isStudioRuntimeReady()) {
+    await startStudio({ port, environment });
+    return;
+  }
+
+  const repositoryRoot = path.resolve(fileURLToPath(new URL("../../..", import.meta.url)));
+  await access(path.join(repositoryRoot, "next.config.mjs"));
+  process.stdout.write("Studio runtime is not packed; using the source development server.\n");
   await new Promise<void>((resolve, reject) => {
     const child = spawn("npm", ["run", "dev", "--", "--port", String(port)], {
       cwd: repositoryRoot,
@@ -98,6 +130,29 @@ async function dev(cwd: string, port: number) {
     child.once("exit", (code, signal) => {
       if (code === 0 || signal === "SIGINT" || signal === "SIGTERM") resolve();
       else reject(new Error(`Studio exited with code ${code ?? signal}.`));
+    });
+  });
+}
+
+async function runAgentCommand(cwd: string, args: string[], port: number) {
+  const separator = args.indexOf("--");
+  const command = separator >= 0 ? args[separator + 1] : undefined;
+  const commandArgs = separator >= 0 ? args.slice(separator + 2) : [];
+  if (!command) throw new Error("Usage: engram run [--port 3100] -- <command> [args...]");
+  const config = await readEngramConfig(cwd);
+  const environment = localAgentEnvironment(config, port);
+
+  await new Promise<void>((resolve, reject) => {
+    const child = spawn(command, commandArgs, {
+      cwd,
+      env: { ...process.env, ...environment },
+      stdio: "inherit",
+      shell: process.platform === "win32"
+    });
+    child.once("error", reject);
+    child.once("exit", (code, signal) => {
+      if (code === 0) resolve();
+      else reject(new Error(`Agent command exited with code ${code ?? signal}.`));
     });
   });
 }
@@ -116,5 +171,5 @@ function numberFlag(args: string[], name: string, fallback: number) {
 }
 
 function helpText() {
-  return `Engram — local memory reliability for AI agents\n\nCommands:\n  engram init [--project name]       Initialize local capture\n  engram dev [--port 3100]           Start Engram Studio\n  engram doctor [--port 3100]        Check local setup\n  engram import <capture.json>        Import an engram.capture bundle\n  engram test <artifact> --executor <module>\n                                       Run a memory regression against an agent\n  engram test <artifact> --observation <json>\n                                       Check a captured agent observation\n`;
+  return `Engram — local memory reliability for AI agents\n\nCommands:\n  engram init [--project name]       Initialize local capture\n  engram dev [--port 3100]           Start Engram Studio\n  engram env [--format shell|json]   Print agent capture environment\n  engram run -- <command> [args...]  Run an agent with capture configured\n  engram doctor [--port 3100]        Check local setup\n  engram import <capture.json>        Import an engram.capture bundle\n  engram test <artifact> --executor <module>\n                                       Run a memory regression against an agent\n  engram test <artifact> --observation <json>\n                                       Check a captured agent observation\n`;
 }

@@ -1,0 +1,25 @@
+{
+  "name": "@engramviz/studio",
+  "version": "0.1.0",
+  "description": "Standalone local Engram memory reliability Studio.",
+  "type": "module",
+  "main": "./launcher.mjs",
+  "types": "./launcher.d.ts",
+  "exports": {
+    ".": {
+      "types": "./launcher.d.ts",
+      "import": "./launcher.mjs"
+    }
+  },
+  "files": ["dist", "launcher.mjs", "launcher.d.ts"],
+  "engines": { "node": ">=20" },
+  "publishConfig": { "access": "public", "provenance": true },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Meyk0/engram-viz.git",
+    "directory": "packages/studio"
+  },
+  "homepage": "https://github.com/Meyk0/engram-viz#readme",
+  "bugs": { "url": "https://github.com/Meyk0/engram-viz/issues" },
+  "license": "MIT"
+}

@@ -14,6 +14,8 @@
     "dev": "next dev",
     "engram": "npm run build:packages && node packages/cli/bin/engram.mjs",
     "build:packages": "npm run build -w @engramviz/core && npm run build -w @engramviz/sdk && npm run build -w @engramviz/adapter-mem0 && npm run build -w @engramviz/cli",
+    "build:studio": "npm run build && node scripts/prepare-studio-package.mjs",
+    "build:distribution": "npm run build:packages && npm run build:studio",
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
@@ -23,7 +25,8 @@
     "test:regressions": "vitest run src/test/unit/checked-memory-regressions.test.ts --reporter=verbose",
     "test:watch": "vitest",
     "test:ui": "vitest --ui",
-    "smoke": "playwright test"
+    "smoke": "playwright test",
+    "test:distribution": "npm run build:distribution && node scripts/test-distribution.mjs"
   },
   "repository": {
     "type": "git",
@@ -46,9 +49,9 @@
   },
   "homepage": "https://github.com/Meyk0/engram-viz#readme",
   "dependencies": {
-    "@engramviz/core": "*",
-    "@engramviz/adapter-mem0": "*",
-    "@engramviz/sdk": "*",
+    "@engramviz/core": "^0.1.0",
+    "@engramviz/adapter-mem0": "^0.1.0",
+    "@engramviz/sdk": "^0.1.0",
     "@react-three/drei": "^10.7.7",
     "@react-three/fiber": "^9.6.1",
     "@react-three/postprocessing": "^3.0.4",

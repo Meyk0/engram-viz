@@ -46,13 +46,19 @@ export async function readEngramConfig(directory: string): Promise<EngramLocalCo
   return value as EngramLocalConfig;
 }
 
-export function localStudioEnvironment(config: EngramLocalConfig, root: string, port: number) {
+export function localAgentEnvironment(config: EngramLocalConfig, port: number) {
   return {
-    ENGRAM_LOCAL_MODE: "true",
-    ENGRAM_LOCAL_DATA_DIR: path.join(path.resolve(root), ".engram", "data"),
     ENGRAM_URL: `http://localhost:${port}`,
     ENGRAM_TOKEN: config.token,
-    ENGRAM_PROJECT_ID: config.projectId,
+    ENGRAM_PROJECT_ID: config.projectId
+  };
+}
+
+export function localStudioEnvironment(config: EngramLocalConfig, root: string, port: number) {
+  return {
+    ...localAgentEnvironment(config, port),
+    ENGRAM_LOCAL_MODE: "true",
+    ENGRAM_LOCAL_DATA_DIR: path.join(path.resolve(root), ".engram", "data"),
     ENGRAM_INGEST_KEYS_JSON: JSON.stringify([{
       keyId: config.keyId,
       tenantId: config.tenantId,
