@@ -28,6 +28,7 @@ jobs:
       - run: npm test
       - run: npm run test:regressions
       - run: npm run eval:memory
+      - run: npm run test:example-real
       - run: npm run build
 
   browser:
@@ -55,3 +56,15 @@ jobs:
             test-results
           if-no-files-found: ignore
           retention-days: 7
+
+  distribution:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run test:distribution

@@ -39,13 +39,10 @@ npm run engram -- init --project my-agent
 npm run engram -- dev
 ```
 
-Open [http://localhost:3100/?mode=incidents](http://localhost:3100/?mode=incidents). In another terminal, run the deterministic Mem0-shaped incident:
+Open [http://localhost:3100/?mode=incidents](http://localhost:3100/?mode=incidents). In another terminal, run the deterministic Mem0-shaped incident with capture variables injected by the CLI:
 
 ```bash
-export ENGRAM_URL=http://localhost:3100
-export ENGRAM_PROJECT_ID=my-agent
-export ENGRAM_TOKEN="$(node -p "require('./.engram/config.json').token")"
-node examples/mem0-stale-correction/demo.mjs
+npm run engram -- run -- node examples/mem0-stale-correction/demo.mjs
 ```
 
 Select the recorded `What city do I live in now?` turn in Incidents, enter `Oakland` as expected answer evidence, diagnose it, apply the proposed branch repair, and replay.
@@ -62,14 +59,27 @@ The executor is the replaceable boundary. Point it at the retrieval and generati
 
 ## Instrument an Agent
 
-The repository contains four TypeScript workspace packages:
+The repository contains five distributable workspace packages:
 
 - `@engramviz/core`: provider-neutral telemetry and turn contracts.
 - `@engramviz/sdk`: local capture client and turn lifecycle.
 - `@engramviz/adapter-mem0`: evidence-preserving Mem0 wrapper.
+- `@engramviz/studio`: prebuilt standalone local workbench and visual assets.
 - `@engramviz/cli`: local Studio, import, diagnostics, and regression commands.
 
-They are linked by this npm workspace but are **not published to npm yet**. The APIs are ready for local source integration and package publication is a separate release step.
+They are linked by this npm workspace and are publish-ready, but **have not been released to npm yet**. Until the first tagged release, use the source quickstart above. Package tarballs are tested in a clean external project by `npm run test:distribution`.
+
+After the first package release, the clean-project flow will be:
+
+```bash
+npm install --save-dev @engramviz/cli
+npm install @engramviz/sdk @engramviz/adapter-mem0
+npx engram init --project my-agent
+npx engram dev
+npx engram run -- npm run my-agent
+```
+
+`engram env --format shell|json` is also available when a process manager needs the capture variables directly.
 
 ```ts
 import { EngramClient } from "@engramviz/sdk";
@@ -115,6 +125,8 @@ const mem0 = instrumentMem0(rawMem0, engram, {
 ```
 
 See [`docs/quickstart.md`](docs/quickstart.md) and [`docs/adapters/mem0.md`](docs/adapters/mem0.md) for the full integration path.
+
+The opt-in [`examples/mem0-openai`](examples/mem0-openai) example exercises the real Mem0 OSS client and OpenAI Responses API with developer-owned credentials. Normal tests never make those paid calls.
 
 ## Product Surfaces
 
@@ -171,6 +183,7 @@ npm run typecheck
 npm test
 npm run test:regressions
 npm run eval:memory
+npm run test:distribution
 npm run build
 npm run smoke
 ```

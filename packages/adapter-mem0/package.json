@@ -2,6 +2,8 @@
   "name": "@engramviz/adapter-mem0",
   "version": "0.1.0",
   "description": "Evidence-preserving Mem0 adapter for Engram.",
+  "author": "Joscha Koepke",
+  "keywords": ["ai", "agent", "memory", "mem0", "observability"],
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",

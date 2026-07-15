@@ -1,0 +1,32 @@
+name: Publish Engram packages
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          registry-url: https://registry.npmjs.org
+      - run: npm ci
+      - run: node scripts/verify-release-version.mjs "${GITHUB_REF_NAME#v}"
+      - run: npm test
+      - run: npm run test:distribution
+      - run: npm publish --workspace @engramviz/core --access public --provenance
+      - run: npm publish --workspace @engramviz/sdk --access public --provenance
+      - run: npm publish --workspace @engramviz/adapter-mem0 --access public --provenance
+      - run: npm publish --workspace @engramviz/studio --access public --provenance
+      - run: npm publish --workspace @engramviz/cli --access public --provenance

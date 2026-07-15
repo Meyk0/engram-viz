@@ -131,7 +131,7 @@ async function captureSearch(
       selected: selected.has(record.id)
     })),
     selectedIds: records.filter((record) => selected.has(record.id)).map((record) => record.id),
-    limit: positiveInteger(findOptions(args)?.limit)
+    limit: positiveInteger(findOptions(args)?.limit ?? findOptions(args)?.topK)
   }, evidence("search", "Ranks and scores are copied from the Mem0 search response."));
 }
 

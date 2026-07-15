@@ -23,6 +23,7 @@
     "test": "npm run build:packages && vitest run",
     "eval:memory": "vitest run src/test/unit/memory-evals.test.ts --reporter=verbose",
     "test:regressions": "vitest run src/test/unit/checked-memory-regressions.test.ts --reporter=verbose",
+    "test:example-real": "node --check examples/mem0-openai/demo.mjs",
     "test:watch": "vitest",
     "test:ui": "vitest --ui",
     "smoke": "playwright test",
@@ -41,7 +42,7 @@
     "threejs",
     "visualization"
   ],
-  "author": "",
+  "author": "Joscha Koepke",
   "license": "MIT",
   "type": "module",
   "bugs": {

@@ -10,7 +10,7 @@ describe("@engramviz/adapter-mem0", () => {
       async add() {
         return { results: [{ id: "memory-sf", memory: "User lives in San Francisco.", event: "ADD", metadata: { topic: "location" } }] };
       },
-      async search() {
+      async search(_query?: string, _options?: unknown) {
         return { results: [
           { id: "memory-sf", memory: "User lives in San Francisco.", score: 0.91 },
           { id: "memory-oak", memory: "User lives in Oakland now.", score: 0.88 }
@@ -25,7 +25,7 @@ describe("@engramviz/adapter-mem0", () => {
 
     await engram.withTurn({ input: "Test memory flow", provider: { id: "fixture" }, traceId: "trace-mem0" }, async (turn) => {
       await mem0.add();
-      const result = await mem0.search();
+      const result = await mem0.search("Where do I live?", { topK: 5 });
       await turn.load(mem0MemoryIds(result));
       await mem0.update("memory-sf", { text: "User lived in San Francisco." });
       await mem0.delete("memory-sf");
@@ -42,7 +42,8 @@ describe("@engramviz/adapter-mem0", () => {
         candidates: [
           { memoryId: "memory-sf", rank: 1, score: 0.91, selected: true },
           { memoryId: "memory-oak", rank: 2, score: 0.88, selected: false }
-        ]
+        ],
+        limit: 5
       },
       evidence: { level: "observed", adapter: "mem0" }
     });

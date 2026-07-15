@@ -16,13 +16,13 @@ npm run engram -- dev
 
 ## 2. Configure the agent process
 
-In the terminal that runs the agent:
+The easiest path is to let Engram inject the three agent-side capture variables:
 
 ```bash
-export ENGRAM_URL=http://localhost:3100
-export ENGRAM_PROJECT_ID=my-agent
-export ENGRAM_TOKEN="$(node -p "require('./.engram/config.json').token")"
+npm run engram -- run -- npm run my-agent
 ```
+
+For another process manager, inspect sourceable shell or JSON output with `engram env --format shell` or `engram env --format json`. The output excludes collector-only key maps and data paths.
 
 The SDK is fail-open by default: a capture outage is reported through `onError` but does not fail the agent turn. Set `strict: true` only when telemetry delivery must be part of the test contract.
 
@@ -57,6 +57,8 @@ await engram.withTurn(
 ```
 
 Capture mutations where they occur with `turn.store`, `turn.update`, `turn.supersede`, `turn.delete`, or `turn.summarize`.
+
+Until `v0.1.0` is published, SDK imports resolve through the cloned npm workspace. The release workflow verifies packed packages in a clean external project before publishing.
 
 ## 4. Diagnose the incident
 

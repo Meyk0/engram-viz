@@ -2,6 +2,8 @@
   "name": "@engramviz/cli",
   "version": "0.1.0",
   "description": "Local-first Engram Studio CLI.",
+  "author": "Joscha Koepke",
+  "keywords": ["ai", "agent", "memory", "observability", "cli"],
   "type": "module",
   "bin": { "engram": "./bin/engram.mjs" },
   "main": "./dist/index.js",

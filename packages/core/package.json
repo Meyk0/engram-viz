@@ -2,6 +2,8 @@
   "name": "@engramviz/core",
   "version": "0.1.0",
   "description": "Provider-neutral memory telemetry and turn contracts for Engram.",
+  "author": "Joscha Koepke",
+  "keywords": ["ai", "agent", "memory", "telemetry", "observability"],
   "license": "MIT",
   "type": "module",
   "main": "./dist/index.js",

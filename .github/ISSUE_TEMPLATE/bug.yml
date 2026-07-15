@@ -1,0 +1,33 @@
+name: Bug report
+description: Report reproducible Engram behavior using synthetic data.
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: Do not include credentials, production memories, or unredacted traces.
+  - type: input
+    id: version
+    attributes:
+      label: Engram version or commit
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Synthetic reproduction
+      description: Include commands, fixture data, and expected versus observed behavior.
+    validations:
+      required: true
+  - type: dropdown
+    id: surface
+    attributes:
+      label: Surface
+      options: [Studio, CLI, SDK, Mem0 adapter, Regression runner, Documentation]
+    validations:
+      required: true
+  - type: textarea
+    id: verification
+    attributes:
+      label: Relevant logs
+      description: Redact memory content, user IDs, paths, and provider credentials.

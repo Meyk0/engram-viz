@@ -2,6 +2,8 @@
   "name": "@engramviz/sdk",
   "version": "0.1.0",
   "description": "TypeScript capture SDK for Engram memory reliability traces.",
+  "author": "Joscha Koepke",
+  "keywords": ["ai", "agent", "memory", "observability", "sdk"],
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",

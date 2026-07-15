@@ -7,13 +7,10 @@ npm run engram -- init --project stale-location-demo
 npm run engram -- dev
 ```
 
-In another terminal, using the environment values printed by `engram dev`:
+In another terminal, let the CLI inject the local capture environment:
 
 ```bash
-export ENGRAM_URL=http://localhost:3100
-export ENGRAM_PROJECT_ID=stale-location-demo
-export ENGRAM_TOKEN="$(node -p "require('./.engram/config.json').token")"
-node examples/mem0-stale-correction/demo.mjs
+npm run engram -- run -- node examples/mem0-stale-correction/demo.mjs
 ```
 
 The fixture has the same `add` and `search` response shapes as Mem0 OSS. Replace `StaleLocationFixture` with a real client without changing the wrapper:

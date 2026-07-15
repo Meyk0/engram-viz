@@ -1,0 +1,23 @@
+name: Adapter request
+description: Propose a memory provider or framework integration.
+title: "[Adapter]: "
+labels: ["adapter"]
+body:
+  - type: input
+    id: provider
+    attributes:
+      label: Provider or framework
+    validations:
+      required: true
+  - type: textarea
+    id: operations
+    attributes:
+      label: Observable operations
+      description: Which store, search, update, load, delete, or consolidation results expose concrete evidence?
+    validations:
+      required: true
+  - type: textarea
+    id: gaps
+    attributes:
+      label: Known instrumentation gaps
+      description: Identify asynchronous or opaque operations that should remain unavailable.

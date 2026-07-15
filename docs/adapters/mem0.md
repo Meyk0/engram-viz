@@ -2,7 +2,7 @@
 
 `@engramviz/adapter-mem0` wraps a Mem0-like JavaScript client without importing a specific Mem0 distribution. It supports current Platform and OSS response containers for `add`, `search`, `update`, `delete`, and `deleteAll`.
 
-The workspace package is not published to npm yet. Use it through the repository workspace while developing the integration.
+The workspace package is publish-ready but has not had its first npm release yet. Use it through the repository workspace while developing the integration.
 
 ## Setup
 
