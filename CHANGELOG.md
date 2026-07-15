@@ -2,7 +2,7 @@
 
 All notable changes to Engram packages will be documented here.
 
-## 0.1.0 - Unreleased
+## 0.1.0 - 2026-07-15
 
 - Added provider-neutral Memory Telemetry v2 and Agent Turn Envelope v1 contracts.
 - Added a fail-open TypeScript capture SDK and local-first CLI.
