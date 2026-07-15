@@ -17,7 +17,7 @@
     "build:studio": "npm run build && node scripts/prepare-studio-package.mjs",
     "build:distribution": "npm run build:packages && npm run build:studio",
     "build": "next build",
-    "start": "next start",
+    "start": "node scripts/prepare-studio-package.mjs && node packages/studio/dist/server.js",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test": "npm run build:packages && vitest run",
