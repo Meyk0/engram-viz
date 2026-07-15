@@ -4,9 +4,11 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { importCaptureBundle } from "./import.js";
 import { initializeEngramProject, localStudioEnvironment, readEngramConfig } from "./config.js";
+import { runRegressionFile } from "./regression.js";
 
 export { initializeEngramProject, localStudioEnvironment, readEngramConfig } from "./config.js";
 export { importCaptureBundle } from "./import.js";
+export { runRegressionFile } from "./regression.js";
 
 export async function runCli(args: string[]) {
   const command = args[0] ?? "help";
@@ -36,6 +38,24 @@ export async function runCli(args: string[]) {
       config
     });
     process.stdout.write(`Imported ${result.telemetry} memory events and ${result.turns} turns.\n`);
+    return;
+  }
+  if (command === "test") {
+    const file = args[1];
+    if (!file || file.startsWith("--")) {
+      throw new Error("Usage: engram test <artifact.engram-test.json> (--executor <module> | --observation <json>)");
+    }
+    const report = await runRegressionFile(file, {
+      cwd,
+      executorFile: stringFlag(args, "--executor"),
+      observationFile: stringFlag(args, "--observation")
+    });
+    process.stdout.write(`${report.pass ? "PASS" : "FAIL"}  ${report.artifact.title}\n`);
+    report.findings.forEach((finding) => {
+      process.stdout.write(`${finding.pass ? "PASS" : "FAIL"}  ${finding.label}\n`);
+    });
+    process.stdout.write(`Evidence limit: ${report.caveat}\n`);
+    if (!report.pass) throw new Error(`Regression "${report.artifact.id}" failed.`);
     return;
   }
   if (command === "help" || command === "--help" || command === "-h") {
@@ -96,5 +116,5 @@ function numberFlag(args: string[], name: string, fallback: number) {
 }
 
 function helpText() {
-  return `Engram — local memory reliability for AI agents\n\nCommands:\n  engram init [--project name]       Initialize local capture\n  engram dev [--port 3100]           Start Engram Studio\n  engram doctor [--port 3100]        Check local setup\n  engram import <capture.json>        Import an engram.capture bundle\n`;
+  return `Engram — local memory reliability for AI agents\n\nCommands:\n  engram init [--project name]       Initialize local capture\n  engram dev [--port 3100]           Start Engram Studio\n  engram doctor [--port 3100]        Check local setup\n  engram import <capture.json>        Import an engram.capture bundle\n  engram test <artifact> --executor <module>\n                                       Run a memory regression against an agent\n  engram test <artifact> --observation <json>\n                                       Check a captured agent observation\n`;
 }

@@ -1,6 +1,8 @@
+import { execFile as execFileCallback } from "node:child_process";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import { promisify } from "node:util";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   initializeEngramProject,
@@ -8,8 +10,10 @@ import {
   readEngramConfig
 } from "../../../packages/cli/src/config";
 import { importCaptureBundle } from "../../../packages/cli/src/import";
+import { runRegressionFile } from "../../../packages/cli/src/regression";
 
 const directories: string[] = [];
+const execFile = promisify(execFileCallback);
 
 afterEach(async () => {
   await Promise.all(directories.splice(0).map((directory) => rm(directory, { recursive: true, force: true })));
@@ -86,6 +90,75 @@ describe("@engramviz/cli", () => {
 
     expect(result).toEqual({ telemetry: 1, turns: 1 });
     expect(calls.map((url) => new URL(url).pathname)).toEqual(["/api/telemetry/v2", "/api/turns/v1"]);
+  });
+
+  it("runs a portable regression against an external executor module", async () => {
+    const root = await temporaryDirectory();
+    await writeFile(path.join(root, "location.engram-test.json"), JSON.stringify({
+      kind: "engram.memory-regression",
+      version: 1,
+      id: "location",
+      title: "Prefer current location",
+      fixture: { memories: [{ id: "oakland" }], input: { userMessage: "Where do I live?", history: [] } },
+      evidence: { caveat: "This checks observable output, not hidden reasoning." },
+      assertions: {
+        retrieval: { mustRetrieve: ["oakland"], mustNotRetrieve: ["sf"], maxLoaded: 1 },
+        answer: { contains: ["Oakland"], notContains: ["San Francisco"] }
+      }
+    }), "utf8");
+    await writeFile(path.join(root, "executor.mjs"), `
+      export default async function run(fixture) {
+        return {
+          answer: "You live in Oakland.",
+          retrievedMemoryIds: [fixture.memories[0].id],
+          loadedMemoryIds: [fixture.memories[0].id]
+        };
+      }
+    `, "utf8");
+
+    const cli = path.join(process.cwd(), "packages", "cli", "bin", "engram.mjs");
+    const { stdout } = await execFile(process.execPath, [
+      cli,
+      "test",
+      "location.engram-test.json",
+      "--executor",
+      "executor.mjs"
+    ], { cwd: root });
+
+    expect(stdout).toContain("PASS  Prefer current location");
+    expect(stdout.match(/^PASS  /gm)).toHaveLength(6);
+  });
+
+  it("reports a failed captured observation without hiding the violated assertion", async () => {
+    const root = await temporaryDirectory();
+    await writeFile(path.join(root, "location.engram-test.json"), JSON.stringify({
+      kind: "engram.memory-regression",
+      version: 1,
+      id: "location",
+      title: "Prefer current location",
+      fixture: {},
+      evidence: { caveat: "Observable behavior only." },
+      assertions: {
+        retrieval: { mustRetrieve: ["oakland"], mustNotRetrieve: [], maxLoaded: 1 },
+        answer: { contains: ["Oakland"], notContains: [] }
+      }
+    }), "utf8");
+    await writeFile(path.join(root, "observation.json"), JSON.stringify({
+      answer: "I do not know.",
+      retrievedMemoryIds: [],
+      loadedMemoryIds: []
+    }), "utf8");
+
+    const report = await runRegressionFile("location.engram-test.json", {
+      cwd: root,
+      observationFile: "observation.json"
+    });
+
+    expect(report.pass).toBe(false);
+    expect(report.findings.filter((finding) => !finding.pass).map((finding) => finding.label)).toEqual([
+      'retrieved required memory "oakland"',
+      'answer contains "Oakland"'
+    ]);
   });
 });
 
