@@ -1,0 +1,13 @@
+{
+  "name": "@engramviz/cli",
+  "version": "0.1.0",
+  "description": "Local-first Engram Studio CLI.",
+  "type": "module",
+  "bin": { "engram": "./bin/engram.mjs" },
+  "main": "./dist/index.js",
+  "files": ["bin", "dist"],
+  "scripts": { "build": "tsc -p tsconfig.json" },
+  "dependencies": { "@engramviz/core": "*" },
+  "engines": { "node": ">=20" },
+  "license": "MIT"
+}
