@@ -29,14 +29,14 @@ describe("RealityModeControl", () => {
 });
 
 describe("ProductModeControl", () => {
-  it("switches between learning, observation, and investigation intents", async () => {
+  it("switches between learning, trace, and incident intents", async () => {
     const onModeChange = vi.fn();
     const user = userEvent.setup();
 
     render(<ProductModeControl mode="learn" onModeChange={onModeChange} />);
 
     expect(screen.getByRole("button", { name: /Learn:/ })).toHaveAttribute("aria-current", "page");
-    await user.click(screen.getByRole("button", { name: /Observe:/ }));
+    await user.click(screen.getByRole("button", { name: /Traces:/ }));
     await user.click(screen.getByRole("button", { name: /Incidents:/ }));
 
     expect(onModeChange).toHaveBeenNthCalledWith(1, "observe");

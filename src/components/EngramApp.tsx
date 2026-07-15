@@ -1029,7 +1029,7 @@ export function EngramApp({ recordingMode = false }: EngramAppProps) {
 
       <header className="topbar">
         <h1 className="title">ENGRAM</h1>
-        <p className="tagline">Shows what the AI stores, recalls, and uses to answer.</p>
+        <p className="tagline">Observe, debug, and replay AI memory decisions.</p>
       </header>
 
       {!cleanDemoMode ? (

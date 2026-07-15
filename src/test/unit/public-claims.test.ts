@@ -7,8 +7,8 @@ describe("public product claims", () => {
   it("describes observable memory operations without claiming hidden reasoning access", () => {
     const publicMetadata = JSON.stringify(metadata);
 
-    expect(metadata.title).toBe("Engram - Make AI memory visible");
-    expect(publicMetadata).toContain("observable LLM memory operations");
+    expect(metadata.title).toBe("Engram - Memory reliability for AI agents");
+    expect(publicMetadata).toContain("memory-dependent failures");
     expect(publicMetadata).not.toMatch(/see your ai think/i);
     expect(publicMetadata).not.toMatch(/hidden reasoning|chain.of.thought/i);
   });

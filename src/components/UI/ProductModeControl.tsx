@@ -19,9 +19,9 @@ const modes: Array<{
     value: "learn"
   },
   {
-    description: "Inspect an agent trace",
+    description: "Inspect recorded memory evidence",
     icon: RadioTower,
-    label: "Observe",
+    label: "Traces",
     value: "observe"
   },
   {

@@ -1,20 +1,36 @@
-# Engram Lab Architecture
+# Engram Architecture
 
-Engram Lab turns the educational brain visualization into a memory observability
-and replay workspace without claiming access to hidden model reasoning.
+Engram is a local-first memory reliability workspace for AI agents. It turns captured memory operations and agent turns into a trace, an immutable checkpoint, a diagnosable incident, and an executable regression without claiming access to hidden model reasoning.
+
+## Product boundary
+
+Engram is intentionally specialized. Memory providers own storage and retrieval. General observability platforms own broad application traces. Engram connects those systems around one workflow: explain and repair a memory-dependent answer, then preserve the expected behavior as a test.
+
+The current implementation is a source workspace and advanced prototype, not a hosted multi-tenant telemetry service.
 
 ## Product modes
 
 - **Learn** runs the guided memory demo and conversational teaching flow.
-- **Observe** plays recorded or live agent traces. Only explicit memory events
+- **Traces** plays recorded or live agent traces. Only explicit memory events
   animate the brain; ordinary model, tool, handoff, and guardrail spans remain
   visible as execution evidence.
-- **Investigate** works from immutable checkpoints. A user can branch from a
+- **Incidents** works from immutable checkpoints. A user can branch from a
   checkpoint, quarantine or replace memories, replay the affected answer, and
   compare the resulting context and output.
 
 The modes share one canonical trace and checkpoint model. They are different
 views over the same evidence, not separate simulations.
+
+## Capture path
+
+1. `@engramviz/sdk` opens an agent turn and emits Memory Telemetry v2 events.
+2. A provider adapter maps recognized external responses while preserving source paths.
+3. Turn Envelope v1 records input, output, provider identity, and correlated event IDs.
+4. Local authenticated routes append validated evidence to NDJSON stores.
+5. Studio reconstructs a normalized trace without inventing unobserved operations.
+6. A trace turn can be promoted to an immutable incident checkpoint.
+
+Capture is fail-open by default so telemetry does not break the agent. Strict delivery is an explicit SDK option for integration and CI environments.
 
 ## Evidence levels
 
@@ -22,9 +38,10 @@ Every user-facing claim must map to one of these levels:
 
 1. **Observed**: captured directly from an Engram event or instrumented span.
 2. **Mapped**: translated from a recognized memory tool with its source path.
-3. **Replayed**: produced by rerunning a frozen turn under a documented state
+3. **Derived**: computed deterministically from captured evidence.
+4. **Replayed**: produced by rerunning a frozen turn under a documented state
    change.
-4. **Estimated**: derived by a comparison or evaluator and explicitly labeled.
+5. **Unavailable**: not captured by the current integration.
 
 Engram never labels a supplied memory as the hidden cause of an answer. A replay
 can show that an answer changed when memory changed, but model sampling and other
@@ -55,13 +72,20 @@ retrieved memory set from a turn record. It runs a baseline and a branch variant
 then reports exact outputs and transparent comparison measurements. Engram does
 not convert text edit distance into an "influence percentage."
 
+### Regression
+
+A verified incident exports an `engram.memory-regression` v1 artifact containing a frozen fixture, retrieval assertions, answer assertions, and an evidence caveat. `engram test` passes that fixture to a project-owned executor or checks a captured observation. The executor is the only component that can claim equivalence to the agent version under test.
+
+## Persistence and security
+
+Local mode stores validated telemetry and turn envelopes as append-only NDJSON under `.engram/data`. Access uses a generated bearer token bound to the local project. This is sufficient for local development and CI fixtures, not a production tenant, retention, or compliance system.
+
 ## Delivery order
 
 1. Canonical checkpoints, branches, and replay evidence.
-2. Learn / Observe / Investigate workspace hierarchy.
+2. Learn / Traces / Incidents workspace hierarchy.
 3. Retrieval MRI from real retrieval traces.
 4. Branching Memory Time Machine.
 5. Live trace processor and shareable `.engram` files.
 6. Memory Integrity and Dream benchmark reports.
 7. Multi-agent private/shared memory topology.
-

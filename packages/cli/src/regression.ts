@@ -69,8 +69,8 @@ export async function runRegressionFile(
 }
 
 async function executeModule(file: string, fixture: unknown): Promise<unknown> {
-  const module = await import(/* @vite-ignore */ pathToFileURL(file).href);
-  const executor = module.default ?? module.run;
+  const imported = await import(/* @vite-ignore */ pathToFileURL(file).href);
+  const executor = imported.default ?? imported.run;
   if (typeof executor !== "function") {
     throw new Error("Regression executor must export a default function or a function named run.");
   }

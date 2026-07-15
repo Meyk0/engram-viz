@@ -1,0 +1,43 @@
+# Evidence Model
+
+Engram's central engineering rule is that the interface must not imply stronger evidence than the integration captured.
+
+## Evidence levels
+
+| Level | Meaning | Example |
+| --- | --- | --- |
+| Observed | Explicitly emitted by the application or present in a provider response | The prompt builder emitted `load(["memory-2"])` |
+| Mapped | Deterministically translated from a recognized external shape | The Mem0 adapter mapped `search.results[0].score` |
+| Derived | Computed from captured facts using a visible rule | A stale active memory and a newer ignored memory suggest an update failure |
+| Inferred | Plausible interpretation with incomplete direct evidence | A missing rank may have affected selection |
+| Replayed / simulated | Produced by a controlled rerun under a documented change | A branch excludes one memory and returns a different answer |
+| Unavailable | The integration did not capture this stage | Search was observed but prompt loading was not instrumented |
+
+## What Engram can prove
+
+Engram can show that:
+
+- a memory provider returned particular records, ranks, and scores;
+- an application selected particular memory IDs;
+- an instrumented prompt builder reported particular loaded IDs;
+- a model returned a recorded answer;
+- a controlled replay with a documented memory change returned a different answer;
+- a future executor run passed or failed explicit observable assertions.
+
+## What Engram cannot prove
+
+Engram cannot show hidden chain-of-thought, model activations, or an internal causal path. A loaded memory was available to the model; availability is not proof that the model relied on it. A replay result can also differ because of sampling, provider changes, time-dependent tools, or other uncontrolled inputs.
+
+For that reason, regression artifacts declare `causalClaim: false` and include a caveat. Their contract is behavioral: retrieval IDs, loaded IDs, and answer text matched the stated assertions in the configured executor.
+
+## Missing evidence
+
+Missing evidence stays missing. If an adapter observes a search but the application does not instrument prompt construction, Engram marks context load unavailable. It does not assume that selected memories were loaded and it does not diagnose an empty load as a confirmed failure.
+
+## Source-provider changes
+
+Incident interventions operate on an immutable branch derived from a checkpoint. Engram may produce a provider-specific recipe, such as deleting a stale Mem0 memory or changing selection policy, but it does not execute that recipe against the real provider in v1. The developer reviews, applies, and records source changes explicitly.
+
+## Telemetry trust boundary
+
+Local capture uses a bearer token, fixed project identity, schema validation, and append-only NDJSON storage. These controls protect the local evidence channel from accidental cross-project ingestion; they do not turn the local store into a managed multi-tenant security boundary.

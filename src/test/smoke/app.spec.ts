@@ -170,7 +170,7 @@ test("opens a clean recording demo route", async ({ page }) => {
 
 test("keeps the legacy live recorder out of the production browser surface", async ({ page }) => {
   await page.goto("/");
-  await page.getByRole("button", { name: "Observe: Inspect an agent trace" }).click();
+  await page.getByRole("button", { name: "Traces: Inspect recorded memory evidence" }).click();
   const dialog = page.getByRole("dialog", { name: "Import a recorded trace" });
   await expect(dialog).toBeVisible();
   await expect(dialog.getByRole("tab", { name: "Recorded" })).toBeVisible();
