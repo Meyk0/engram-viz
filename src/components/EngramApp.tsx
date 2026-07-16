@@ -785,6 +785,7 @@ export function EngramApp({ recordingMode = false }: EngramAppProps) {
         if (importedTrace) {
           setActivePanel("trace");
         } else {
+          setActivePanel(null);
           setTraceImportPurpose("observe");
           setTraceImportError(null);
           setTraceImportOpen(true);
@@ -1265,7 +1266,7 @@ export function EngramApp({ recordingMode = false }: EngramAppProps) {
         />
       ) : null}
 
-      {importedTrace ? (
+      {importedTrace && productMode === "observe" ? (
         <TracePlaybackBar
           currentStepIndex={traceStepIndex}
           hasTopology={Boolean(agentTopology?.meaningful)}

@@ -9,12 +9,11 @@ an immutable checkpoint and a replayable `TurnRecord`; it does not mutate the or
 
 ## Workflow
 
-1. **Observe:** reconstruct four stages: memory state, retrieval, active context, and answer.
-2. **Explain:** classify the likely failure as storage, update, retrieval, ranking, context,
+1. **Capture:** reconstruct four stages: memory state, retrieval, active context, and answer.
+2. **Diagnose:** classify the likely failure as storage, update, retrieval, ranking, context,
    consolidation, generation, or unknown.
-3. **Intervene:** derive controlled branch mutations such as include, quarantine, replace, or supersede.
-4. **Replay:** rerun the recorded turn with the original context and the branch context.
-5. **Prove:** export the verified fixture, replay evidence, and retrieval/answer assertions as an
+3. **Replay:** derive a controlled branch mutation, then rerun the recorded turn with the original context and the branch context.
+4. **Test:** export the verified fixture, replay evidence, and retrieval/answer assertions as an
    `engram.memory-regression` artifact.
 
 ## Evidence Provenance

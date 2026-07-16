@@ -8,7 +8,7 @@ Engram helps applied AI engineers answer a concrete incident question:
 
 It captures memory operations around an agent turn, reconstructs the visible memory path, lets an engineer test a controlled alternative, and exports the verified behavior as a portable regression test.
 
-**Observe -> explain -> intervene -> replay -> prove.**
+**Capture -> diagnose -> replay -> test.**
 
 The 3D brain is a synchronized evidence map and educational surface. The dedicated Incident workspace is where the debugging workflow happens.
 
@@ -186,6 +186,8 @@ site. Their release boundaries are deliberate:
 - [`apps/web`](apps/web) is the public product and demo app. Vercel must use
   `apps/web` as its **Root Directory**. This artifact has `/` and `/demo`, no API
   routes, and no access to Studio's server environment.
+- [`vercel.json`](vercel.json) deliberately fails a repository-root Vercel build,
+  so a project misconfiguration cannot publish the local Studio API surface.
 - [`docs`](docs) is the Mintlify project published at
   [docs.engramviz.com](https://docs.engramviz.com).
 

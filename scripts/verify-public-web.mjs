@@ -13,6 +13,19 @@ const secretEnvironmentNames = [
   "ENGRAM_LOCAL_DATA_DIR",
   "ENGRAM_TOKEN"
 ];
+const allowedPublicRoutes = new Set(["/", "/demo", "/docs"]);
+const frameworkInternalRoutes = new Set(["/_global-error", "/_not-found"]);
+const forbiddenClientMarkers = [
+  "/api/causal-xray",
+  "/api/chat",
+  "/api/dream",
+  "/api/lab/replay",
+  "/api/local/traces",
+  "/api/semantic-layout",
+  "/api/telemetry/v2",
+  "/api/traces/live",
+  "/api/turns/v1"
+];
 
 export async function verifyPublicWeb({ webRoot = defaultWebRoot, environment = process.env } = {}) {
   const failures = [];
@@ -28,12 +41,12 @@ export async function verifyPublicWeb({ webRoot = defaultWebRoot, environment = 
     failures.push(`could not read public route manifest: ${errorMessage(error)}`);
   }
 
-  for (const requiredRoute of ["/", "/demo"]) {
+  for (const requiredRoute of allowedPublicRoutes) {
     if (!routes.includes(requiredRoute)) failures.push(`public route manifest is missing ${requiredRoute}`);
   }
   for (const route of routes) {
-    if (route === "/api" || route.startsWith("/api/")) {
-      failures.push(`public route manifest contains server route ${route}`);
+    if (!allowedPublicRoutes.has(route) && !frameworkInternalRoutes.has(route)) {
+      failures.push(`public route manifest contains unexpected route ${route}`);
     }
   }
 
@@ -47,6 +60,7 @@ export async function verifyPublicWeb({ webRoot = defaultWebRoot, environment = 
   if (outputFiles.length === 0) failures.push("public build output is missing");
 
   const markers = secretEnvironmentNames.map((name) => ({ label: name, value: name }));
+  markers.push(...forbiddenClientMarkers.map((value) => ({ label: `Studio client ${value}`, value })));
   for (const name of secretEnvironmentNames) {
     const value = environment[name];
     if (typeof value === "string" && value.length >= 8) markers.push({ label: `${name} value`, value });
@@ -57,7 +71,7 @@ export async function verifyPublicWeb({ webRoot = defaultWebRoot, environment = 
     const content = await readFile(file, "utf8");
     for (const marker of markers) {
       if (content.includes(marker.value)) {
-        failures.push(`public output contains server-secret marker ${marker.label}: ${relative(webRoot, file)}`);
+        failures.push(`public output contains forbidden marker ${marker.label}: ${relative(webRoot, file)}`);
       }
     }
   }
@@ -75,8 +89,8 @@ if (modulePath && process.argv[1] && path.resolve(process.argv[1]) === modulePat
     result.failures.forEach((failure) => process.stderr.write(`FAIL  ${failure}\n`));
     process.exitCode = 1;
   } else {
-    process.stdout.write(`PASS  public route manifest contains / and /demo with no API routes\n`);
-    process.stdout.write(`PASS  ${result.scannedFiles} public output files contain no server-secret markers\n`);
+    process.stdout.write(`PASS  public route manifest contains only /, /demo, and /docs\n`);
+    process.stdout.write(`PASS  ${result.scannedFiles} public output files contain no Studio API or server-secret markers\n`);
   }
 }
 

@@ -57,6 +57,7 @@ export function MarketingBrain() {
   const [reduceMotion, setReduceMotion] = useState(false);
 
   useEffect(() => {
+    if (typeof window.matchMedia !== "function") return;
     const media = window.matchMedia("(prefers-reduced-motion: reduce)");
     const update = () => setReduceMotion(media.matches);
     update();
@@ -65,10 +66,7 @@ export function MarketingBrain() {
   }, []);
 
   useEffect(() => {
-    if (reduceMotion) {
-      setStage(3);
-      return;
-    }
+    if (reduceMotion) return;
 
     const timer = window.setInterval(() => {
       setStage((current) => (current + 1) % eventStages.length);
@@ -77,18 +75,21 @@ export function MarketingBrain() {
     return () => window.clearInterval(timer);
   }, [reduceMotion]);
 
+  const visibleStage = reduceMotion ? 3 : stage;
+
   return (
-    <div className="marketing-brain" data-stage={stage}>
+    <div className="marketing-brain" data-stage={visibleStage}>
       <Brain3D
         compactReference
-        events={eventStages[stage]}
-        focusedMemoryIds={stage >= 2 ? [staleMemory.id] : [currentMemory.id]}
-        focusedRegions={stage >= 3 ? ["prefrontal", "temporal"] : ["hippocampus"]}
-        focusPulseKey={`marketing-${stage}`}
-        loadedMemoryIds={stage >= 3 ? [staleMemory.id] : []}
+        events={eventStages[visibleStage]}
+        focusedMemoryIds={visibleStage >= 2 ? [staleMemory.id] : [currentMemory.id]}
+        focusedRegions={visibleStage >= 3 ? ["prefrontal", "temporal"] : ["hippocampus"]}
+        focusPulseKey={`marketing-${visibleStage}`}
+        loadedMemoryIds={visibleStage >= 3 ? [staleMemory.id] : []}
         memories={memories}
-        responseActive={stage === 4}
-        retrievedMemoryIds={stage >= 2 ? [staleMemory.id] : []}
+        reduceMotion={reduceMotion}
+        responseActive={visibleStage === 4}
+        retrievedMemoryIds={visibleStage >= 2 ? [staleMemory.id] : []}
       />
       <div className="scene-telemetry" aria-hidden="true">
         <div className="scene-telemetry-heading">

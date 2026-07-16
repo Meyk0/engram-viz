@@ -26,19 +26,16 @@ Engram is an open-source memory reliability workspace for AI agents. It helps yo
 ## The core loop
 
 <Steps>
-  <Step title="Observe">
+  <Step title="Capture">
     Capture what the memory system stored, updated, retrieved, selected, and loaded into model context.
   </Step>
-  <Step title="Explain">
+  <Step title="Diagnose">
     Reconstruct memory state, retrieval candidates, active context, and the final answer without inventing missing evidence.
   </Step>
-  <Step title="Intervene">
-    Test an isolated alternative such as preferring a current memory, quarantining a stale record, or replacing a fact.
-  </Step>
   <Step title="Replay">
-    Re-execute the frozen turn with the controlled memory change and compare observable behavior.
+    Test an isolated memory change, then re-execute the frozen turn and compare observable behavior.
   </Step>
-  <Step title="Prove">
+  <Step title="Test">
     Export the expected retrieval, context, and answer behavior as a portable `*.engram-test.json` regression.
   </Step>
 </Steps>

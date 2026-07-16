@@ -2,6 +2,7 @@ import { ZodError } from "zod";
 import { parseAgentTurnEnvelope } from "@engramviz/core";
 import { getAgentTurnStore } from "@/lib/ingest/runtime";
 import { authenticateConfiguredIngestRequest } from "@/lib/ingest/request-auth";
+import { guardLocalModeRequest } from "@/lib/ingest/local-boundary";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -9,6 +10,8 @@ export const dynamic = "force-dynamic";
 const MAX_REQUEST_BYTES = 320_000;
 
 export async function POST(request: Request) {
+  const localBoundary = guardLocalModeRequest(request);
+  if (localBoundary) return localBoundary;
   const authentication = authenticateConfiguredIngestRequest(request);
   if ("response" in authentication) return authentication.response;
   const raw = await request.text().catch(() => "");

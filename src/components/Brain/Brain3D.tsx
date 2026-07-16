@@ -35,6 +35,7 @@ type Brain3DProps = {
   focusedRegions?: BrainRegion[];
   focusPulseKey?: string;
   recordingMode?: boolean;
+  reduceMotion?: boolean;
   onActiveContextSelect?: () => void;
   onHelpSelect?: () => void;
   onMemorySelect?: (id: string) => void;
@@ -60,6 +61,7 @@ export function Brain3D({
   focusedRegions = [],
   focusPulseKey,
   recordingMode = false,
+  reduceMotion = false,
   onActiveContextSelect,
   onHelpSelect,
   onMemorySelect,
@@ -83,7 +85,7 @@ export function Brain3D({
       <Canvas
         camera={{ position: brainCameraProfiles.desktop.position, fov: 46, near: 0.1, far: 100 }}
         dpr={[1, 1.75]}
-        frameloop={useStaticTestScene ? "demand" : "always"}
+        frameloop={useStaticTestScene || reduceMotion ? "demand" : "always"}
         gl={{ antialias: true, alpha: true, preserveDrawingBuffer: true }}
         data-testid="brain-canvas"
       >
@@ -94,7 +96,7 @@ export function Brain3D({
         <pointLight position={[0, 1.8, 2.4]} intensity={0.2} color="#00d4ff" />
         <pointLight position={[-2.4, -0.8, 1.2]} intensity={0.18} color="#a855f7" />
         <pointLight position={[2.6, 0.1, -1.4]} intensity={0.16} color={regionBounds.temporal.color} />
-        <Stars radius={8} depth={18} count={900} factor={2.2} saturation={0} fade speed={0.35} />
+        <Stars radius={8} depth={18} count={900} factor={2.2} saturation={0} fade speed={reduceMotion ? 0 : 0.35} />
         <Suspense fallback={<FallbackBrain />}>
           <BrainRig
             key={sceneEpoch}
@@ -112,6 +114,7 @@ export function Brain3D({
             onActiveContextSelect={onActiveContextSelect}
             onMemorySelect={onMemorySelect}
             onRegionSelect={onRegionSelect}
+            reduceMotion={reduceMotion}
             responseActive={responseActive}
             selectedMemoryId={selectedMemoryId}
           />
@@ -121,6 +124,7 @@ export function Brain3D({
           compactReference={compactReference}
           controls={controls}
           recordingMode={recordingMode}
+          reduceMotion={reduceMotion}
         />
         <EffectComposer>
           <Bloom intensity={0.045} luminanceThreshold={0.92} luminanceSmoothing={0.58} mipmapBlur />
@@ -248,11 +252,13 @@ function ResponsiveBrainCamera({
 function ResponsiveOrbitControls({
   compactReference,
   controls,
-  recordingMode
+  recordingMode,
+  reduceMotion
 }: {
   compactReference: boolean;
   controls: RefObject<OrbitControlsImpl | null>;
   recordingMode: boolean;
+  reduceMotion: boolean;
 }) {
   const { size } = useThree();
   const profile = getBrainCameraProfile(size.width, size.height, compactReference);
@@ -260,7 +266,7 @@ function ResponsiveOrbitControls({
   return (
     <OrbitControls
       ref={controls}
-      autoRotate
+      autoRotate={!reduceMotion}
       autoRotateSpeed={recordingMode ? 0.055 : 0.12}
       enablePan={false}
       enableDamping
@@ -287,6 +293,7 @@ function BrainRig({
   onMemorySelect,
   onRegionSelect,
   responseActive = false,
+  reduceMotion = false,
   selectedMemoryId
 }: Brain3DProps & { labelsVisible: boolean }) {
   const group = useRef<THREE.Group>(null);
@@ -294,7 +301,7 @@ function BrainRig({
   const semantic = viewMode === "semantic";
 
   useFrame(({ clock }) => {
-    if (!group.current) return;
+    if (!group.current || reduceMotion) return;
     const sleep = animation.dream.sleepDimming;
     const driftSpeed = 0.1 - sleep * 0.055;
     const floatSpeed = 0.55 - sleep * 0.28;

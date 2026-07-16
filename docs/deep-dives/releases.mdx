@@ -34,7 +34,8 @@ Do not publish generated `packages/*/dist` directories from a developer machine.
 The npm package release is separate from the hosted surfaces. The public web
 project deploys from Vercel with `apps/web` configured as the Root Directory.
 The repository-root Next application is local Studio and must not be used as the
-Vercel root. Mintlify publishes the `docs` project at
+Vercel root. The root `vercel.json` fails closed when that boundary is
+misconfigured. Mintlify publishes the `docs` project at
 [docs.engramviz.com](https://docs.engramviz.com).
 
 Before a public web release, run `npm run test:public`, `npm run build:public`,

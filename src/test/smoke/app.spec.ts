@@ -190,18 +190,30 @@ test("exposes brain thumbnail metadata", async ({ page }) => {
   await expect(page.locator('link[rel="icon"][href$="/engram-icon.png"]')).toHaveCount(1);
   await expect(page.locator('meta[property="og:image"][content$="/engram-og.png"]')).toHaveCount(1);
   await expect(page.locator('meta[name="twitter:image"][content$="/engram-og.png"]')).toHaveCount(1);
-  await expect(page.locator('script[src*="googletagmanager.com/gtag/js?id=G-DQX8CR91QK"]')).toHaveCount(1);
-  await expect
-    .poll(() => page.locator("script#google-analytics").evaluate((element) => element.textContent ?? ""), {
-      timeout: 15_000
-    })
-    .toContain("G-DQX8CR91QK");
+  await expect(page.locator('script[src*="googletagmanager.com/gtag/js"]')).toHaveCount(0);
+  await expect(page.locator("script#google-analytics")).toHaveCount(0);
 });
 
 test("opens the combined conversation and memory story from the dock", async ({ page }) => {
   await page.goto("/");
   await page.getByRole("button", { name: "Story", exact: true }).click();
   await expect(page.getByRole("complementary", { name: "Memory story" })).toBeVisible();
+});
+
+test("clears incompatible panels when switching Studio modes", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "Story", exact: true }).click();
+  await page.getByRole("button", { name: "Traces: Inspect recorded memory evidence" }).click();
+
+  await expect(page.getByRole("complementary", { name: "Memory story" })).toHaveCount(0);
+  const dialog = page.getByRole("dialog", { name: "Import a recorded trace" });
+  await expect(dialog).toBeVisible();
+  await dialog.getByRole("button", { name: "Load sample trace" }).click();
+  await expect(page.getByRole("region", { name: "Trace playback controls" })).toBeVisible();
+
+  await page.getByRole("button", { name: "Incidents: Diagnose and repair a memory incident" }).click();
+  await expect(page.getByRole("complementary", { name: "Memory Incident Workspace" })).toBeVisible();
+  await expect(page.getByRole("region", { name: "Trace playback controls" })).toHaveCount(0);
 });
 
 test("opens Retrieval MRI after a memory recall", async ({ page }) => {

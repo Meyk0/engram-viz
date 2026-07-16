@@ -72,7 +72,7 @@ describe("IncidentWorkspace", () => {
 
     expect(screen.getByRole("heading", { name: "Start with a bad agent answer" })).toBeVisible();
     const workflow = screen.getByLabelText("Memory incident workflow");
-    for (const label of ["Observe", "Explain", "Intervene", "Replay", "Prove"]) {
+    for (const label of ["Capture", "Diagnose", "Replay", "Test"]) {
       expect(workflow).toHaveTextContent(label);
     }
     await user.click(screen.getByRole("button", { name: "Load reference incident" }));

@@ -9,4 +9,5 @@ export type StartStudioOptions = {
 
 export function studioRuntimePath(): string;
 export function isStudioRuntimeReady(): Promise<boolean>;
+export function assertLoopbackHostname(hostname: string): void;
 export function startStudio(options?: StartStudioOptions): Promise<void>;

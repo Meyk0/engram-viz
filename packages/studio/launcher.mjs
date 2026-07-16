@@ -22,6 +22,7 @@ export async function startStudio(options = {}) {
   await access(server);
   const port = options.port ?? 3100;
   const hostname = options.hostname ?? "127.0.0.1";
+  assertLoopbackHostname(hostname);
 
   await new Promise((resolve, reject) => {
     const child = spawn(process.execPath, [server], {
@@ -49,4 +50,11 @@ export async function startStudio(options = {}) {
       else reject(new Error(`Engram Studio exited with code ${code ?? signal}.`));
     });
   });
+}
+
+export function assertLoopbackHostname(hostname) {
+  const normalized = String(hostname).trim().replace(/^\[|\]$/g, "").toLocaleLowerCase();
+  if (!new Set(["127.0.0.1", "::1", "localhost"]).has(normalized)) {
+    throw new Error("Engram Studio must bind to a loopback hostname.");
+  }
 }

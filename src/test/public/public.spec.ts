@@ -1,0 +1,117 @@
+import { expect, test, type Locator, type Page } from "@playwright/test";
+
+async function expectNonblankCanvas(canvas: Locator) {
+  await expect(canvas).toBeVisible();
+  await expect
+    .poll(
+      async () =>
+        canvas.evaluate((element) => {
+          const source = element as HTMLCanvasElement;
+          const probe = document.createElement("canvas");
+          probe.width = 48;
+          probe.height = 48;
+          const context = probe.getContext("2d");
+          if (!context) return 0;
+          context.drawImage(source, 0, 0, probe.width, probe.height);
+          const pixels = context.getImageData(0, 0, probe.width, probe.height).data;
+          let nonBlackPixels = 0;
+          for (let index = 0; index < pixels.length; index += 4) {
+            if (pixels[index] > 8 || pixels[index + 1] > 8 || pixels[index + 2] > 8) {
+              nonBlackPixels += 1;
+            }
+          }
+          return nonBlackPixels;
+        }),
+      { timeout: 20_000 }
+    )
+    .toBeGreaterThan(40);
+}
+
+test("presents the public product promise without Studio controls", async ({ page }) => {
+  await page.goto("/");
+
+  await expect(page.getByRole("heading", { name: "Memory reliability for AI agents" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Run guided demo" })).toHaveAttribute("href", "/demo");
+  await expect(page.getByText("Capture. Diagnose. Replay. Test.")).toBeVisible();
+  await expect(page.getByText(/Your traces stay on your machine/)).toBeVisible();
+  await expect(page.getByLabel("Chat message")).toHaveCount(0);
+  await expect(page.getByLabel("Engram mode")).toHaveCount(0);
+  await expect(page.getByText("Import a recorded trace", { exact: true })).toHaveCount(0);
+  await expect(page.locator('script[src*="googletagmanager.com/gtag/js?id=G-DQX8CR91QK"]')).toHaveCount(1);
+  await expect(page.getByRole("button", { name: "Explain Working Memory" })).toHaveCount(0);
+  await expectNonblankCanvas(page.locator("canvas").first());
+});
+
+test("repairs the five-step fixture incident without calling an Engram API", async ({ page, context }) => {
+  const applicationApiRequests: string[] = [];
+  page.on("request", (request) => {
+    const pathname = new URL(request.url()).pathname;
+    if (pathname === "/api" || pathname.startsWith("/api/")) applicationApiRequests.push(pathname);
+  });
+  await context.grantPermissions(["clipboard-read", "clipboard-write"], {
+    origin: "http://127.0.0.1:3200"
+  });
+
+  await page.goto("/demo");
+  const steps = page.getByRole("navigation", { name: "Guided demo steps" }).getByRole("button");
+  await expect(steps).toHaveCount(5);
+  for (const name of ["Store", "Correct", "Fail", "Repair", "Test"]) {
+    await expect(steps.filter({ hasText: name })).toHaveCount(1);
+  }
+
+  const next = page.getByRole("button", { name: /^Next/ });
+  await next.click();
+  await expect(page.locator(".public-demo")).toHaveAttribute("data-step", "correct");
+  await next.click();
+  await expect(page.locator(".public-demo")).toHaveAttribute("data-step", "fail");
+  await expect(page.getByRole("heading", { name: "A stale fact remained active" })).toBeVisible();
+  await next.click();
+  await expect(page.locator(".public-demo")).toHaveAttribute("data-step", "repair");
+  await expect(next).toBeDisabled();
+  await page.getByRole("button", { name: "Run deterministic repair" }).click();
+  await expect(page.getByText("Verified against the incident expectation")).toBeVisible();
+  await expect(page.getByText("You live in Oakland.", { exact: true })).toBeVisible();
+  await expect(next).toBeEnabled();
+  await next.click();
+  await expect(page.locator(".public-demo")).toHaveAttribute("data-step", "test");
+  const regressionDownload = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Download regression JSON" }).click();
+  expect((await regressionDownload).suggestedFilename()).toBe("engram-stale-location.engram-test.json");
+
+  await page.getByRole("button", { name: "Copy local demo command" }).click();
+  await expect(page.getByRole("button", { name: "Copied" })).toBeVisible();
+  await expect.poll(() => page.evaluate(() => navigator.clipboard.readText())).toBe(
+    "npx --yes @engramviz/cli demo stale-location"
+  );
+  expect(applicationApiRequests).toEqual([]);
+});
+
+test("keeps the public deployment free of application API routes", async ({ request }) => {
+  const replay = await request.post("/api/lab/replay", { data: {} });
+  const ingest = await request.post("/api/local/traces", { data: {} });
+
+  expect(replay.status()).toBe(404);
+  expect(ingest.status()).toBe(404);
+});
+
+test("keeps the brain and demo controls usable on mobile", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/demo");
+
+  await expectNonblankCanvas(page.locator("canvas").first());
+  await expect(page.getByRole("navigation", { name: "Guided demo steps" })).toBeVisible();
+  await expect(page.getByRole("button", { name: /^Next/ })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Explain Working Memory" })).toHaveCount(0);
+  const sceneBox = await page.getByRole("region", { name: "Engram 3D brain scene" }).boundingBox();
+  expect(sceneBox?.height).toBeGreaterThanOrEqual(280);
+  for (const button of await page.locator(".public-demo-transport button, .public-demo-next button").all()) {
+    const box = await button.boundingBox();
+    expect(box?.height).toBeGreaterThanOrEqual(44);
+    expect(box?.width).toBeGreaterThanOrEqual(44);
+  }
+  for (const button of await page.getByRole("navigation", { name: "Guided demo steps" }).getByRole("button").all()) {
+    expect((await button.boundingBox())?.height).toBeGreaterThanOrEqual(44);
+  }
+  const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+  expect(overflow).toBeLessThanOrEqual(1);
+});

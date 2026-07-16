@@ -5,6 +5,7 @@ import {
   TelemetryIngestAuthConfigurationError
 } from "@/lib/ingest/auth";
 import { getMemoryTelemetryStore } from "@/lib/ingest/runtime";
+import { guardLocalModeRequest } from "@/lib/ingest/local-boundary";
 import type { MemoryTelemetryStore, TelemetryTenantContext } from "@/lib/ingest/types";
 import { parseMemoryTelemetryEvent } from "@/lib/telemetry";
 
@@ -23,6 +24,8 @@ type TelemetryIngestDependencies = {
 
 export function createTelemetryV2Handlers(dependencies: TelemetryIngestDependencies) {
   async function POST(request: Request) {
+    const localBoundary = guardLocalModeRequest(request);
+    if (localBoundary) return localBoundary;
     const cors = corsHeaders(request);
     const authentication = authenticate(request, dependencies.authenticate);
     if (authentication.response) return withHeaders(authentication.response, cors);
@@ -82,6 +85,8 @@ export function createTelemetryV2Handlers(dependencies: TelemetryIngestDependenc
   }
 
   async function GET(request: Request) {
+    const localBoundary = guardLocalModeRequest(request);
+    if (localBoundary) return localBoundary;
     const cors = corsHeaders(request);
     const authentication = authenticate(request, dependencies.authenticate);
     if (authentication.response) return withHeaders(authentication.response, cors);
@@ -107,6 +112,8 @@ export function createTelemetryV2Handlers(dependencies: TelemetryIngestDependenc
   }
 
   function OPTIONS(request: Request) {
+    const localBoundary = guardLocalModeRequest(request);
+    if (localBoundary) return localBoundary;
     return new Response(null, { status: 204, headers: corsHeaders(request) });
   }
 

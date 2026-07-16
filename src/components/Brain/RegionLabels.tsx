@@ -105,19 +105,25 @@ function RegionAnnotation({
           textShadow: `0 0 10px ${bounds.color}, 0 1px 4px rgba(0,0,0,0.9)`
         }}
       >
-        <button
-          aria-label={`Explain ${bounds.label}`}
-          className="region-label-button"
-          onClick={(event) => {
-            event.stopPropagation();
-            onRegionSelect?.(region);
-          }}
-          style={{ borderColor: `${bounds.color}55` }}
-          title={`Explain ${bounds.label}`}
-          type="button"
-        >
-          {bounds.label}
-        </button>
+        {onRegionSelect ? (
+          <button
+            aria-label={`Explain ${bounds.label}`}
+            className="region-label-button"
+            onClick={(event) => {
+              event.stopPropagation();
+              onRegionSelect(region);
+            }}
+            style={{ borderColor: `${bounds.color}55` }}
+            title={`Explain ${bounds.label}`}
+            type="button"
+          >
+            {bounds.label}
+          </button>
+        ) : (
+          <span className="region-label-button" style={{ borderColor: `${bounds.color}55` }}>
+            {bounds.label}
+          </span>
+        )}
       </Html>
     </group>
   );

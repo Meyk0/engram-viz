@@ -253,11 +253,10 @@ export function IncidentWorkspace({
           </div>
           <ol className="incident-empty-loop" aria-label="Memory incident workflow">
             {[
-              ["Observe", "Reconstruct the recorded memory state"],
-              ["Explain", "Locate the failing lifecycle stage"],
-              ["Intervene", "Choose a controlled memory change"],
-              ["Replay", "Compare the original and branch"],
-              ["Prove", "Save the repair as a regression"]
+              ["Capture", "Reconstruct the recorded memory state"],
+              ["Diagnose", "Locate the failing lifecycle stage"],
+              ["Replay", "Test a controlled memory change"],
+              ["Test", "Save the verified repair as a regression"]
             ].map(([label, detail], index) => (
               <li key={label}><i>{index + 1}</i><span><strong>{label}</strong><small>{detail}</small></span></li>
             ))}
@@ -289,7 +288,7 @@ export function IncidentWorkspace({
       ? answerSupportsExpectation(replayResult.branchAnswer, incident.expectedAnswer)
       : replayResult.changed
     : false;
-  const currentStep = regressionSaved ? 5 : replayResult ? 4 : selectedIntervention ? 3 : 2;
+  const currentStep = replayResult || regressionSaved ? 4 : selectedIntervention ? 3 : 2;
 
   function selectStage(stageId: string) {
     const stage = incident?.stages.find((candidate) => candidate.id === stageId);
@@ -456,7 +455,7 @@ export function IncidentWorkspace({
 
         <section className="incident-section incident-causal" aria-labelledby="incident-causal-title">
           <SectionHeading
-            eyebrow="Observe"
+            eyebrow="Capture"
             title="Follow the memory decision"
             detail="Each stage is reconstructed from the recorded turn. Select one to inspect its evidence."
           />
@@ -486,7 +485,6 @@ export function IncidentWorkspace({
                   <article key={evidence.id}>
                     <div><EvidenceBadge origin={evidence.origin} /><strong>{evidence.label}</strong></div>
                     <p>{evidence.detail}</p>
-                    {evidence.confidence !== undefined ? <small>{Math.round(evidence.confidence * 100)}% diagnostic confidence</small> : null}
                   </article>
                 )] : [];
               })}
@@ -496,12 +494,12 @@ export function IncidentWorkspace({
 
         <section className="incident-section incident-diagnosis" aria-labelledby="incident-diagnosis-title">
           <SectionHeading
-            eyebrow="Explain"
+            eyebrow="Diagnose"
             title={incident.diagnosis.label}
             detail={incident.diagnosis.summary}
           />
           <div className="incident-diagnosis-meta" id="incident-diagnosis-title">
-            <span>{Math.round(incident.diagnosis.confidence * 100)}% confidence</span>
+            <span>Rule-based diagnosis</span>
             <span>Failure stage: {labelStage(incident.diagnosis.stage)}</span>
             <EvidenceBadge origin={incident.diagnosis.origin} />
           </div>
@@ -535,7 +533,7 @@ export function IncidentWorkspace({
 
         <section className="incident-section incident-intervention" aria-labelledby="incident-intervention-title">
           <SectionHeading
-            eyebrow="Intervene"
+            eyebrow="Replay"
             title="Test a memory repair"
             detail="The recorded incident remains immutable. Engram creates an isolated branch for every experiment."
           />
@@ -639,7 +637,7 @@ export function IncidentWorkspace({
         {replayResult ? (
           <section className="incident-section incident-prove" aria-labelledby="incident-prove-title">
             <SectionHeading
-              eyebrow="Prove"
+              eyebrow="Test"
               title="Keep the repair from regressing"
               detail={guidedDemo
                 ? "Build a portable test from the frozen memory fixture, replay evidence, and lifecycle assertions."
@@ -708,7 +706,7 @@ function jsonText(value: unknown): string | undefined {
 }
 
 function WorkflowProgress({ current }: { current: number }) {
-  const labels = ["Observe", "Explain", "Intervene", "Replay", "Prove"];
+  const labels = ["Capture", "Diagnose", "Replay", "Test"];
   return (
     <nav className="incident-progress" aria-label="Incident investigation workflow">
       <ol>{labels.map((label, index) => {

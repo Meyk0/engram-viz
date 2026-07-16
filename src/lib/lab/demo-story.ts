@@ -10,6 +10,7 @@ import type { MemoryBranch } from "@/lib/lab/types";
 import type { BrainRegion, EngramEvent, EngramMemory } from "@/types";
 
 export const PUBLIC_DEMO_STEP_NAMES = ["Store", "Correct", "Fail", "Repair", "Test"] as const;
+export const PUBLIC_DEMO_PHASE_NAMES = ["Capture", "Diagnose", "Diagnose", "Replay", "Test"] as const;
 
 export type PublicDemoStepName = (typeof PUBLIC_DEMO_STEP_NAMES)[number];
 
@@ -74,7 +75,7 @@ export function createPublicDemoStory(): PublicDemoStory {
       name: "Store",
       eyebrow: "Durable memory",
       title: "Store the original location",
-      description: "The agent records San Francisco as a durable user fact.",
+      description: "The agent records San Francisco as a durable fact.",
       provenance: "Recorded fixture event",
       evidence: staleMemory.sourceText ?? staleMemory.text,
       regionLabel: "Hippocampus / durable-store analogy",
@@ -92,7 +93,7 @@ export function createPublicDemoStory(): PublicDemoStory {
       name: "Correct",
       eyebrow: "New evidence",
       title: "Record the Oakland correction",
-      description: "A newer fact exists beside the older location; nothing has been silently deleted.",
+      description: "A newer Oakland fact sits beside the original; history stays visible.",
       provenance: "Recorded fixture history",
       evidence: currentMemory.sourceText ?? currentMemory.text,
       regionLabel: "Hippocampus / update analogy",
@@ -110,7 +111,7 @@ export function createPublicDemoStory(): PublicDemoStory {
       name: "Fail",
       eyebrow: "Recorded incident",
       title: "The stale location wins retrieval",
-      description: "Top-1 retrieval selects the older, frequently accessed fact and the answer says San Francisco.",
+      description: "Top-1 retrieval selects the stale fact, so the answer says San Francisco.",
       provenance: "Observed turn evidence",
       evidence: incident.observedAnswer,
       regionLabel: "Prefrontal / active-context analogy",
@@ -125,7 +126,7 @@ export function createPublicDemoStory(): PublicDemoStory {
       name: "Repair",
       eyebrow: "Isolated branch",
       title: "Prefer the current fact",
-      description: "The recorded incident stays immutable while a branch supersedes the stale context memory.",
+      description: "An isolated branch supersedes the stale fact without changing the recorded incident.",
       provenance: "Derived branch intervention",
       evidence: intervention.reason,
       regionLabel: "Hippocampus to active-context analogy",
@@ -144,7 +145,7 @@ export function createPublicDemoStory(): PublicDemoStory {
       name: "Test",
       eyebrow: "Deterministic regression",
       title: "Freeze the repaired behavior",
-      description: "The same question now loads Oakland, and the expected answer becomes an executable regression assertion.",
+      description: "The same question now loads Oakland and becomes a portable regression.",
       provenance: "Fixture replay evidence",
       evidence: `Expected answer contains "${incident.expectedAnswer ?? "Oakland"}".`,
       regionLabel: "Prefrontal / active-context analogy",

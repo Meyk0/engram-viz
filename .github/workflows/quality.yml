@@ -34,9 +34,13 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - run: npx playwright install --with-deps chromium
       - run: npm run test:public
       - run: npm run build:public
       - run: npm run verify:public
+      - run: npm run smoke:public
+        env:
+          NEXT_PUBLIC_ENGRAM_TEST_SCENE_STATIC: "true"
 
   quality:
     runs-on: ubuntu-latest

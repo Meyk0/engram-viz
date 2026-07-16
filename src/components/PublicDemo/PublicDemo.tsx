@@ -3,23 +3,20 @@
 import {
   ArrowLeft,
   ArrowRight,
-  BookOpen,
   Check,
   CircleDot,
   Database,
-  ExternalLink,
   Pause,
   Play,
-  RotateCcw,
-  Terminal
+  RotateCcw
 } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { Brain3D } from "@/components/Brain/Brain3D";
-import { IncidentWorkspace } from "@/components/UI/IncidentWorkspace";
-import { executePublicDemoReplay } from "@/lib/lab/demo-replay";
+import { PublicIncidentDemo } from "@/components/PublicDemo/PublicIncidentDemo";
 import {
   createPublicDemoStory,
+  PUBLIC_DEMO_PHASE_NAMES,
   PUBLIC_DEMO_STEP_NAMES,
   type PublicDemoFrame
 } from "@/lib/lab/demo-story";
@@ -40,13 +37,21 @@ export function PublicDemo() {
   const [playing, setPlaying] = useState(false);
   const [sessionEpoch, setSessionEpoch] = useState(0);
   const [repairComplete, setRepairComplete] = useState(false);
-  const [regressionSaved, setRegressionSaved] = useState(false);
+  const [reduceMotion, setReduceMotion] = useState(false);
   const [focusOverride, setFocusOverride] = useState<FocusOverride>();
-  const [installCopied, setInstallCopied] = useState(false);
   const frame = story.frames[stepIndex] ?? story.frames[0];
   const incidentPhase = stepIndex < 2
     ? "hidden"
     : stepIndex === 2 ? "fail" : stepIndex === 3 ? "repair" : "test";
+
+  useEffect(() => {
+    if (typeof window.matchMedia !== "function") return;
+    const media = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const update = () => setReduceMotion(media.matches);
+    update();
+    media.addEventListener("change", update);
+    return () => media.removeEventListener("change", update);
+  }, []);
 
   useEffect(() => {
     if (!playing) return;
@@ -81,15 +86,7 @@ export function PublicDemo() {
     setStepIndex(0);
     setSessionEpoch((current) => current + 1);
     setRepairComplete(false);
-    setRegressionSaved(false);
     setFocusOverride(undefined);
-    setInstallCopied(false);
-  }
-
-  async function copyInstallCommand() {
-    await navigator.clipboard?.writeText("npm install @engramviz/sdk");
-    setInstallCopied(true);
-    window.setTimeout(() => setInstallCopied(false), 1_500);
   }
 
   return (
@@ -109,12 +106,14 @@ export function PublicDemo() {
 
       <section className="public-demo-stage" aria-live="polite">
         <Brain3D
+          compactReference
           events={frame.events}
           focusedMemoryIds={focusedMemoryIds}
           focusedRegions={focusedRegions}
           focusPulseKey={`${sessionEpoch}-${stepIndex}-${focusedMemoryIds.join(".")}`}
           loadedMemoryIds={frame.loadedMemoryIds}
           memories={frame.memories}
+          reduceMotion={reduceMotion}
           responseActive={frame.loadedMemoryIds.length > 0}
           retrievedMemoryIds={frame.retrievedMemoryIds}
           sceneEpoch={sessionEpoch * PUBLIC_DEMO_STEP_NAMES.length + stepIndex}
@@ -134,43 +133,18 @@ export function PublicDemo() {
         </div>
 
         {stepIndex < 2 ? <DemoEvidenceRail frame={frame} /> : null}
-        <IncidentWorkspace
+        <PublicIncidentDemo
           key={sessionEpoch}
-          incident={story.incident}
-          onClose={() => undefined}
           onFocus={(memoryIds, regions = []) => setFocusOverride({ stepIndex, memoryIds, regions })}
-          onImportTrace={() => undefined}
-          onLoadSample={() => undefined}
-          onOpenTool={() => undefined}
           onReplayComplete={() => setRepairComplete(true)}
-          onSaveRegression={() => setRegressionSaved(true)}
-          presentationMode="guided-demo"
-          presentationPhase={incidentPhase}
-          replayExecutor={executePublicDemoReplay}
+          phase={incidentPhase}
+          story={story}
         />
 
         <p className="public-demo-caveat">
           <strong>Where the analogy breaks:</strong> brain regions organize memory lifecycle stages; they do not claim biological anatomy, hidden neural access, or a view inside model weights.
         </p>
 
-        {stepIndex === 4 ? (
-          <section className="public-demo-final" aria-label="Continue with Engram">
-            <span>{regressionSaved ? <Check size={12} /> : <Terminal size={12} />}</span>
-            <div>
-              <strong>{regressionSaved ? "Regression artifact ready" : "Take the workflow to your agent"}</strong>
-              <small>Instrument real turns locally, then investigate them in Engram Studio.</small>
-            </div>
-            <div className="public-demo-final-actions">
-              <button onClick={() => void copyInstallCommand()} type="button">
-                <Terminal size={13} /> {installCopied ? "Copied" : "Install"}
-              </button>
-              <Link href="/docs"><BookOpen size={13} /> Docs</Link>
-              <a href="https://github.com/Meyk0/engram-viz" rel="noreferrer" target="_blank">
-                <ExternalLink size={13} /> GitHub
-              </a>
-            </div>
-          </section>
-        ) : null}
       </section>
 
       <footer className="public-demo-controls">
@@ -201,6 +175,7 @@ export function PublicDemo() {
         <nav className="public-demo-steps" aria-label="Guided demo steps">
           {PUBLIC_DEMO_STEP_NAMES.map((name, index) => (
             <button
+              aria-label={name}
               aria-current={index === stepIndex ? "step" : undefined}
               data-complete={index < stepIndex}
               disabled={index === 4 && !repairComplete}
@@ -209,7 +184,7 @@ export function PublicDemo() {
               type="button"
             >
               <i aria-hidden="true">{index < stepIndex ? <Check size={10} /> : index + 1}</i>
-              <span>{name}</span>
+              <span><small>{PUBLIC_DEMO_PHASE_NAMES[index]}</small>{name}</span>
             </button>
           ))}
         </nav>

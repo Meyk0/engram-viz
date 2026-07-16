@@ -97,7 +97,7 @@ export default function HomePage() {
           <nav aria-label="Primary navigation">
             <a href="#workflow">Workflow</a>
             <a href="/docs">Docs</a>
-            <a href={githubUrl} target="_blank" rel="noreferrer">
+            <a aria-label="Engram on GitHub" href={githubUrl} target="_blank" rel="noreferrer">
               <GitFork aria-hidden="true" size={17} />
               <span>GitHub</span>
             </a>
@@ -133,7 +133,7 @@ export default function HomePage() {
             </div>
 
             <div className="hero-actions">
-              <a className="button button-primary" href="#quickstart">
+              <a className="button button-primary" href="/demo">
                 <Play aria-hidden="true" fill="currentColor" size={16} />
                 Run guided demo
               </a>

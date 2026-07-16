@@ -14,6 +14,31 @@ afterEach(async () => {
 });
 
 describe("public web release boundary", () => {
+  it("fails closed when Vercel targets the Studio repository root", async () => {
+    const config = JSON.parse(await readFile(path.join(process.cwd(), "vercel.json"), "utf8")) as {
+      buildCommand?: string;
+    };
+    const guard = await readFile(path.join(process.cwd(), "scripts", "reject-root-vercel-deploy.mjs"), "utf8");
+
+    expect(config.buildCommand).toBe("node scripts/reject-root-vercel-deploy.mjs");
+    expect(guard).toContain("Set the Vercel project Root Directory to apps/web");
+    expect(guard).toContain("process.exitCode = 1");
+  });
+
+  it("syncs public assets from the app-root build path and starts Studio through the local launcher", async () => {
+    const webPackage = JSON.parse(await readFile(path.join(process.cwd(), "apps", "web", "package.json"), "utf8")) as {
+      scripts?: Record<string, string>;
+    };
+    const rootPackage = JSON.parse(await readFile(path.join(process.cwd(), "package.json"), "utf8")) as {
+      scripts?: Record<string, string>;
+    };
+
+    expect(webPackage.scripts?.prebuild).toBe("node ../../scripts/sync-public-assets.mjs");
+    expect(webPackage.scripts?.predev).toBe("node ../../scripts/sync-public-assets.mjs");
+    expect(rootPackage.scripts?.start).toContain("scripts/start-local-studio.mjs");
+  });
+
+
   it("rebuilds the public directory from an explicit asset allowlist", async () => {
     const root = await temporaryDirectory();
     const sourceDirectory = path.join(root, "source");
@@ -31,13 +56,13 @@ describe("public web release boundary", () => {
     expect(await readFile(path.join(targetDirectory, "icon.png"), "utf8")).toBe("canonical");
   });
 
-  it("accepts only a route manifest with both public routes and no API routes", async () => {
-    const webRoot = await publicBuildFixture(["/", "/demo", "/docs"]);
+  it("accepts the public routes plus Next's internal error routes", async () => {
+    const webRoot = await publicBuildFixture(["/", "/_global-error", "/_not-found", "/demo", "/docs"]);
 
     const result = await verifyPublicWeb({ webRoot, environment: {} });
 
     expect(result.failures).toEqual([]);
-    expect(result.routes).toEqual(["/", "/demo", "/docs"]);
+    expect(result.routes).toEqual(["/", "/_global-error", "/_not-found", "/demo", "/docs"]);
     expect(result.scannedFiles).toBeGreaterThan(0);
   });
 
@@ -48,9 +73,29 @@ describe("public web release boundary", () => {
     const result = await verifyPublicWeb({ webRoot, environment: {} });
 
     expect(result.failures).toContain("public route manifest is missing /demo");
-    expect(result.failures).toContain("public route manifest contains server route /api/local/traces");
+    expect(result.failures).toContain("public route manifest is missing /docs");
+    expect(result.failures).toContain("public route manifest contains unexpected route /api/local/traces");
     expect(result.failures).toContain(
-      "public output contains server-secret marker SUPABASE_SECRET_KEY: .next/static/app.js"
+      "public output contains forbidden marker SUPABASE_SECRET_KEY: .next/static/app.js"
+    );
+  });
+
+  it("rejects any extra public page", async () => {
+    const webRoot = await publicBuildFixture(["/", "/demo", "/docs", "/studio"]);
+
+    const result = await verifyPublicWeb({ webRoot, environment: {} });
+
+    expect(result.failures).toContain("public route manifest contains unexpected route /studio");
+  });
+
+  it("rejects Studio API callers from the generated public artifact", async () => {
+    const webRoot = await publicBuildFixture(["/", "/demo", "/docs"]);
+    await writeFile(path.join(webRoot, ".next", "static", "app.js"), "fetch('/api/lab/replay')");
+
+    const result = await verifyPublicWeb({ webRoot, environment: {} });
+
+    expect(result.failures).toContain(
+      "public output contains forbidden marker Studio client /api/lab/replay: .next/static/app.js"
     );
   });
 });

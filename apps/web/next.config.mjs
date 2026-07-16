@@ -6,7 +6,6 @@ const repositoryRoot = path.resolve(appDirectory, "../..");
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  output: "standalone",
   outputFileTracingRoot: repositoryRoot,
   reactStrictMode: true,
   turbopack: {

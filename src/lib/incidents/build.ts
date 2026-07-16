@@ -325,7 +325,7 @@ function buildStages(
           ? "unknown"
           : signals.loadedIds.length > 0 ? "passed" : "warning"
       ),
-      summary: `${signals.loadedIds.length} memories reached the model.`,
+      summary: `${signals.loadedIds.length} ${signals.loadedIds.length === 1 ? "memory" : "memories"} reached the model.`,
       memoryIds: signals.loadedIds,
       evidenceIds: evidenceByStage.get("active_context") ?? []
     },
