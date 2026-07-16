@@ -13,7 +13,7 @@
       "import": "./launcher.mjs"
     }
   },
-  "files": ["dist", "launcher.mjs", "launcher.d.ts"],
+  "files": ["dist", "launcher.mjs", "launcher.d.ts", "THIRD_PARTY_NOTICES.md"],
   "engines": { "node": ">=20" },
   "publishConfig": { "access": "public", "provenance": true },
   "repository": {

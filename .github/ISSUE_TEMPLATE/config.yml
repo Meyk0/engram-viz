@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security vulnerability
+    url: https://github.com/Meyk0/engram-viz/security/advisories/new
+    about: Report vulnerabilities or exposed credentials privately.
+  - name: Documentation
+    url: https://github.com/Meyk0/engram-viz/tree/main/docs
+    about: Read the integration, incident, and regression guides.

@@ -192,6 +192,7 @@ CI runs the same checks, including sharded Chromium smoke tests. The checked-in 
 
 ## License and Credit
 
-Engram is available under the [MIT License](LICENSE).
-
-Brain mesh by veryfAtfr0G on Sketchfab, CC Attribution.
+Engram source code is available under the [MIT License](LICENSE). The included
+3D models retain their Creative Commons Attribution 4.0 licenses. See
+[Third-Party Notices](THIRD_PARTY_NOTICES.md) for creators, source links, and
+modification details.
