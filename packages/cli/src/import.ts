@@ -14,6 +14,13 @@ export async function importCaptureBundle(
   options: { endpoint: string; config: EngramLocalConfig; fetch?: typeof fetch }
 ) {
   const raw = JSON.parse(await readFile(file, "utf8")) as unknown;
+  return ingestCaptureBundle(raw, options);
+}
+
+export async function ingestCaptureBundle(
+  raw: unknown,
+  options: { endpoint: string; config: EngramLocalConfig; fetch?: typeof fetch }
+) {
   if (!isRecord(raw) || raw.format !== "engram.capture" || raw.version !== 1) {
     throw new Error("Capture must use the engram.capture v1 format.");
   }

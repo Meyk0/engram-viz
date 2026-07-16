@@ -37,17 +37,22 @@ Requirements: Node.js 20 or newer.
 git clone https://github.com/Meyk0/engram-viz.git
 cd engram-viz
 npm install
-npm run engram -- init --project my-agent
-npm run engram -- dev
+npm run engram -- demo stale-location
 ```
 
-Open [http://localhost:3100/?mode=incidents](http://localhost:3100/?mode=incidents). In another terminal, run the deterministic Mem0-shaped incident with capture variables injected by the CLI:
+That single command initializes local capture, starts Studio, records the
+deterministic three-turn failure, and opens
+[http://localhost:3100/?mode=incidents](http://localhost:3100/?mode=incidents).
+Select `What city do I live in now?`, enter `Oakland` as expected answer
+evidence, diagnose it, apply the proposed branch repair, and replay.
+
+The underlying instrumented fixture remains directly runnable when developing
+the adapter:
 
 ```bash
+npm run engram -- dev
 npm run engram -- run -- node examples/mem0-stale-correction/demo.mjs
 ```
-
-Select the recorded `What city do I live in now?` turn in Incidents, enter `Oakland` as expected answer evidence, diagnose it, apply the proposed branch repair, and replay.
 
 Then run the checked-in version of that reliability contract:
 
@@ -75,6 +80,7 @@ All five packages are published under the [`@engramviz`](https://www.npmjs.com/o
 npm install --save-dev @engramviz/cli
 npm install @engramviz/sdk @engramviz/adapter-mem0
 npx engram init --project my-agent
+npx engram doctor
 npx engram dev
 npx engram run -- npm run my-agent
 ```

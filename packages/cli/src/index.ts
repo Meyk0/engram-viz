@@ -1,17 +1,27 @@
 import { spawn } from "node:child_process";
-import { access } from "node:fs/promises";
+import { access, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { isStudioRuntimeReady, startStudio } from "@engramviz/studio";
 import { importCaptureBundle } from "./import.js";
+import {
+  inspectEngramProject,
+  projectNextSteps,
+  projectSetupLines
+} from "./project.js";
 import {
   initializeEngramProject,
   localAgentEnvironment,
   localStudioEnvironment,
   readEngramConfig
 } from "./config.js";
+import { seedStaleLocationDemo, STALE_LOCATION_DEMO, waitForStudio } from "./demo.js";
 import { formatShellEnvironment } from "./environment.js";
-import { runRegressionFile } from "./regression.js";
+import {
+  formatRegressionReport,
+  runRegressionFile,
+  type CliRegressionFormat
+} from "./regression.js";
 
 export {
   initializeEngramProject,
@@ -20,8 +30,10 @@ export {
   readEngramConfig
 } from "./config.js";
 export { formatShellEnvironment } from "./environment.js";
+export { createStaleLocationCapture, seedStaleLocationDemo } from "./demo.js";
 export { importCaptureBundle } from "./import.js";
-export { runRegressionFile } from "./regression.js";
+export { inspectEngramProject, projectNextSteps, projectSetupLines } from "./project.js";
+export { formatRegressionReport, runRegressionFile } from "./regression.js";
 
 export async function runCli(args: string[]) {
   const command = args[0] ?? "help";
@@ -29,8 +41,9 @@ export async function runCli(args: string[]) {
   if (command === "init") {
     const result = await initializeEngramProject(cwd, stringFlag(args, "--project"));
     process.stdout.write(result.created
-      ? `Initialized Engram project "${result.config.projectId}".\nRun: npm run engram -- dev\n`
+      ? `Initialized Engram project "${result.config.projectId}".\n`
       : `Engram is already initialized for "${result.config.projectId}".\n`);
+    await printProjectSetup(cwd);
     return;
   }
   if (command === "doctor") {
@@ -52,6 +65,10 @@ export async function runCli(args: string[]) {
   }
   if (command === "run") {
     await runAgentCommand(cwd, args, numberFlag(args, "--port", 3100));
+    return;
+  }
+  if (command === "demo") {
+    await runDemo(cwd, args, numberFlag(args, "--port", 3100));
     return;
   }
   if (command === "import") {
@@ -76,11 +93,14 @@ export async function runCli(args: string[]) {
       executorFile: stringFlag(args, "--executor"),
       observationFile: stringFlag(args, "--observation")
     });
-    process.stdout.write(`${report.pass ? "PASS" : "FAIL"}  ${report.artifact.title}\n`);
-    report.findings.forEach((finding) => {
-      process.stdout.write(`${finding.pass ? "PASS" : "FAIL"}  ${finding.label}\n`);
-    });
-    process.stdout.write(`Evidence limit: ${report.caveat}\n`);
+    const format = regressionFormat(stringFlag(args, "--format"));
+    process.stdout.write(formatRegressionReport(report, format));
+    const output = stringFlag(args, "--output");
+    if (output) {
+      const outputPath = path.resolve(cwd, output);
+      await writeFile(outputPath, `${JSON.stringify(report, null, 2)}\n`, "utf8");
+      process.stdout.write(`Report: ${outputPath}\n`);
+    }
     if (!report.pass) throw new Error(`Regression "${report.artifact.id}" failed.`);
     return;
   }
@@ -92,19 +112,32 @@ export async function runCli(args: string[]) {
 }
 
 async function doctor(cwd: string, port: number) {
-  const config = await readEngramConfig(cwd);
-  const checks: Array<readonly [string, boolean]> = [
-    [`Node ${process.versions.node}`, Number(process.versions.node.split(".")[0]) >= 20],
-    [`.engram config (${config.projectId})`, true]
-  ];
+  const inspection = await inspectEngramProject(cwd);
+  const lines = projectSetupLines(inspection);
+  let configLabel = ".engram config not found; run npx engram init";
+  try {
+    const config = await readEngramConfig(cwd);
+    configLabel = `.engram config (${config.projectId})`;
+    lines.push(`PASS  ${configLabel}`);
+  } catch {
+    lines.push(`WARN  ${configLabel}`);
+  }
   try {
     const response = await fetch(`http://localhost:${port}/api/local/traces`);
-    checks.push([`Studio on port ${port}`, response.ok]);
+    lines.push(`${response.ok ? "PASS" : "WARN"}  Studio on port ${port}`);
   } catch {
-    checks.push([`Studio on port ${port} (not running)`, false]);
+    lines.push(`WARN  Studio on port ${port} is not running`);
   }
-  for (const [label, pass] of checks) process.stdout.write(`${pass ? "PASS" : "WARN"}  ${label}\n`);
-  if (!checks[0][1]) throw new Error("Engram requires Node.js 20 or newer.");
+  process.stdout.write(`${lines.join("\n")}\n`);
+  if (!inspection.nodeSupported) throw new Error("Engram requires Node.js 20 or newer.");
+}
+
+async function printProjectSetup(cwd: string) {
+  const inspection = await inspectEngramProject(cwd);
+  process.stdout.write("\nProject scan\n");
+  process.stdout.write(`${projectSetupLines(inspection).join("\n")}\n`);
+  process.stdout.write("\nNext steps\n");
+  projectNextSteps(inspection).forEach((step, index) => process.stdout.write(`${index + 1}. ${step}\n`));
 }
 
 async function dev(cwd: string, port: number) {
@@ -157,6 +190,86 @@ async function runAgentCommand(cwd: string, args: string[], port: number) {
   });
 }
 
+async function runDemo(cwd: string, args: string[], port: number) {
+  const demo = args[1]?.startsWith("--") ? STALE_LOCATION_DEMO : (args[1] ?? STALE_LOCATION_DEMO);
+  if (demo !== STALE_LOCATION_DEMO) {
+    throw new Error(`Unknown demo "${demo}". Available: ${STALE_LOCATION_DEMO}.`);
+  }
+  const endpoint = `http://127.0.0.1:${port}`;
+  const { config } = await initializeEngramProject(cwd, "engram-demo");
+  const noStart = args.includes("--no-start");
+  let child: ReturnType<typeof spawn> | undefined;
+
+  try {
+    const running = await studioIsReady(endpoint);
+    if (!running && noStart) throw new Error(`Engram Studio is not running at ${endpoint}.`);
+    if (!running) child = spawnStudio(cwd, port);
+    await waitForStudio({ endpoint, ...(child ? { child } : {}) });
+    const result = await seedStaleLocationDemo({ endpoint, config });
+    const url = `${endpoint}/?mode=incidents`;
+    process.stdout.write(`Captured ${result.turns} turns and ${result.telemetry} memory events.\n`);
+    process.stdout.write(`Open the stale-location incident: ${url}\n`);
+    process.stdout.write("Expected diagnosis: stale retrieval selected San Francisco instead of current Oakland.\n");
+    if (!args.includes("--no-open")) openUrl(url);
+    if (child) {
+      process.stdout.write("Engram Studio is running. Press Ctrl+C to stop.\n");
+      await waitForChild(child);
+    }
+  } catch (error) {
+    if (child?.exitCode === null) child.kill("SIGTERM");
+    throw error;
+  }
+}
+
+function spawnStudio(cwd: string, port: number) {
+  const cli = fileURLToPath(new URL("../bin/engram.mjs", import.meta.url));
+  return spawn(process.execPath, [cli, "dev", "--port", String(port)], {
+    cwd,
+    env: process.env,
+    stdio: "inherit"
+  });
+}
+
+async function studioIsReady(endpoint: string) {
+  try {
+    return (await fetch(new URL("/api/local/traces", endpoint))).ok;
+  } catch {
+    return false;
+  }
+}
+
+async function waitForChild(child: ReturnType<typeof spawn>) {
+  await new Promise<void>((resolve, reject) => {
+    const terminate = () => child.kill("SIGTERM");
+    process.once("SIGINT", terminate);
+    process.once("SIGTERM", terminate);
+    const cleanup = () => {
+      process.off("SIGINT", terminate);
+      process.off("SIGTERM", terminate);
+    };
+    child.once("error", (error) => {
+      cleanup();
+      reject(error);
+    });
+    child.once("exit", (code, signal) => {
+      cleanup();
+      if (code === 0 || signal === "SIGINT" || signal === "SIGTERM") resolve();
+      else reject(new Error(`Engram Studio exited with code ${code ?? signal}.`));
+    });
+  });
+}
+
+function openUrl(url: string) {
+  const [command, commandArgs] = process.platform === "darwin"
+    ? ["open", [url]]
+    : process.platform === "win32"
+      ? ["cmd", ["/c", "start", "", url]]
+      : ["xdg-open", [url]];
+  const opener = spawn(command, commandArgs, { detached: true, stdio: "ignore" });
+  opener.once("error", () => undefined);
+  opener.unref();
+}
+
 function stringFlag(args: string[], name: string) {
   const index = args.indexOf(name);
   return index >= 0 ? args[index + 1] : undefined;
@@ -170,6 +283,12 @@ function numberFlag(args: string[], name: string, fallback: number) {
   return number;
 }
 
+function regressionFormat(value: string | undefined): CliRegressionFormat {
+  if (value === undefined || value === "pretty") return "pretty";
+  if (value === "json" || value === "github") return value;
+  throw new Error("--format must be pretty, json, or github.");
+}
+
 function helpText() {
-  return `Engram — local memory reliability for AI agents\n\nCommands:\n  engram init [--project name]       Initialize local capture\n  engram dev [--port 3100]           Start Engram Studio\n  engram env [--format shell|json]   Print agent capture environment\n  engram run -- <command> [args...]  Run an agent with capture configured\n  engram doctor [--port 3100]        Check local setup\n  engram import <capture.json>        Import an engram.capture bundle\n  engram test <artifact> --executor <module>\n                                       Run a memory regression against an agent\n  engram test <artifact> --observation <json>\n                                       Check a captured agent observation\n`;
+  return `Engram — local memory reliability for AI agents\n\nCommands:\n  engram init [--project name]       Initialize local capture\n  engram dev [--port 3100]           Start Engram Studio\n  engram demo stale-location        Run the flagship incident end to end\n  engram env [--format shell|json]   Print agent capture environment\n  engram run -- <command> [args...]  Run an agent with capture configured\n  engram doctor [--port 3100]        Check local setup\n  engram import <capture.json>        Import an engram.capture bundle\n  engram test <artifact> --executor <module>\n                                       Run a memory regression against an agent\n  engram test <artifact> --observation <json>\n                                       Check a captured agent observation\n\nRegression options:\n  --format pretty|json|github        Select human or CI output\n  --output <report.json>             Save the structured execution report\n`;
 }

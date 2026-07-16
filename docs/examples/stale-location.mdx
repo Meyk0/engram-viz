@@ -6,19 +6,23 @@ icon: "map-pin-off"
 
 The repository includes a credential-free reference incident that stores an old city, records a correction, and deliberately retrieves the stale record.
 
-## Clone and start Studio
+## Run the complete example
 
 ```bash
 git clone https://github.com/Meyk0/engram-viz.git
 cd engram-viz
 npm install
-npm run engram -- init --project stale-location-demo
-npm run engram -- dev
+npm run engram -- demo stale-location
 ```
 
-In another terminal:
+That one command initializes local capture, starts Studio, records the three
+turns, and opens the Incidents workspace. It uses no live model or provider.
+
+To exercise the instrumented Mem0-shaped fixture manually, start Studio and run
+the fixture in another terminal:
 
 ```bash
+npm run engram -- dev
 npm run engram -- run -- node examples/mem0-stale-correction/demo.mjs
 ```
 
@@ -37,7 +41,9 @@ npm run engram -- run -- node examples/mem0-stale-correction/demo.mjs
 ```bash
 npm run engram -- test \
   regressions/current-city.engram-test.json \
-  --executor examples/mem0-stale-correction/regression-executor.mjs
+  --executor examples/mem0-stale-correction/regression-executor.mjs \
+  --format github \
+  --output engram-regression-report.json
 ```
 
 The example is intentionally deterministic. It tests Engram's incident workflow without claiming equivalence to a live memory provider or model.

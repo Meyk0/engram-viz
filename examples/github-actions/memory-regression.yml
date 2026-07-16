@@ -1,0 +1,34 @@
+name: Engram memory regressions
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  memory-regressions:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Run Engram regression
+        run: >-
+          npx engram test
+          regressions/current-city.engram-test.json
+          --executor examples/mem0-stale-correction/regression-executor.mjs
+          --format github
+          --output engram-regression-report.json
+      - if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: engram-memory-regression
+          path: engram-regression-report.json
+          if-no-files-found: error
+          retention-days: 14

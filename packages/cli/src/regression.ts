@@ -31,14 +31,21 @@ export type CliRegressionObservation = {
 export type CliRegressionFinding = {
   label: string;
   pass: boolean;
+  category: "retrieval" | "context" | "answer";
+  assertion: "mustRetrieve" | "mustNotRetrieve" | "maxLoaded" | "contains" | "notContains";
+  expected: string | number;
+  observed: string | string[] | number;
 };
 
 export type CliRegressionReport = {
   artifact: { id: string; title: string };
   pass: boolean;
   findings: CliRegressionFinding[];
+  observation: CliRegressionObservation;
   caveat: string;
 };
+
+export type CliRegressionFormat = "pretty" | "json" | "github";
 
 export async function runRegressionFile(
   artifactFile: string,
@@ -64,8 +71,18 @@ export async function runRegressionFile(
     artifact: { id: artifact.id, title: artifact.title },
     pass: findings.every((finding) => finding.pass),
     findings,
+    observation,
     caveat: artifact.evidence.caveat
   };
+}
+
+export function formatRegressionReport(
+  report: CliRegressionReport,
+  format: CliRegressionFormat = "pretty"
+) {
+  if (format === "json") return `${JSON.stringify(report, null, 2)}\n`;
+  if (format === "github") return formatGitHubReport(report);
+  return formatPrettyReport(report);
 }
 
 async function executeModule(file: string, fixture: unknown): Promise<unknown> {
@@ -84,28 +101,88 @@ function evaluate(artifact: RegressionArtifact, observation: CliRegressionObserv
 
   artifact.assertions.retrieval.mustRetrieve.forEach((id) => findings.push({
     label: `retrieved required memory "${id}"`,
-    pass: retrieved.has(id)
+    pass: retrieved.has(id),
+    category: "retrieval",
+    assertion: "mustRetrieve",
+    expected: id,
+    observed: observation.retrievedMemoryIds
   }));
   artifact.assertions.retrieval.mustNotRetrieve.forEach((id) => findings.push({
     label: `did not retrieve forbidden memory "${id}"`,
-    pass: !retrieved.has(id)
+    pass: !retrieved.has(id),
+    category: "retrieval",
+    assertion: "mustNotRetrieve",
+    expected: id,
+    observed: observation.retrievedMemoryIds
   }));
   if (artifact.assertions.retrieval.maxLoaded !== undefined) {
     findings.push({
       label: `loaded at most ${artifact.assertions.retrieval.maxLoaded} memories`,
-      pass: observation.loadedMemoryIds.length <= artifact.assertions.retrieval.maxLoaded
+      pass: observation.loadedMemoryIds.length <= artifact.assertions.retrieval.maxLoaded,
+      category: "context",
+      assertion: "maxLoaded",
+      expected: artifact.assertions.retrieval.maxLoaded,
+      observed: observation.loadedMemoryIds.length
     });
   }
   artifact.assertions.answer.contains.forEach((text) => findings.push({
     label: `answer contains "${text}"`,
-    pass: answer.includes(text.toLocaleLowerCase())
+    pass: answer.includes(text.toLocaleLowerCase()),
+    category: "answer",
+    assertion: "contains",
+    expected: text,
+    observed: observation.answer
   }));
   artifact.assertions.answer.notContains.forEach((text) => findings.push({
     label: `answer omits "${text}"`,
-    pass: !answer.includes(text.toLocaleLowerCase())
+    pass: !answer.includes(text.toLocaleLowerCase()),
+    category: "answer",
+    assertion: "notContains",
+    expected: text,
+    observed: observation.answer
   }));
 
   return findings;
+}
+
+function formatPrettyReport(report: CliRegressionReport) {
+  const lines = [`${report.pass ? "PASS" : "FAIL"}  ${report.artifact.title}`];
+  report.findings.forEach((finding) => {
+    lines.push(`${finding.pass ? "PASS" : "FAIL"}  [${finding.category}.${finding.assertion}] ${finding.label}`);
+    if (!finding.pass) {
+      lines.push(`      expected: ${formatValue(finding.expected)}`);
+      lines.push(`      observed: ${formatValue(finding.observed)}`);
+    }
+  });
+  const passed = report.findings.filter((finding) => finding.pass).length;
+  lines.push(`Summary: ${passed}/${report.findings.length} assertions passed`);
+  lines.push(`Evidence limit: ${report.caveat}`);
+  return `${lines.join("\n")}\n`;
+}
+
+function formatGitHubReport(report: CliRegressionReport) {
+  const lines = [`${report.pass ? "PASS" : "FAIL"}  ${report.artifact.title}`];
+  report.findings.filter((finding) => !finding.pass).forEach((finding) => {
+    const title = githubEscape(`Engram ${finding.category}.${finding.assertion}`, true);
+    const message = githubEscape(
+      `${finding.label}. Expected ${formatValue(finding.expected)}; observed ${formatValue(finding.observed)}.`,
+      false
+    );
+    lines.push(`::error title=${title}::${message}`);
+  });
+  const passed = report.findings.filter((finding) => finding.pass).length;
+  lines.push(`Summary: ${passed}/${report.findings.length} assertions passed`);
+  lines.push(`Evidence limit: ${report.caveat}`);
+  return `${lines.join("\n")}\n`;
+}
+
+function formatValue(value: string | string[] | number) {
+  return JSON.stringify(value);
+}
+
+function githubEscape(value: string, property: boolean) {
+  const escaped = value.replaceAll("%", "%25").replaceAll("\r", "%0D").replaceAll("\n", "%0A");
+  return property ? escaped.replaceAll(":", "%3A").replaceAll(",", "%2C") : escaped;
 }
 
 function parseArtifact(value: unknown): RegressionArtifact {

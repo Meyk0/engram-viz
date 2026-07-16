@@ -14,6 +14,7 @@ npm install --save-dev @engramviz/cli
 | --- | --- |
 | `engram init [--project name]` | Create local project identity and capture credentials |
 | `engram dev [--port 3100]` | Start the packaged Engram Studio |
+| `engram demo stale-location` | Start Studio and record the flagship stale-memory incident |
 | `engram env [--format shell\|json]` | Print agent-safe capture environment values |
 | `engram run [--port 3100] -- <command>` | Run a child process with capture configured |
 | `engram doctor [--port 3100]` | Check Node, project configuration, and Studio availability |
@@ -30,6 +31,21 @@ npx engram init --project support-agent
 ```
 
 Running `init` again preserves the existing token and project identity.
+
+The setup scan detects npm, pnpm, yarn, or bun; checks whether the SDK and a
+matching Mem0 adapter are installed; reports OpenAI Agents or LangGraph when
+present; and confirms that local capture files are ignored.
+
+## `engram demo`
+
+Run the complete Observe → Explain → Intervene → Replay → Prove walkthrough:
+
+```bash
+npx engram demo stale-location
+```
+
+Use `--no-open` to keep the browser closed. `--no-start` seeds an already
+running Studio, which is useful in automated tests.
 
 ## `engram dev`
 
@@ -61,3 +77,18 @@ npx engram run -- node scripts/reproduce-incident.mjs
 ```
 
 The child process inherits its normal environment plus the Engram capture values.
+
+## Regression output
+
+`engram test` supports human-readable, JSON, and GitHub Actions output:
+
+```bash
+npx engram test incident.engram-test.json \
+  --executor ./engram-regression.mjs \
+  --format github \
+  --output engram-regression-report.json
+```
+
+Failed findings include the expected value and the observed retrieval IDs,
+context count, or answer. GitHub mode emits error annotations for failed
+assertions while the JSON report remains available as a build artifact.

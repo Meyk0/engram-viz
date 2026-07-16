@@ -32,10 +32,13 @@ Execute the artifact:
 
 ```bash
 npx engram test incident.engram-test.json \
-  --executor ./engram-regression.mjs
+  --executor ./engram-regression.mjs \
+  --format pretty
 ```
 
-The command exits nonzero when a required or forbidden retrieval, active-context capacity, or answer-text assertion fails.
+The command exits nonzero when a required or forbidden retrieval, active-context
+capacity, or answer-text assertion fails. Failed findings show expected and
+observed values rather than only a generic failure.
 
 ## Check a recorded observation
 
@@ -50,9 +53,20 @@ npx engram test incident.engram-test.json \
 
 ```yaml
 - run: npm ci
-- run: npx engram test regressions/current-city.engram-test.json \
+- run: >-
+    npx engram test regressions/current-city.engram-test.json
     --executor ./test/engram-executor.mjs
+    --format github
+    --output engram-regression-report.json
+- if: always()
+  uses: actions/upload-artifact@v7
+  with:
+    name: engram-memory-regression
+    path: engram-regression-report.json
 ```
+
+The repository includes a complete copyable workflow at
+[`examples/github-actions/memory-regression.yml`](https://github.com/Meyk0/engram-viz/blob/main/examples/github-actions/memory-regression.yml).
 
 <Info>
 An artifact proves that the configured executor passed observable assertions. Production equivalence exists only when the executor calls the production-equivalent retrieval and generation stack.

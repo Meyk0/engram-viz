@@ -16,6 +16,7 @@ const packageNames = [
   "@engramviz/cli"
 ];
 let studio;
+let demoProcess;
 
 try {
   await mkdir(packs, { recursive: true });
@@ -31,6 +32,10 @@ try {
       "--json"
     ], root);
     const result = JSON.parse(packed.stdout);
+    if (packageName === "@engramviz/studio"
+      && !result[0].files?.some((file) => file.path === "THIRD_PARTY_NOTICES.md")) {
+      throw new Error("Packed Studio omitted its third-party asset notices.");
+    }
     tarballs.push(path.join(packs, result[0].filename));
   }
 
@@ -85,6 +90,23 @@ try {
     throw new Error(`Packed SDK capture was not visible in Studio: ${JSON.stringify(traces)}`);
   }
 
+  const demo = await execute(cli, [
+    "demo",
+    "stale-location",
+    "--port",
+    String(port),
+    "--no-start",
+    "--no-open"
+  ], consumer);
+  if (!demo.stdout.includes("Captured 3 turns and 4 memory events.")) {
+    throw new Error(`Packed CLI did not seed the flagship incident.\n${demo.stdout}`);
+  }
+  const demoTracesResponse = await fetch(`http://127.0.0.1:${port}/api/local/traces`);
+  const demoTraces = await demoTracesResponse.json();
+  if (!demoTracesResponse.ok || !Array.isArray(demoTraces.traces) || demoTraces.traces.length !== 4) {
+    throw new Error(`Packed demo turns were not visible in Studio: ${JSON.stringify(demoTraces)}`);
+  }
+
   await writeRegressionFixture(consumer);
   const regression = await execute(cli, [
     "test",
@@ -96,11 +118,39 @@ try {
     throw new Error("Packed CLI did not pass the clean-room regression.");
   }
 
+  studio.kill("SIGTERM");
+  await new Promise((resolve) => studio.once("exit", resolve));
+  studio = undefined;
+  const demoPort = await availablePort();
+  demoProcess = spawn(cli, ["demo", "stale-location", "--port", String(demoPort), "--no-open"], {
+    cwd: consumer,
+    env: { ...process.env, NEXT_PUBLIC_ENGRAM_TEST_SCENE_STATIC: "true" },
+    stdio: ["ignore", "pipe", "pipe"]
+  });
+  let demoOutput = "";
+  demoProcess.stdout.on("data", (chunk) => { demoOutput += chunk; });
+  demoProcess.stderr.on("data", (chunk) => { demoOutput += chunk; });
+  await waitForStudio(demoPort, () => demoOutput, demoProcess);
+  const standaloneDemoResponse = await fetch(`http://127.0.0.1:${demoPort}/api/local/traces`);
+  const standaloneDemo = await standaloneDemoResponse.json();
+  if (!standaloneDemoResponse.ok || standaloneDemo.traces?.length < 3) {
+    throw new Error(`One-command demo did not start and seed Studio.\n${demoOutput}`);
+  }
+  demoProcess.kill("SIGTERM");
+  await new Promise((resolve) => demoProcess.once("exit", resolve));
+  demoProcess = undefined;
+
   process.stdout.write("PASS  packed packages install in a clean project\n");
+  process.stdout.write("PASS  packed Studio retains third-party asset notices\n");
   process.stdout.write("PASS  standalone Studio serves application and brain assets\n");
   process.stdout.write("PASS  SDK captures a turn through the packed CLI environment\n");
+  process.stdout.write("PASS  one-command demo seeds the flagship stale-memory incident\n");
   process.stdout.write("PASS  portable regression runs from the installed package\n");
 } finally {
+  if (demoProcess && demoProcess.exitCode === null) {
+    demoProcess.kill("SIGTERM");
+    await new Promise((resolve) => demoProcess.once("exit", resolve));
+  }
   if (studio && studio.exitCode === null) {
     studio.kill("SIGTERM");
     await new Promise((resolve) => studio.once("exit", resolve));
@@ -112,10 +162,10 @@ try {
   }
 }
 
-async function waitForStudio(port, output) {
+async function waitForStudio(port, output, process = studio) {
   const deadline = Date.now() + 60_000;
   while (Date.now() < deadline) {
-    if (studio.exitCode !== null) throw new Error(`Packed Studio exited early.\n${output()}`);
+    if (process?.exitCode !== null) throw new Error(`Packed Studio exited early.\n${output()}`);
     try {
       const response = await fetch(`http://127.0.0.1:${port}/api/local/traces`);
       if (response.ok) return;

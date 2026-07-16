@@ -12,6 +12,18 @@ This guide adds local Engram capture to a Node.js agent. It does not require an 
 - A Node.js agent or script that calls a memory system
 - macOS, Linux, or Windows
 
+## Try the complete workflow first
+
+To see Engram's core incident loop before instrumenting an agent:
+
+```bash
+npx engram demo stale-location
+```
+
+The command initializes local capture, starts Studio, records a deterministic
+three-turn stale-memory failure, and opens the Incidents workspace. No API key
+or memory-provider account is required.
+
 ## 1. Install Engram
 
 From your agent repository:
@@ -33,7 +45,10 @@ npm install @engramviz/adapter-mem0
 npx engram init --project my-agent
 ```
 
-Engram creates `.engram/config.json` with a local project ID and ingest token. The CLI adds the config and local capture data to `.gitignore`.
+Engram creates `.engram/config.json` with a local project ID and ingest token.
+The CLI adds the config and local capture data to `.gitignore`, scans the local
+project, and prints package-manager-specific commands for any missing SDK or
+provider adapter.
 
 Start Studio in one terminal:
 
