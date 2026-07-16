@@ -22,6 +22,7 @@ describe("@engramviz/adapter-langgraph", () => {
     });
     const graph = new StateGraph(State)
       .addNode("memory", async (state, runtime) => {
+        if (!runtime.store) throw new Error("LangGraph Store is required for this node.");
         await runtime.store.put(namespace, "city", { data: "User lives in Oakland." });
         const memories = await runtime.store.search(namespace, { limit: 3 });
         await getActiveEngramTurn()?.load(langGraphMemoryIds(memories));
