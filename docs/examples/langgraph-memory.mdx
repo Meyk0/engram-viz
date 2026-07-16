@@ -1,0 +1,50 @@
+---
+title: "LangGraph memory"
+description: "Run a real StateGraph with an instrumented long-term Store."
+icon: "workflow"
+---
+
+The repository includes a deterministic LangGraph example at
+`examples/langgraph-memory`. It uses a real `StateGraph` and `InMemoryStore`
+without a live model or paid API.
+
+The first turn writes `User lives in Oakland.` to LangGraph Store. The second
+turn searches that Store and explicitly reports the result copied into active
+context. Studio therefore shows three distinct facts:
+
+1. LangGraph persisted a durable Store item.
+2. A later turn retrieved that item as a candidate.
+3. The graph node loaded that item into the answer context.
+
+## Run it
+
+From the Engram repository:
+
+```bash
+npm install
+npm run engram -- init --project langgraph-example
+npm run engram -- dev
+```
+
+In another terminal:
+
+```bash
+eval "$(npx engram env --format shell)"
+node examples/langgraph-memory/demo.mjs
+```
+
+Open `http://localhost:3100/?mode=incidents` and inspect the two captured turns.
+
+## What the example does not claim
+
+The example does not use a checkpointer and does not visualize graph snapshots
+as user memory. LangGraph checkpoints represent thread execution state;
+LangGraph Store is the durable cross-thread boundary instrumented here.
+
+The answer is deterministic so the normal test suite remains free of live LLM
+calls. Replace the node's answer logic with the application's real model call
+when integrating Engram into an agent.
+
+<Card title="Read the adapter guide" icon="book-open" href="/instrument/langgraph">
+  Configure selection, update classification, custom content mapping, and explicit context loading.
+</Card>

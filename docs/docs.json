@@ -41,6 +41,7 @@
         "pages": [
           "instrument/typescript-sdk",
           "instrument/mem0",
+          "instrument/langgraph",
           "instrument/custom-adapters"
         ]
       },
@@ -58,7 +59,8 @@
         "icon": "braces",
         "pages": [
           "examples/stale-location",
-          "examples/mem0-openai"
+          "examples/mem0-openai",
+          "examples/langgraph-memory"
         ]
       },
       {

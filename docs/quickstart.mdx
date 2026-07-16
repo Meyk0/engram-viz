@@ -39,6 +39,12 @@ If the agent uses Mem0, also install the adapter:
 npm install @engramviz/adapter-mem0
 ```
 
+If the agent uses LangGraph long-term memory, install its Store adapter instead:
+
+```bash
+npm install @engramviz/adapter-langgraph
+```
+
 ## 2. Initialize local capture
 
 ```bash
@@ -133,5 +139,8 @@ From there, provide expected answer evidence, test a branch-local repair, replay
   </Card>
   <Card title="Run the reference incident" icon="flask-conical" href="/examples/stale-location">
     See the complete incident-to-regression workflow without live credentials.
+  </Card>
+  <Card title="Instrument LangGraph" icon="workflow" href="/instrument/langgraph">
+    Capture durable Store operations while keeping checkpoint state distinct.
   </Card>
 </CardGroup>

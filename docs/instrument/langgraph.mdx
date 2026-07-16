@@ -1,0 +1,118 @@
+---
+title: "LangGraph Store"
+description: "Capture LangGraph long-term memory operations without confusing them with checkpoint state."
+icon: "workflow"
+---
+
+`@engramviz/adapter-langgraph` instruments LangGraph's cross-thread `Store`
+interface. It captures durable memory writes, searches, reads, and deletes while
+preserving the distinction between retrieval and model context.
+
+## Install
+
+```bash
+npm install @engramviz/sdk @engramviz/adapter-langgraph
+```
+
+The adapter supports `@langchain/langgraph` 1.x and wraps any compatible Store
+implementation, including `InMemoryStore` and persistent Store backends.
+
+## Wrap the Store
+
+Wrap the Store before compiling the graph, then run the graph inside an Engram
+turn:
+
+```ts
+import { InMemoryStore } from "@langchain/langgraph";
+import {
+  instrumentLangGraphStore,
+  langGraphMemoryIds
+} from "@engramviz/adapter-langgraph";
+import { EngramClient, getActiveEngramTurn } from "@engramviz/sdk";
+
+const engram = new EngramClient({ adapter: "langgraph" });
+const store = instrumentLangGraphStore(new InMemoryStore(), engram);
+
+const graph = workflow.compile({ store });
+
+const answer = await engram.withTurn(
+  {
+    input: "Where do I live?",
+    provider: { id: "langgraph", model: "my-agent" }
+  },
+  async () => {
+    return graph.invoke({ input: "Where do I live?" });
+  }
+);
+```
+
+Inside a graph node, LangGraph exposes the Store as `runtime.store`. Store
+searches are captured automatically. Report context loading only after the
+application actually copies results into the model input:
+
+```ts
+const memories = await runtime.store.search(
+  ["users", userId, "memories"],
+  { query: state.input, limit: 5 }
+);
+
+const loaded = selectForPrompt(memories);
+await getActiveEngramTurn()?.load(langGraphMemoryIds(loaded));
+```
+
+<Warning>
+`search` proves that LangGraph returned candidates. It does not prove that the
+application placed them in a prompt. Engram never converts a search result into
+active context automatically.
+</Warning>
+
+## Captured operations
+
+| LangGraph Store call | Engram operation | Evidence |
+| --- | --- | --- |
+| `put` | `store` by default | Namespace, key, value, and upsert semantics |
+| `search` | `retrieve` | Ranked candidates, scores, selected IDs, and limit |
+| `get` | `retrieve` | Direct keyed lookup |
+| `delete` | `delete` | Namespace-qualified memory ID |
+| `batch` | Operation for each direct batch item | Mapped from the batch request and result |
+
+LangGraph `put` is an upsert, so the adapter cannot know whether a key existed
+without adding another Store read. Use `classifyPut` when the application knows
+that a write is an update:
+
+```ts
+const store = instrumentLangGraphStore(rawStore, engram, {
+  classifyPut: ({ key }) => knownKeys.has(key) ? "update" : "store"
+});
+```
+
+Memory IDs include the full namespace and key. For example,
+`["users", "user-1", "memories"]` plus `"city"` becomes
+`langgraph:users/user-1/memories/city`. This prevents identical keys in
+different namespaces from collapsing into one Engram memory.
+
+## Checkpoints are different
+
+LangGraph checkpointers persist graph state within a thread and enable resume,
+history, and replay. LangGraph Store persists arbitrary information across
+threads. Engram's adapter observes the latter as durable memory.
+
+It intentionally does not turn every checkpoint value into a memory event.
+Doing so would make transient execution state look like a durable user fact.
+Instrument an explicit application boundary separately if checkpoint state is
+part of the memory behavior being investigated.
+
+<CardGroup cols={2}>
+  <Card title="Run the LangGraph example" icon="play" href="/examples/langgraph-memory">
+    Exercise a real StateGraph and InMemoryStore with deterministic capture.
+  </Card>
+  <Card title="Understand the evidence model" icon="badge-check" href="/concepts/evidence-model">
+    See what observed, mapped, derived, and unavailable evidence mean.
+  </Card>
+</CardGroup>
+
+## LangGraph references
+
+- [Memory overview](https://docs.langchain.com/oss/javascript/langgraph/add-memory)
+- [Persistence and Store](https://docs.langchain.com/oss/javascript/langgraph/persistence)
+- [InMemoryStore API](https://langchain-ai.github.io/langgraphjs/reference/classes/langgraph.InMemoryStore.html)

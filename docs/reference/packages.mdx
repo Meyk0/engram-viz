@@ -4,13 +4,14 @@ description: "Choose the Engram package needed for contracts, capture, providers
 icon: "package-open"
 ---
 
-Engram publishes five synchronized npm packages.
+Engram defines six synchronized npm packages.
 
 | Package | Purpose |
 | --- | --- |
 | [`@engramviz/core`](https://www.npmjs.com/package/@engramviz/core) | Provider-neutral telemetry, turn contracts, schemas, and HTTP transport |
 | [`@engramviz/sdk`](https://www.npmjs.com/package/@engramviz/sdk) | Fail-open TypeScript turn and memory capture |
 | [`@engramviz/adapter-mem0`](https://www.npmjs.com/package/@engramviz/adapter-mem0) | Evidence-preserving wrapper for Mem0-like clients |
+| [`@engramviz/adapter-langgraph`](https://www.npmjs.com/package/@engramviz/adapter-langgraph) | Evidence-preserving wrapper for LangGraph's durable Store interface |
 | [`@engramviz/studio`](https://www.npmjs.com/package/@engramviz/studio) | Prebuilt standalone local Studio runtime and visual assets |
 | [`@engramviz/cli`](https://www.npmjs.com/package/@engramviz/cli) | Local setup, Studio launcher, import, diagnostics, and regression runner |
 
@@ -23,10 +24,12 @@ npm install @engramviz/sdk
 npm install --save-dev @engramviz/cli
 ```
 
-Add the adapter only when using Mem0:
+Add only the adapter that matches the application's memory boundary:
 
 ```bash
 npm install @engramviz/adapter-mem0
+# or
+npm install @engramviz/adapter-langgraph
 ```
 
 The CLI installs the Studio runtime transitively. Most applications do not need to install `@engramviz/core` or `@engramviz/studio` directly.

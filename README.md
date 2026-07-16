@@ -66,19 +66,20 @@ The executor is the replaceable boundary. Point it at the retrieval and generati
 
 ## Instrument an Agent
 
-The repository contains five distributable workspace packages:
+The repository contains six distributable workspace packages:
 
 - `@engramviz/core`: provider-neutral telemetry and turn contracts.
 - `@engramviz/sdk`: local capture client and turn lifecycle.
 - `@engramviz/adapter-mem0`: evidence-preserving Mem0 wrapper.
+- `@engramviz/adapter-langgraph`: evidence-preserving LangGraph Store wrapper.
 - `@engramviz/studio`: prebuilt standalone local workbench and visual assets.
 - `@engramviz/cli`: local Studio, import, diagnostics, and regression commands.
 
-All five packages are published under the [`@engramviz`](https://www.npmjs.com/org/engramviz) npm scope and tested in a clean external project by `npm run test:distribution`. The clean-project flow is:
+The six packages share the [`@engramviz`](https://www.npmjs.com/org/engramviz) npm scope and are tested in a clean external project by `npm run test:distribution`. The clean-project flow is:
 
 ```bash
 npm install --save-dev @engramviz/cli
-npm install @engramviz/sdk @engramviz/adapter-mem0
+npm install @engramviz/sdk
 npx engram init --project my-agent
 npx engram doctor
 npx engram dev
@@ -131,6 +132,22 @@ const mem0 = instrumentMem0(rawMem0, engram, {
 ```
 
 See the [quickstart](docs/quickstart.mdx) and [Mem0 adapter guide](docs/instrument/mem0.mdx) for the full integration path.
+
+For LangGraph, wrap its cross-thread `Store` before compiling the graph:
+
+```ts
+import { InMemoryStore } from "@langchain/langgraph";
+import { instrumentLangGraphStore } from "@engramviz/adapter-langgraph";
+
+const store = instrumentLangGraphStore(new InMemoryStore(), engram);
+const graph = workflow.compile({ store });
+```
+
+The adapter captures `put`, `search`, `get`, `delete`, and direct `batch`
+operations. Search results remain retrieval evidence; your prompt-building code
+must call `turn.load(...)` for the memories actually copied into model context.
+See the [LangGraph adapter guide](docs/instrument/langgraph.mdx) and
+[runnable example](examples/langgraph-memory).
 
 The opt-in [`examples/mem0-openai`](examples/mem0-openai) example exercises the real Mem0 OSS client and OpenAI Responses API with developer-owned credentials. Normal tests never make those paid calls.
 

@@ -14,3 +14,6 @@ the packaged workbench with `engram dev`, inject local capture variables with
 
 Regression output supports `--format pretty|json|github` and `--output` for a
 structured CI artifact.
+
+The setup scan detects Mem0 and LangGraph projects and recommends the matching
+Engram adapter when it is missing.
