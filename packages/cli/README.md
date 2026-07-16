@@ -5,7 +5,7 @@ The local-first CLI for [Engram](https://github.com/Meyk0/engram-viz).
 Run the complete flagship incident with:
 
 ```bash
-npx engram demo stale-location
+npx --yes @engramviz/cli demo stale-location
 ```
 
 Initialize capture with `engram init`, inspect setup with `engram doctor`, launch

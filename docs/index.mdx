@@ -48,14 +48,14 @@ Engram is an open-source memory reliability workspace for AI agents. It helps yo
 ```bash
 npm install --save-dev @engramviz/cli
 npm install @engramviz/sdk
-npx engram init --project my-agent
-npx engram dev
+npx --yes @engramviz/cli init --project my-agent
+npx --yes @engramviz/cli dev
 ```
 
 Then run your agent with the capture environment injected:
 
 ```bash
-npx engram run -- npm run my-agent
+npx --yes @engramviz/cli run -- npm run my-agent
 ```
 
 Engram Studio opens locally at `http://localhost:3100/?mode=incidents`.

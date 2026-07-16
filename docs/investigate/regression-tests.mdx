@@ -31,7 +31,7 @@ export default async function run(fixture) {
 Execute the artifact:
 
 ```bash
-npx engram test incident.engram-test.json \
+npx --yes @engramviz/cli test incident.engram-test.json \
   --executor ./engram-regression.mjs \
   --format pretty
 ```
@@ -45,7 +45,7 @@ observed values rather than only a generic failure.
 When another system already produced the result, compare it directly:
 
 ```bash
-npx engram test incident.engram-test.json \
+npx --yes @engramviz/cli test incident.engram-test.json \
   --observation ./latest-observation.json
 ```
 
@@ -54,7 +54,7 @@ npx engram test incident.engram-test.json \
 ```yaml
 - run: npm ci
 - run: >-
-    npx engram test regressions/current-city.engram-test.json
+    npx --yes @engramviz/cli test regressions/current-city.engram-test.json
     --executor ./test/engram-executor.mjs
     --format github
     --output engram-regression-report.json

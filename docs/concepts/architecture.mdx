@@ -12,6 +12,22 @@ Engram is intentionally specialized. Memory providers own storage and retrieval.
 
 The current implementation is a source workspace and advanced prototype, not a hosted multi-tenant telemetry service.
 
+## Artifact and deployment boundaries
+
+The repository contains two independent Next.js applications:
+
+| Artifact | Purpose | Release boundary |
+| --- | --- | --- |
+| Repository root | Local Engram Studio, API routes, capture storage, replay, and server credentials | Packaged with `@engramviz/studio` and launched on loopback by `@engramviz/cli`; do not deploy this root to Vercel |
+| `apps/web` | Public product site and bounded interactive demo | Deploy from Vercel with **Root Directory** set to `apps/web`; its route manifest must contain `/` and `/demo` and no `/api` routes |
+| `docs` | Developer documentation | Publish with Mintlify at [docs.engramviz.com](https://docs.engramviz.com) |
+
+The public app receives only its allowlisted static assets. It must not import
+Studio API implementations, local stores, or server environment configuration.
+The root commands `npm run dev` and `npm run build` continue to target local
+Studio; the public equivalents are `npm run dev:public`, `npm run test:public`,
+and `npm run build:public`.
+
 ## Product modes
 
 - **Learn** runs the guided memory demo and conversational teaching flow.
@@ -82,7 +98,7 @@ A verified incident exports an `engram.memory-regression` v1 artifact containing
 
 ## Persistence and security
 
-Local mode stores validated telemetry and turn envelopes as append-only NDJSON under `.engram/data`. Access uses a generated bearer token bound to the local project. This is sufficient for local development and CI fixtures, not a production tenant, retention, or compliance system.
+Local mode stores validated telemetry and turn envelopes as append-only NDJSON under `.engram/data`. Access uses a generated bearer token bound to the local project. Trace reads additionally require local mode and a loopback Host, with a same-authority loopback Origin when an Origin is present. This is sufficient for local development and CI fixtures, not a production tenant, retention, or compliance system.
 
 ## Delivery order
 

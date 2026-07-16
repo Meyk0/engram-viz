@@ -102,8 +102,8 @@ describe("@engramviz/cli", () => {
     expect(projectSetupLines(inspection)).toContain("WARN  Mem0 detected; adapter not installed");
     expect(projectNextSteps(inspection)).toEqual([
       "pnpm add @engramviz/sdk @engramviz/adapter-mem0",
-      "npx engram doctor",
-      "npx engram dev"
+      "npx --yes @engramviz/cli doctor",
+      "npx --yes @engramviz/cli dev"
     ]);
   });
 
@@ -123,8 +123,8 @@ describe("@engramviz/cli", () => {
     expect(projectSetupLines(inspection)).toContain("WARN  LangGraph detected; adapter not installed");
     expect(projectNextSteps(inspection)).toEqual([
       "npm install @engramviz/sdk @engramviz/adapter-langgraph",
-      "npx engram doctor",
-      "npx engram dev"
+      "npx --yes @engramviz/cli doctor",
+      "npx --yes @engramviz/cli dev"
     ]);
   });
 
@@ -141,7 +141,7 @@ describe("@engramviz/cli", () => {
     expect(stdout).toContain("Project scan");
     expect(stdout).toContain("WARN  @engramviz/sdk not installed");
     expect(stdout).toContain("1. npm install @engramviz/sdk");
-    expect(stdout).toContain("3. npx engram dev");
+    expect(stdout).toContain("3. npx --yes @engramviz/cli dev");
   });
 
   it("runs an agent command with local capture variables injected", async () => {

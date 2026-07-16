@@ -80,10 +80,10 @@ The six packages share the [`@engramviz`](https://www.npmjs.com/org/engramviz) n
 ```bash
 npm install --save-dev @engramviz/cli
 npm install @engramviz/sdk
-npx engram init --project my-agent
-npx engram doctor
-npx engram dev
-npx engram run -- npm run my-agent
+npx --yes @engramviz/cli init --project my-agent
+npx --yes @engramviz/cli doctor
+npx --yes @engramviz/cli dev
+npx --yes @engramviz/cli run -- npm run my-agent
 ```
 
 `engram env --format shell|json` is also available when a process manager needs the capture variables directly.
@@ -176,6 +176,23 @@ Read the [evidence model](docs/concepts/evidence-model.mdx) before interpreting 
 
 ## Architecture
 
+This repository builds two independent Next.js artifacts and one documentation
+site. Their release boundaries are deliberate:
+
+- The repository root is **Engram Studio**, the local workbench with API routes,
+  local capture storage, and optional server credentials. `npm run dev` and
+  `npm run build` target Studio, and the CLI launches its packaged build on a
+  loopback address. The root app is not the Vercel deployment.
+- [`apps/web`](apps/web) is the public product and demo app. Vercel must use
+  `apps/web` as its **Root Directory**. This artifact has `/` and `/demo`, no API
+  routes, and no access to Studio's server environment.
+- [`docs`](docs) is the Mintlify project published at
+  [docs.engramviz.com](https://docs.engramviz.com).
+
+Use `npm run dev:public`, `npm run test:public`, and `npm run build:public` for
+the public app. Public builds regenerate `apps/web/public` from an allowlist of
+canonical root assets; `npm run verify:public` checks routes and secret markers.
+
 ```text
 Agent + memory provider
         |
@@ -208,6 +225,9 @@ npm run test:regressions
 npm run eval:memory
 npm run test:distribution
 npm run build
+npm run test:public
+npm run build:public
+npm run verify:public
 npm run smoke
 ```
 

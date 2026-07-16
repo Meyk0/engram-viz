@@ -71,8 +71,8 @@ export function projectNextSteps(inspection: EngramProjectInspection): string[] 
   ];
   if (packages.length > 0) steps.push(packageManagerCommand(inspection.packageManager, "add", packages));
   if (inspection.sdkInstalled) steps.push("Instrument one agent turn and report retrieve() and load() separately.");
-  steps.push("npx engram doctor");
-  steps.push("npx engram dev");
+  steps.push("npx --yes @engramviz/cli doctor");
+  steps.push("npx --yes @engramviz/cli dev");
   return steps;
 }
 

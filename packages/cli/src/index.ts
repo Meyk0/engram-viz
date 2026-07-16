@@ -114,7 +114,7 @@ export async function runCli(args: string[]) {
 async function doctor(cwd: string, port: number) {
   const inspection = await inspectEngramProject(cwd);
   const lines = projectSetupLines(inspection);
-  let configLabel = ".engram config not found; run npx engram init";
+  let configLabel = ".engram config not found; run npx --yes @engramviz/cli init";
   try {
     const config = await readEngramConfig(cwd);
     configLabel = `.engram config (${config.projectId})`;

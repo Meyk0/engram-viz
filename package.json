@@ -4,22 +4,30 @@
   "description": "Open-source memory reliability and replay for AI agents.",
   "private": true,
   "workspaces": [
-    "packages/*"
+    "packages/*",
+    "apps/*"
   ],
   "directories": {
     "doc": "docs"
   },
   "scripts": {
     "predev": "npm run build:packages",
-    "dev": "next dev",
+    "dev": "next dev --hostname 127.0.0.1",
+    "predev:public": "npm run sync:public-assets",
+    "dev:public": "npm run dev --workspace @engramviz/web",
     "engram": "npm run build:packages && node packages/cli/bin/engram.mjs",
     "build:packages": "npm run build -w @engramviz/core && npm run build -w @engramviz/sdk && npm run build -w @engramviz/adapter-mem0 && npm run build -w @engramviz/adapter-langgraph && npm run build -w @engramviz/cli",
     "build:studio": "npm run build && node scripts/prepare-studio-package.mjs",
     "build:distribution": "npm run build:packages && npm run build:studio",
     "prebuild": "npm run build:packages",
     "build": "next build",
+    "prebuild:public": "npm run sync:public-assets",
+    "build:public": "npm run build --workspace @engramviz/web",
+    "test:public": "npm run typecheck --workspace @engramviz/web && npm run test --workspace @engramviz/web --if-present && vitest run src/test/unit/public-web-boundary.test.ts",
+    "sync:public-assets": "node scripts/sync-public-assets.mjs",
+    "verify:public": "node scripts/verify-public-web.mjs",
     "start": "node scripts/prepare-studio-package.mjs && node packages/studio/dist/server.js",
-    "lint": "eslint .",
+    "lint": "eslint . --ignore-pattern 'apps/**'",
     "pretypecheck": "npm run build:packages",
     "typecheck": "tsc --noEmit",
     "test": "npm run build:packages && vitest run",

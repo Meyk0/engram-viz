@@ -28,3 +28,15 @@ The workflow rejects a tag that does not match every package version. It runs de
 All packages use one version so a CLI release always targets a compatible Studio, SDK, and contract. Breaking telemetry, turn-envelope, or regression-artifact changes require a major version. Additive APIs and optional contract fields may ship in a minor version; fixes ship in a patch version.
 
 Do not publish generated `packages/*/dist` directories from a developer machine. The release workflow builds them from the tagged source and tests the exact tarball structure first.
+
+## Web and documentation releases
+
+The npm package release is separate from the hosted surfaces. The public web
+project deploys from Vercel with `apps/web` configured as the Root Directory.
+The repository-root Next application is local Studio and must not be used as the
+Vercel root. Mintlify publishes the `docs` project at
+[docs.engramviz.com](https://docs.engramviz.com).
+
+Before a public web release, run `npm run test:public`, `npm run build:public`,
+and `npm run verify:public`. The verifier requires `/` and `/demo`, rejects API
+routes, and scans generated output for Studio server-secret markers.

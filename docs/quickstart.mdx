@@ -17,7 +17,7 @@ This guide adds local Engram capture to a Node.js agent. It does not require an 
 To see Engram's core incident loop before instrumenting an agent:
 
 ```bash
-npx engram demo stale-location
+npx --yes @engramviz/cli demo stale-location
 ```
 
 The command initializes local capture, starts Studio, records a deterministic
@@ -48,7 +48,7 @@ npm install @engramviz/adapter-langgraph
 ## 2. Initialize local capture
 
 ```bash
-npx engram init --project my-agent
+npx --yes @engramviz/cli init --project my-agent
 ```
 
 Engram creates `.engram/config.json` with a local project ID and ingest token.
@@ -59,7 +59,7 @@ provider adapter.
 Start Studio in one terminal:
 
 ```bash
-npx engram dev
+npx --yes @engramviz/cli dev
 ```
 
 Studio is available at `http://localhost:3100/?mode=incidents`.
@@ -111,7 +111,7 @@ Capture memory mutations where they occur with `turn.store`, `turn.update`, `tur
 In another terminal:
 
 ```bash
-npx engram run -- npm run my-agent
+npx --yes @engramviz/cli run -- npm run my-agent
 ```
 
 `engram run` injects only the agent-side values `ENGRAM_URL`, `ENGRAM_TOKEN`, and `ENGRAM_PROJECT_ID`. It does not expose Studio's server-only key map or local data path.
@@ -119,7 +119,7 @@ npx engram run -- npm run my-agent
 Verify the setup at any time:
 
 ```bash
-npx engram doctor
+npx --yes @engramviz/cli doctor
 ```
 
 ## 5. Inspect the turn

@@ -1,24 +1,21 @@
 import type { Metadata } from "next";
-import Script from "next/script";
 import "./globals.css";
 
-const googleAnalyticsId = "G-DQX8CR91QK";
-const siteUrl = process.env.NEXT_PUBLIC_SITE_URL
-  ?? (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000");
+const studioUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
 
 export const metadata: Metadata = {
-  metadataBase: new URL(siteUrl),
-  title: "Engram - Memory reliability for AI agents",
-  description: "Capture, explain, replay, and regression-test memory-dependent failures in AI agents.",
+  metadataBase: new URL(studioUrl),
+  title: "Engram Studio - Local memory reliability for AI agents",
+  description: "Inspect, replay, and regression-test memory-dependent agent failures in local Engram Studio.",
   icons: {
     icon: [{ url: "/engram-icon.png", type: "image/png", sizes: "512x512" }],
     apple: [{ url: "/engram-icon.png", type: "image/png", sizes: "512x512" }]
   },
   openGraph: {
-    title: "Engram - Memory reliability for AI agents",
-    description: "Capture, explain, replay, and regression-test memory-dependent failures in AI agents.",
+    title: "Engram Studio - Local memory reliability for AI agents",
+    description: "Inspect, replay, and regression-test memory-dependent agent failures in local Engram Studio.",
     url: "/",
-    siteName: "Engram",
+    siteName: "Engram Studio",
     images: [
       {
         url: "/engram-og.png",
@@ -31,8 +28,8 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "Engram - Memory reliability for AI agents",
-    description: "Capture, explain, replay, and regression-test memory-dependent failures in AI agents.",
+    title: "Engram Studio - Local memory reliability for AI agents",
+    description: "Inspect, replay, and regression-test memory-dependent agent failures in local Engram Studio.",
     images: ["/engram-og.png"]
   }
 };
@@ -40,22 +37,7 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
-      <body>
-        <Script
-          async
-          src={`https://www.googletagmanager.com/gtag/js?id=${googleAnalyticsId}`}
-          strategy="afterInteractive"
-        />
-        <Script id="google-analytics" strategy="afterInteractive">
-          {`
-            window.dataLayer = window.dataLayer || [];
-            function gtag(){dataLayer.push(arguments);}
-            gtag('js', new Date());
-            gtag('config', '${googleAnalyticsId}');
-          `}
-        </Script>
-        {children}
-      </body>
+      <body>{children}</body>
     </html>
   );
 }

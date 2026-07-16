@@ -27,7 +27,7 @@ npm install --save-dev @engramviz/cli
 Creates `.engram/config.json` and adds `.engram/config.json` plus `.engram/data/` to the repository's `.gitignore`.
 
 ```bash
-npx engram init --project support-agent
+npx --yes @engramviz/cli init --project support-agent
 ```
 
 Running `init` again preserves the existing token and project identity.
@@ -41,7 +41,7 @@ present; and confirms that local capture files are ignored.
 Run the complete Observe → Explain → Intervene → Replay → Prove walkthrough:
 
 ```bash
-npx engram demo stale-location
+npx --yes @engramviz/cli demo stale-location
 ```
 
 Use `--no-open` to keep the browser closed. `--no-start` seeds an already
@@ -52,8 +52,8 @@ running Studio, which is useful in automated tests.
 Starts Studio at `http://localhost:3100/?mode=incidents` by default:
 
 ```bash
-npx engram dev
-npx engram dev --port 3200
+npx --yes @engramviz/cli dev
+npx --yes @engramviz/cli dev --port 3200
 ```
 
 ## `engram env`
@@ -61,8 +61,8 @@ npx engram dev --port 3200
 Use this when a process manager needs the capture values without `engram run`:
 
 ```bash
-npx engram env --format shell
-npx engram env --format json
+npx --yes @engramviz/cli env --format shell
+npx --yes @engramviz/cli env --format json
 ```
 
 The output contains only `ENGRAM_URL`, `ENGRAM_TOKEN`, and `ENGRAM_PROJECT_ID`.
@@ -72,8 +72,8 @@ The output contains only `ENGRAM_URL`, `ENGRAM_TOKEN`, and `ENGRAM_PROJECT_ID`.
 Everything after `--` is executed as the agent command:
 
 ```bash
-npx engram run -- npm run dev:agent
-npx engram run -- node scripts/reproduce-incident.mjs
+npx --yes @engramviz/cli run -- npm run dev:agent
+npx --yes @engramviz/cli run -- node scripts/reproduce-incident.mjs
 ```
 
 The child process inherits its normal environment plus the Engram capture values.
@@ -83,7 +83,7 @@ The child process inherits its normal environment plus the Engram capture values
 `engram test` supports human-readable, JSON, and GitHub Actions output:
 
 ```bash
-npx engram test incident.engram-test.json \
+npx --yes @engramviz/cli test incident.engram-test.json \
   --executor ./engram-regression.mjs \
   --format github \
   --output engram-regression-report.json
