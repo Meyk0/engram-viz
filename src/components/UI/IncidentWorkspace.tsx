@@ -25,7 +25,11 @@ import type {
   MemoryInfluenceResult
 } from "@/lib/incidents/types";
 import { applyMemoryBranch, branchContextMemories, createMemoryBranch } from "@/lib/lab/branches";
-import type { MemoryBranchReplayResult, MemoryCheckpoint } from "@/lib/lab/types";
+import type {
+  MemoryBranchReplayRequest,
+  MemoryBranchReplayResult,
+  MemoryCheckpoint
+} from "@/lib/lab/types";
 import type { NormalizedTrace } from "@/lib/traces/types";
 import {
   createMemoryRegressionArtifact,
@@ -48,7 +52,11 @@ type IncidentWorkspaceProps = {
   onImportTrace: () => void;
   onLoadSample: () => void;
   onOpenTool: (tool: "timeMachine" | "integrity" | "retrieval" | "trace") => void;
+  onReplayComplete?: (result: MemoryBranchReplayResult) => void;
   onSaveRegression: (artifact: MemoryRegressionArtifact) => void;
+  presentationMode?: "standard" | "guided-demo";
+  presentationPhase?: "hidden" | "fail" | "repair" | "test";
+  replayExecutor?: (request: MemoryBranchReplayRequest) => Promise<MemoryBranchReplayResult>;
 };
 
 export function IncidentWorkspace({
@@ -64,14 +72,22 @@ export function IncidentWorkspace({
   onImportTrace,
   onLoadSample,
   onOpenTool,
-  onSaveRegression
+  onReplayComplete,
+  onSaveRegression,
+  presentationMode = "standard",
+  presentationPhase,
+  replayExecutor
 }: IncidentWorkspaceProps) {
+  const guidedDemo = presentationMode === "guided-demo";
   const interventions = useMemo(
     () => incident ? buildIncidentInterventions(incident) : [],
     [incident]
   );
   const [selectedStageId, setSelectedStageId] = useState<string | undefined>(
-    () => incident?.stages[0]?.id
+    () => guidedDemo
+      ? incident?.stages.find((stage) => stage.kind === incident.diagnosis.stage)?.id
+        ?? incident?.stages[0]?.id
+      : incident?.stages[0]?.id
   );
   const [selectedInterventionId, setSelectedInterventionId] = useState<string | undefined>(
     () => interventions[0]?.id
@@ -265,7 +281,7 @@ export function IncidentWorkspace({
       })
     : undefined;
   const materialized = branch ? applyMemoryBranch(incident.checkpoint, branch) : undefined;
-  const remediationRecipe = selectedIntervention
+  const remediationRecipe = !guidedDemo && selectedIntervention
     ? buildSourceRemediationRecipe(incident, selectedIntervention)
     : undefined;
   const replayVerified = replayResult
@@ -299,18 +315,29 @@ export function IncidentWorkspace({
     onFocus(selectedIntervention.affectedMemoryIds, selectedIntervention.focusedRegions);
 
     try {
-      const response = await fetch("/api/lab/replay", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          record: incident.record,
-          branch,
-          branchContextMemories: branchContextMemories(incident.record, branch, materialized)
-        })
-      });
-      const payload = await response.json() as unknown;
-      if (!response.ok) throw new Error(readError(payload) ?? "The replay could not be completed.");
-      setReplayResult(memoryBranchReplayResultSchema.parse(payload));
+      const request: MemoryBranchReplayRequest = {
+        record: incident.record,
+        branch,
+        branchContextMemories: branchContextMemories(incident.record, branch, materialized)
+      };
+      let payload: unknown;
+
+      if (replayExecutor) {
+        payload = await replayExecutor(request);
+      } else {
+        if (guidedDemo) throw new Error("The guided demo requires its browser replay executor.");
+        const response = await fetch("/api/lab/replay", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(request)
+        });
+        payload = await response.json() as unknown;
+        if (!response.ok) throw new Error(readError(payload) ?? "The replay could not be completed.");
+      }
+
+      const result = memoryBranchReplayResultSchema.parse(payload);
+      setReplayResult(result);
+      onReplayComplete?.(result);
     } catch (error) {
       setReplayError(error instanceof Error ? error.message : "The replay could not be completed.");
     } finally {
@@ -390,10 +417,16 @@ export function IncidentWorkspace({
   }
 
   return (
-    <aside className="incident-workspace" aria-label="Memory Incident Workspace">
-      <WorkspaceHeader onClose={onClose} />
+    <aside
+      aria-hidden={presentationPhase === "hidden" ? true : undefined}
+      aria-label="Memory Incident Workspace"
+      className="incident-workspace"
+      data-presentation={presentationMode}
+      data-presentation-phase={presentationPhase}
+    >
+      {guidedDemo ? null : <WorkspaceHeader onClose={onClose} />}
       <div className="incident-scroll">
-        <WorkflowProgress current={currentStep} />
+        {guidedDemo ? null : <WorkflowProgress current={currentStep} />}
 
         <section className="incident-summary">
           <div className="incident-summary-heading">
@@ -421,7 +454,7 @@ export function IncidentWorkspace({
           </div>
         </section>
 
-        <section className="incident-section" aria-labelledby="incident-causal-title">
+        <section className="incident-section incident-causal" aria-labelledby="incident-causal-title">
           <SectionHeading
             eyebrow="Observe"
             title="Follow the memory decision"
@@ -472,17 +505,19 @@ export function IncidentWorkspace({
             <span>Failure stage: {labelStage(incident.diagnosis.stage)}</span>
             <EvidenceBadge origin={incident.diagnosis.origin} />
           </div>
-          <div className="incident-influence">
-            <div>
-              <strong>Memory influence analysis</strong>
-              <span>Replay once without each used memory to test answer sensitivity.</span>
+          {guidedDemo ? null : (
+            <div className="incident-influence">
+              <div>
+                <strong>Memory influence analysis</strong>
+                <span>Replay once without each used memory to test answer sensitivity.</span>
+              </div>
+              <button disabled={influencePending || incident.record.retrievedMemories.length === 0} onClick={() => void runInfluenceAnalysis()} type="button">
+                <Radar size={13} /> {influencePending ? "Running replays..." : "Run influence check"}
+              </button>
             </div>
-            <button disabled={influencePending || incident.record.retrievedMemories.length === 0} onClick={() => void runInfluenceAnalysis()} type="button">
-              <Radar size={13} /> {influencePending ? "Running replays..." : "Run influence check"}
-            </button>
-          </div>
-          {influenceError ? <p className="incident-error">{influenceError}</p> : null}
-          {influenceResults.length > 0 ? (
+          )}
+          {!guidedDemo && influenceError ? <p className="incident-error">{influenceError}</p> : null}
+          {!guidedDemo && influenceResults.length > 0 ? (
             <div className="incident-influence-results">
               {influenceResults.map((result) => {
                 const memory = incident.memories.find((candidate) => candidate.id === result.memoryId);
@@ -498,7 +533,7 @@ export function IncidentWorkspace({
           ) : null}
         </section>
 
-        <section className="incident-section" aria-labelledby="incident-intervention-title">
+        <section className="incident-section incident-intervention" aria-labelledby="incident-intervention-title">
           <SectionHeading
             eyebrow="Intervene"
             title="Test a memory repair"
@@ -514,13 +549,15 @@ export function IncidentWorkspace({
               <p>{selectedIntervention.description}</p>
               <small>{selectedIntervention.reason}</small>
               <button className="incident-primary-action" disabled={replayPending} onClick={() => void replayIntervention()} type="button">
-                <Play size={13} /> {replayPending ? "Replaying original and branch..." : "Replay this fix"}
+                <Play size={13} /> {replayPending
+                  ? "Replaying original and branch..."
+                  : guidedDemo ? "Run deterministic repair" : "Replay this fix"}
               </button>
             </article>
           ) : (
             <p className="incident-muted">No safe memory-state intervention was derived from this evidence.</p>
           )}
-          {interventions.length > 1 ? (
+          {!guidedDemo && interventions.length > 1 ? (
             <details className="incident-other-tests">
               <summary><ChevronDown size={13} /> Other controlled tests</summary>
               <div>
@@ -541,7 +578,7 @@ export function IncidentWorkspace({
           {replayError ? <p className="incident-error">{replayError}</p> : null}
         </section>
 
-        {remediationRecipe ? (
+        {!guidedDemo && remediationRecipe ? (
           <section className="incident-section incident-source-repair" aria-labelledby="incident-source-repair-title">
             <SectionHeading
               eyebrow="Source-safe"
@@ -571,7 +608,9 @@ export function IncidentWorkspace({
             <SectionHeading
               eyebrow="Replay"
               title={replayVerified ? "The repair produced the expected behavior" : replayResult.changed ? "The answer changed" : "The answer remained stable"}
-              detail="Both answers were generated from the same recorded turn with only the branch memory context changed."
+              detail={guidedDemo
+                ? "A fixed fixture executor evaluated the same recorded turn against the original and branch contexts."
+                : "Both answers were generated from the same recorded turn with only the branch memory context changed."}
             />
             <div className="incident-replay-status" data-verified={replayVerified} id="incident-replay-title">
               {replayVerified ? <ShieldCheck size={15} /> : <FlaskConical size={15} />}
@@ -602,7 +641,9 @@ export function IncidentWorkspace({
             <SectionHeading
               eyebrow="Prove"
               title="Keep the repair from regressing"
-              detail="Export the frozen memory state, turn input, replay evidence, and lifecycle assertions as a portable test."
+              detail={guidedDemo
+                ? "Build a portable test from the frozen memory fixture, replay evidence, and lifecycle assertions."
+                : "Export the frozen memory state, turn input, replay evidence, and lifecycle assertions as a portable test."}
             />
             <div id="incident-prove-title">
               <ul>
@@ -617,14 +658,16 @@ export function IncidentWorkspace({
           </section>
         ) : null}
 
-        <section className="incident-advanced-tools" aria-label="Advanced incident tools">
-          <span>Advanced evidence</span>
-          <div>
-            <button type="button" onClick={() => onOpenTool("timeMachine")}><GitBranch size={12} /> Time Machine</button>
-            <button type="button" onClick={() => onOpenTool("integrity")}><ShieldCheck size={12} /> Integrity</button>
-            <button type="button" onClick={() => onOpenTool("retrieval")}><Radar size={12} /> Retrieval MRI</button>
-          </div>
-        </section>
+        {guidedDemo ? null : (
+          <section className="incident-advanced-tools" aria-label="Advanced incident tools">
+            <span>Advanced evidence</span>
+            <div>
+              <button type="button" onClick={() => onOpenTool("timeMachine")}><GitBranch size={12} /> Time Machine</button>
+              <button type="button" onClick={() => onOpenTool("integrity")}><ShieldCheck size={12} /> Integrity</button>
+              <button type="button" onClick={() => onOpenTool("retrieval")}><Radar size={12} /> Retrieval MRI</button>
+            </div>
+          </section>
+        )}
       </div>
     </aside>
   );
