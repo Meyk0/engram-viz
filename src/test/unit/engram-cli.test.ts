@@ -107,6 +107,27 @@ describe("@engramviz/cli", () => {
     ]);
   });
 
+  it("recommends the LangGraph adapter when a project uses LangGraph Store", async () => {
+    const root = await temporaryDirectory();
+    await writeFile(path.join(root, "package.json"), JSON.stringify({
+      dependencies: { "@langchain/langgraph": "^1.4.8" }
+    }), "utf8");
+    await initializeEngramProject(root, "LangGraph Agent");
+
+    const inspection = await inspectEngramProject(root);
+    expect(inspection).toMatchObject({
+      packageManager: "npm",
+      langGraphDetected: true,
+      langGraphAdapterInstalled: false
+    });
+    expect(projectSetupLines(inspection)).toContain("WARN  LangGraph detected; adapter not installed");
+    expect(projectNextSteps(inspection)).toEqual([
+      "npm install @engramviz/sdk @engramviz/adapter-langgraph",
+      "npx engram doctor",
+      "npx engram dev"
+    ]);
+  });
+
   it("prints an actionable setup scan after initialization", async () => {
     const root = await temporaryDirectory();
     await writeFile(path.join(root, "package.json"), JSON.stringify({

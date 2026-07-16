@@ -23,7 +23,7 @@ body:
     id: surface
     attributes:
       label: Surface
-      options: [Studio, CLI, SDK, Mem0 adapter, Regression runner, Documentation]
+      options: [Studio, CLI, SDK, Mem0 adapter, LangGraph adapter, Regression runner, Documentation]
     validations:
       required: true
   - type: textarea

@@ -8,6 +8,7 @@ const manifests = [
   "packages/core/package.json",
   "packages/sdk/package.json",
   "packages/adapter-mem0/package.json",
+  "packages/adapter-langgraph/package.json",
   "packages/studio/package.json",
   "packages/cli/package.json"
 ];

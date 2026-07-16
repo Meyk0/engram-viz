@@ -41,6 +41,7 @@ jobs:
       - run: npm run test:regressions
       - run: npm run eval:memory
       - run: npm run test:example-real
+      - run: npm run test:example-langgraph
       - run: npm run test:example-regression
       - run: npm run build
 

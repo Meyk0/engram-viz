@@ -15,6 +15,7 @@ export type EngramProjectInspection = {
   mem0AdapterInstalled: boolean;
   openAiAgentsDetected: boolean;
   langGraphDetected: boolean;
+  langGraphAdapterInstalled: boolean;
   captureIgnored: boolean;
 };
 
@@ -37,6 +38,7 @@ export async function inspectEngramProject(directory: string): Promise<EngramPro
     mem0AdapterInstalled: dependencies.has("@engramviz/adapter-mem0"),
     openAiAgentsDetected: dependencies.has("@openai/agents"),
     langGraphDetected: dependencies.has("@langchain/langgraph"),
+    langGraphAdapterInstalled: dependencies.has("@engramviz/adapter-langgraph"),
     captureIgnored: ignoresLocalCapture(gitignore)
   };
 }
@@ -53,7 +55,9 @@ export function projectSetupLines(inspection: EngramProjectInspection): string[]
     lines.push(`${inspection.mem0AdapterInstalled ? "PASS" : "WARN"}  Mem0 detected${inspection.mem0AdapterInstalled ? " with the Engram adapter" : "; adapter not installed"}`);
   }
   if (inspection.openAiAgentsDetected) lines.push("INFO  OpenAI Agents SDK detected; instrument its memory boundary with @engramviz/sdk");
-  if (inspection.langGraphDetected) lines.push("INFO  LangGraph detected; instrument the store/retrieval boundary with @engramviz/sdk");
+  if (inspection.langGraphDetected) {
+    lines.push(`${inspection.langGraphAdapterInstalled ? "PASS" : "WARN"}  LangGraph detected${inspection.langGraphAdapterInstalled ? " with the Engram adapter" : "; adapter not installed"}`);
+  }
   return lines;
 }
 
@@ -62,7 +66,8 @@ export function projectNextSteps(inspection: EngramProjectInspection): string[] 
   if (!inspection.packageJsonPresent) steps.push(packageManagerCommand(inspection.packageManager, "init"));
   const packages = [
     ...(inspection.sdkInstalled ? [] : ["@engramviz/sdk"]),
-    ...(inspection.mem0Detected && !inspection.mem0AdapterInstalled ? ["@engramviz/adapter-mem0"] : [])
+    ...(inspection.mem0Detected && !inspection.mem0AdapterInstalled ? ["@engramviz/adapter-mem0"] : []),
+    ...(inspection.langGraphDetected && !inspection.langGraphAdapterInstalled ? ["@engramviz/adapter-langgraph"] : [])
   ];
   if (packages.length > 0) steps.push(packageManagerCommand(inspection.packageManager, "add", packages));
   if (inspection.sdkInstalled) steps.push("Instrument one agent turn and report retrieve() and load() separately.");

@@ -12,6 +12,7 @@ const packageNames = [
   "@engramviz/core",
   "@engramviz/sdk",
   "@engramviz/adapter-mem0",
+  "@engramviz/adapter-langgraph",
   "@engramviz/studio",
   "@engramviz/cli"
 ];
@@ -46,6 +47,24 @@ try {
     type: "module"
   }, null, 2));
   await execute("npm", ["install", "--ignore-scripts", "--no-audit", "--no-fund", ...tarballs], consumer);
+
+  await writeFile(path.join(consumer, "langgraph-adapter.mjs"), `
+    import { InMemoryStore } from "@langchain/langgraph";
+    import { instrumentLangGraphStore, langGraphMemoryIds } from "@engramviz/adapter-langgraph";
+    import { EngramClient } from "@engramviz/sdk";
+    const engram = new EngramClient({
+      endpoint: "http://127.0.0.1:1",
+      token: "clean-room-token",
+      projectId: "clean-room-agent"
+    });
+    const store = instrumentLangGraphStore(new InMemoryStore(), engram);
+    await store.put(["users", "clean-room", "memories"], "city", { data: "User lives in Oakland." });
+    const results = await store.search(["users", "clean-room", "memories"]);
+    if (langGraphMemoryIds(results)[0] !== "langgraph:users/clean-room/memories/city") {
+      throw new Error("Packed LangGraph adapter did not preserve the Store identity.");
+    }
+  `);
+  await execute(process.execPath, ["langgraph-adapter.mjs"], consumer);
 
   const cli = path.join(consumer, "node_modules", ".bin", process.platform === "win32" ? "engram.cmd" : "engram");
   await execute(cli, ["init", "--project", "clean-room-agent"], consumer);
@@ -144,6 +163,7 @@ try {
   process.stdout.write("PASS  packed Studio retains third-party asset notices\n");
   process.stdout.write("PASS  standalone Studio serves application and brain assets\n");
   process.stdout.write("PASS  SDK captures a turn through the packed CLI environment\n");
+  process.stdout.write("PASS  LangGraph Store adapter works from its packed public contract\n");
   process.stdout.write("PASS  one-command demo seeds the flagship stale-memory incident\n");
   process.stdout.write("PASS  portable regression runs from the installed package\n");
 } finally {

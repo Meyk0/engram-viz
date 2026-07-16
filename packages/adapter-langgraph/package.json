@@ -1,0 +1,26 @@
+{
+  "name": "@engramviz/adapter-langgraph",
+  "version": "0.1.0",
+  "description": "Evidence-preserving LangGraph Store adapter for Engram.",
+  "author": "Joscha Koepke",
+  "keywords": ["ai", "agent", "memory", "langgraph", "observability"],
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": { ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" } },
+  "files": ["dist"],
+  "sideEffects": false,
+  "scripts": { "build": "tsc -p tsconfig.json" },
+  "dependencies": { "@engramviz/sdk": "^0.1.0" },
+  "peerDependencies": { "@langchain/langgraph": ">=1.0.0 <2" },
+  "engines": { "node": ">=20" },
+  "publishConfig": { "access": "public", "provenance": true },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Meyk0/engram-viz.git",
+    "directory": "packages/adapter-langgraph"
+  },
+  "homepage": "https://github.com/Meyk0/engram-viz#readme",
+  "bugs": { "url": "https://github.com/Meyk0/engram-viz/issues" },
+  "license": "MIT"
+}

@@ -28,5 +28,6 @@ jobs:
       - run: node scripts/publish-package.mjs @engramviz/core "${GITHUB_REF_NAME#v}"
       - run: node scripts/publish-package.mjs @engramviz/sdk "${GITHUB_REF_NAME#v}"
       - run: node scripts/publish-package.mjs @engramviz/adapter-mem0 "${GITHUB_REF_NAME#v}"
+      - run: node scripts/publish-package.mjs @engramviz/adapter-langgraph "${GITHUB_REF_NAME#v}"
       - run: node scripts/publish-package.mjs @engramviz/studio "${GITHUB_REF_NAME#v}"
       - run: node scripts/publish-package.mjs @engramviz/cli "${GITHUB_REF_NAME#v}"
