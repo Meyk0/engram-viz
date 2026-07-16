@@ -59,6 +59,7 @@ try {
   studio = spawn(cli, ["dev", "--port", String(port)], {
     cwd: consumer,
     env: { ...process.env, NEXT_PUBLIC_ENGRAM_TEST_SCENE_STATIC: "true" },
+    detached: process.platform !== "win32",
     stdio: ["ignore", "pipe", "pipe"]
   });
   let studioOutput = "";
@@ -118,13 +119,13 @@ try {
     throw new Error("Packed CLI did not pass the clean-room regression.");
   }
 
-  studio.kill("SIGTERM");
-  await new Promise((resolve) => studio.once("exit", resolve));
+  await stopProcess(studio);
   studio = undefined;
   const demoPort = await availablePort();
   demoProcess = spawn(cli, ["demo", "stale-location", "--port", String(demoPort), "--no-open"], {
     cwd: consumer,
     env: { ...process.env, NEXT_PUBLIC_ENGRAM_TEST_SCENE_STATIC: "true" },
+    detached: process.platform !== "win32",
     stdio: ["ignore", "pipe", "pipe"]
   });
   let demoOutput = "";
@@ -136,8 +137,7 @@ try {
   if (!standaloneDemoResponse.ok || standaloneDemo.traces?.length < 3) {
     throw new Error(`One-command demo did not start and seed Studio.\n${demoOutput}`);
   }
-  demoProcess.kill("SIGTERM");
-  await new Promise((resolve) => demoProcess.once("exit", resolve));
+  await stopProcess(demoProcess);
   demoProcess = undefined;
 
   process.stdout.write("PASS  packed packages install in a clean project\n");
@@ -148,12 +148,10 @@ try {
   process.stdout.write("PASS  portable regression runs from the installed package\n");
 } finally {
   if (demoProcess && demoProcess.exitCode === null) {
-    demoProcess.kill("SIGTERM");
-    await new Promise((resolve) => demoProcess.once("exit", resolve));
+    await stopProcess(demoProcess);
   }
   if (studio && studio.exitCode === null) {
-    studio.kill("SIGTERM");
-    await new Promise((resolve) => studio.once("exit", resolve));
+    await stopProcess(studio);
   }
   if (process.env.ENGRAM_KEEP_DISTRIBUTION_TEMP !== "true") {
     await rm(temporaryRoot, { recursive: true, force: true });
@@ -207,6 +205,31 @@ async function execute(command, args, cwd) {
       else reject(new Error(`${command} ${args.join(" ")} exited ${code}.\n${stdout}${stderr}`));
     });
   });
+}
+
+async function stopProcess(child) {
+  if (!child || child.exitCode !== null || child.signalCode !== null) return;
+  const exited = new Promise((resolve) => child.once("exit", () => resolve(true)));
+  signalProcessTree(child, "SIGTERM");
+  if (await Promise.race([exited, delay(5_000, false)])) return;
+  signalProcessTree(child, "SIGKILL");
+  await Promise.race([exited, delay(5_000, false)]);
+}
+
+function signalProcessTree(child, signal) {
+  if (process.platform !== "win32" && child.pid) {
+    try {
+      process.kill(-child.pid, signal);
+      return;
+    } catch {
+      // The process may have exited between the status check and signal.
+    }
+  }
+  child.kill(signal);
+}
+
+function delay(milliseconds, value) {
+  return new Promise((resolve) => setTimeout(() => resolve(value), milliseconds));
 }
 
 async function writeRegressionFixture(directory) {
