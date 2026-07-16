@@ -52,6 +52,14 @@ const eventStages: EngramEvent[][] = [
   ]
 ];
 
+const traceStages = [
+  ["Memory state", "2 location records", "observed"],
+  ["Captured", "Oakland / current", "observed"],
+  ["Retrieved", "San Francisco / stale", "failure"],
+  ["Loaded context", "San Francisco / stale", "failure"],
+  ["Answer", "San Francisco", "failure"]
+] as const;
+
 export function MarketingBrain() {
   const [stage, setStage] = useState(0);
   const [reduceMotion, setReduceMotion] = useState(false);
@@ -76,6 +84,7 @@ export function MarketingBrain() {
   }, [reduceMotion]);
 
   const visibleStage = reduceMotion ? 3 : stage;
+  const traceStage = traceStages[visibleStage];
 
   return (
     <div className="marketing-brain" data-stage={visibleStage}>
@@ -85,28 +94,22 @@ export function MarketingBrain() {
         focusedMemoryIds={visibleStage >= 2 ? [staleMemory.id] : [currentMemory.id]}
         focusedRegions={visibleStage >= 3 ? ["prefrontal", "temporal"] : ["hippocampus"]}
         focusPulseKey={`marketing-${visibleStage}`}
+        lightingIntensity={1.22}
         loadedMemoryIds={visibleStage >= 3 ? [staleMemory.id] : []}
         memories={memories}
         reduceMotion={reduceMotion}
         responseActive={visibleStage === 4}
         retrievedMemoryIds={visibleStage >= 2 ? [staleMemory.id] : []}
+        starCount={220}
       />
       <div className="scene-telemetry" aria-hidden="true">
         <div className="scene-telemetry-heading">
           <span className="status-light" />
-          Observed trace / stale-location
+          Deterministic fixture / stale-location
         </div>
-        <div className="scene-telemetry-row">
-          <span>Retrieved</span>
-          <strong>San Francisco</strong>
-        </div>
-        <div className="scene-telemetry-row">
-          <span>Ignored</span>
-          <strong>Oakland</strong>
-        </div>
-        <div className="scene-telemetry-row scene-telemetry-alert">
-          <span>Answer</span>
-          <strong>stale</strong>
+        <div className={`scene-telemetry-row ${traceStage[2] === "failure" ? "scene-telemetry-alert" : ""}`}>
+          <span>{traceStage[0]}</span>
+          <strong>{traceStage[1]}</strong>
         </div>
       </div>
     </div>

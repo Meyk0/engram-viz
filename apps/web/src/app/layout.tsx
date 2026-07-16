@@ -3,9 +3,9 @@ import Script from "next/script";
 import type { ReactNode } from "react";
 import "./marketing.css";
 
-const title = "Engram | Memory reliability for AI agents";
+const title = "Engram | Debug AI agent memory";
 const description =
-  "Capture the memory decision behind a bad agent answer, diagnose it, replay a controlled correction, and keep the fix as a regression test.";
+  "See what your agent stored, retrieved, and loaded into context. Replay a memory correction and keep the verified behavior as a regression test.";
 const googleAnalyticsId = process.env.NEXT_PUBLIC_GOOGLE_ANALYTICS_ID ?? "G-DQX8CR91QK";
 
 export const metadata: Metadata = {

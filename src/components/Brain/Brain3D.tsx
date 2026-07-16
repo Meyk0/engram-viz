@@ -26,6 +26,7 @@ type Brain3DProps = {
   events: EngramEvent[];
   memories: EngramMemory[];
   loadedMemoryIds?: string[];
+  lightingIntensity?: number;
   retrievedMemoryIds?: string[];
   semanticLayout?: SemanticLayoutSnapshot | null;
   viewMode?: EngramViewMode;
@@ -36,6 +37,7 @@ type Brain3DProps = {
   focusPulseKey?: string;
   recordingMode?: boolean;
   reduceMotion?: boolean;
+  starCount?: number;
   onActiveContextSelect?: () => void;
   onHelpSelect?: () => void;
   onMemorySelect?: (id: string) => void;
@@ -52,6 +54,7 @@ export function Brain3D({
   events,
   memories,
   loadedMemoryIds = [],
+  lightingIntensity = 1,
   retrievedMemoryIds = [],
   semanticLayout,
   viewMode = "anatomical",
@@ -62,6 +65,7 @@ export function Brain3D({
   focusPulseKey,
   recordingMode = false,
   reduceMotion = false,
+  starCount = 900,
   onActiveContextSelect,
   onHelpSelect,
   onMemorySelect,
@@ -91,12 +95,14 @@ export function Brain3D({
       >
         <color attach="background" args={["#050510"]} />
         <ResponsiveFog compactReference={compactReference} />
-        <ambientLight intensity={0.25} />
-        <directionalLight position={[1.6, 2.2, 2.6]} intensity={0.52} color="#e7f1ff" />
-        <pointLight position={[0, 1.8, 2.4]} intensity={0.2} color="#00d4ff" />
-        <pointLight position={[-2.4, -0.8, 1.2]} intensity={0.18} color="#a855f7" />
-        <pointLight position={[2.6, 0.1, -1.4]} intensity={0.16} color={regionBounds.temporal.color} />
-        <Stars radius={8} depth={18} count={900} factor={2.2} saturation={0} fade speed={reduceMotion ? 0 : 0.35} />
+        <ambientLight intensity={0.25 * lightingIntensity} />
+        <directionalLight position={[1.6, 2.2, 2.6]} intensity={0.52 * lightingIntensity} color="#e7f1ff" />
+        <pointLight position={[0, 1.8, 2.4]} intensity={0.2 * lightingIntensity} color="#00d4ff" />
+        <pointLight position={[-2.4, -0.8, 1.2]} intensity={0.18 * lightingIntensity} color="#a855f7" />
+        <pointLight position={[2.6, 0.1, -1.4]} intensity={0.16 * lightingIntensity} color={regionBounds.temporal.color} />
+        {starCount > 0 ? (
+          <Stars radius={8} depth={18} count={starCount} factor={2.2} saturation={0} fade speed={reduceMotion ? 0 : 0.35} />
+        ) : null}
         <Suspense fallback={<FallbackBrain />}>
           <BrainRig
             key={sceneEpoch}
@@ -476,10 +482,23 @@ function HippocampusMarker({
 }
 
 function FallbackBrain() {
+  const lobes = [
+    [-0.46, 0.18, 0],
+    [0.06, 0.28, -0.05],
+    [0.5, 0.1, 0],
+    [-0.4, -0.28, 0.02],
+    [0.08, -0.24, 0.06],
+    [0.48, -0.24, -0.03]
+  ] as const;
+
   return (
-    <mesh>
-      <sphereGeometry args={[0.9, 32, 24]} />
-      <meshBasicMaterial color="#1a2744" wireframe transparent opacity={0.35} />
-    </mesh>
+    <group scale={[1, 0.86, 0.82]}>
+      {lobes.map((position, index) => (
+        <mesh key={index} position={position} scale={[0.67, 0.62, 0.58]}>
+          <icosahedronGeometry args={[0.72, 2]} />
+          <meshBasicMaterial color="#17303a" wireframe transparent opacity={0.2} />
+        </mesh>
+      ))}
+    </group>
   );
 }

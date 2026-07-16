@@ -30,16 +30,34 @@ async function expectNonblankCanvas(canvas: Locator) {
 test("presents the public product promise without Studio controls", async ({ page }) => {
   await page.goto("/");
 
-  await expect(page.getByRole("heading", { name: "Memory reliability for AI agents" })).toBeVisible();
-  await expect(page.getByRole("link", { name: "Run guided demo" })).toHaveAttribute("href", "/demo");
-  await expect(page.getByText("Capture. Diagnose. Replay. Test.")).toBeVisible();
-  await expect(page.getByText(/Your traces stay on your machine/)).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Debug the memory behind a bad answer." })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Run the guided incident" })).toHaveAttribute("href", "/demo");
+  await expect(page.getByLabel("Guided demo command", { exact: true })).toContainText(
+    "npx --yes @engramviz/cli demo stale-location"
+  );
+  await expect(page.getByText("Open source / local memory evidence")).toHaveCount(0);
+  const incidentWorkflow = page.getByRole("navigation", { name: "Incident workflow" });
+  await expect(incidentWorkflow.getByRole("button")).toHaveCount(4);
+  await incidentWorkflow.getByRole("button", { name: "02 Diagnose" }).click();
+  await expect(page.getByRole("heading", { name: "Retrieval selected the stale record." })).toBeVisible();
   await expect(page.getByLabel("Chat message")).toHaveCount(0);
   await expect(page.getByLabel("Engram mode")).toHaveCount(0);
   await expect(page.getByText("Import a recorded trace", { exact: true })).toHaveCount(0);
   await expect(page.locator('script[src*="googletagmanager.com/gtag/js?id=G-DQX8CR91QK"]')).toHaveCount(1);
   await expect(page.getByRole("button", { name: "Explain Working Memory" })).toHaveCount(0);
   await expectNonblankCanvas(page.locator("canvas").first());
+});
+
+test("keeps the command and visual signature clear on the mobile landing page", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/");
+
+  await expect(page.getByRole("heading", { name: "Debug the memory behind a bad answer." })).toBeVisible();
+  await expect(page.getByLabel("Guided demo command", { exact: true })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Run the guided incident" })).toBeVisible();
+  await expectNonblankCanvas(page.locator("canvas").first());
+  const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+  expect(overflow).toBeLessThanOrEqual(1);
 });
 
 test("repairs the five-step fixture incident without calling an Engram API", async ({ page, context }) => {
