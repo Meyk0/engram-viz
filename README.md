@@ -186,8 +186,9 @@ site. Their release boundaries are deliberate:
 - [`apps/web`](apps/web) is the public product and demo app. Vercel must use
   `apps/web` as its **Root Directory**. This artifact has `/` and `/demo`, no API
   routes, and no access to Studio's server environment.
-- [`vercel.json`](vercel.json) deliberately fails a repository-root Vercel build,
-  so a project misconfiguration cannot publish the local Studio API surface.
+- [`vercel.json`](vercel.json) dispatches to a package-local Vercel build command.
+  The repository root deliberately rejects deployment, while `apps/web` builds
+  the public app. This prevents a misconfiguration from publishing Studio APIs.
 - [`docs`](docs) is the Mintlify project published at
   [docs.engramviz.com](https://docs.engramviz.com).
 

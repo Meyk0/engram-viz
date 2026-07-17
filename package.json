@@ -21,6 +21,7 @@
     "prebuild": "npm run build:packages",
     "build": "next build",
     "build:public": "npm run build --workspace @engramviz/web",
+    "vercel-build": "node scripts/reject-root-vercel-deploy.mjs",
     "test:public": "npm run lint:public && npm run typecheck --workspace @engramviz/web && npm run test --workspace @engramviz/web --if-present && vitest run src/test/unit/public-web-boundary.test.ts",
     "lint:public": "npm run lint --workspace @engramviz/web",
     "sync:public-assets": "node scripts/sync-public-assets.mjs",

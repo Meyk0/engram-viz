@@ -1,4 +1,4 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "buildCommand": "node scripts/reject-root-vercel-deploy.mjs"
+  "buildCommand": "npm run vercel-build"
 }

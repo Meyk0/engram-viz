@@ -18,9 +18,19 @@ describe("public web release boundary", () => {
     const config = JSON.parse(await readFile(path.join(process.cwd(), "vercel.json"), "utf8")) as {
       buildCommand?: string;
     };
+    const rootPackage = JSON.parse(await readFile(path.join(process.cwd(), "package.json"), "utf8")) as {
+      scripts?: Record<string, string>;
+    };
+    const webPackage = JSON.parse(
+      await readFile(path.join(process.cwd(), "apps", "web", "package.json"), "utf8")
+    ) as {
+      scripts?: Record<string, string>;
+    };
     const guard = await readFile(path.join(process.cwd(), "scripts", "reject-root-vercel-deploy.mjs"), "utf8");
 
-    expect(config.buildCommand).toBe("node scripts/reject-root-vercel-deploy.mjs");
+    expect(config.buildCommand).toBe("npm run vercel-build");
+    expect(rootPackage.scripts?.["vercel-build"]).toBe("node scripts/reject-root-vercel-deploy.mjs");
+    expect(webPackage.scripts?.["vercel-build"]).toBe("npm run build");
     expect(guard).toContain("Set the Vercel project Root Directory to apps/web");
     expect(guard).toContain("process.exitCode = 1");
   });
