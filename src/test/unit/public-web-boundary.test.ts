@@ -38,6 +38,7 @@ describe("public web release boundary", () => {
   it("syncs public assets from the app-root build path and starts Studio through the local launcher", async () => {
     const webPackage = JSON.parse(await readFile(path.join(process.cwd(), "apps", "web", "package.json"), "utf8")) as {
       scripts?: Record<string, string>;
+      dependencies?: Record<string, string>;
     };
     const rootPackage = JSON.parse(await readFile(path.join(process.cwd(), "package.json"), "utf8")) as {
       scripts?: Record<string, string>;
@@ -45,6 +46,7 @@ describe("public web release boundary", () => {
 
     expect(webPackage.scripts?.prebuild).toBe("node ../../scripts/sync-public-assets.mjs");
     expect(webPackage.scripts?.predev).toBe("node ../../scripts/sync-public-assets.mjs");
+    expect(webPackage.dependencies?.zod).toBeDefined();
     expect(rootPackage.scripts?.start).toContain("scripts/start-local-studio.mjs");
   });
 
