@@ -25,7 +25,8 @@ jobs:
           node-version: 24
           registry-url: https://registry.npmjs.org
           package-manager-cache: false
-      - run: npm install --global npm@latest
+      - run: npm install --global npm@11.7.0
+      - run: npm --version
       - run: npm ci
       - id: release-version
         name: Resolve release version
