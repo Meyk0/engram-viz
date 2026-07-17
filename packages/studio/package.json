@@ -1,6 +1,6 @@
 {
   "name": "@engramviz/studio",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Standalone local Engram memory reliability Studio.",
   "author": "Joscha Koepke",
   "keywords": ["ai", "agent", "memory", "observability", "debugger"],

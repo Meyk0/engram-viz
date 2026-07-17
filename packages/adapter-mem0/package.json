@@ -1,6 +1,6 @@
 {
   "name": "@engramviz/adapter-mem0",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Evidence-preserving Mem0 adapter for Engram.",
   "author": "Joscha Koepke",
   "keywords": ["ai", "agent", "memory", "mem0", "observability"],
@@ -11,7 +11,7 @@
   "files": ["dist"],
   "sideEffects": false,
   "scripts": { "build": "tsc -p tsconfig.json" },
-  "dependencies": { "@engramviz/sdk": "^0.1.0" },
+  "dependencies": { "@engramviz/sdk": "^0.1.1" },
   "engines": { "node": ">=20" },
   "publishConfig": { "access": "public", "provenance": true },
   "repository": {

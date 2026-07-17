@@ -1,6 +1,6 @@
 {
   "name": "@engramviz/adapter-langgraph",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Evidence-preserving LangGraph Store adapter for Engram.",
   "author": "Joscha Koepke",
   "keywords": ["ai", "agent", "memory", "langgraph", "observability"],
@@ -11,7 +11,7 @@
   "files": ["dist"],
   "sideEffects": false,
   "scripts": { "build": "tsc -p tsconfig.json" },
-  "dependencies": { "@engramviz/sdk": "^0.1.0" },
+  "dependencies": { "@engramviz/sdk": "^0.1.1" },
   "peerDependencies": { "@langchain/langgraph": ">=1.0.0 <2" },
   "engines": { "node": ">=20" },
   "publishConfig": { "access": "public", "provenance": true },
