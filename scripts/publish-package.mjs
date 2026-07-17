@@ -31,7 +31,6 @@ const publish = spawnSync(
     workspace,
     "--access",
     "public",
-    "--provenance",
   ],
   { stdio: "inherit" },
 );
