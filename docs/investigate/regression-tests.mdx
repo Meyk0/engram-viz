@@ -11,14 +11,10 @@ A verified incident exports an `engram.memory-regression` artifact. Version 2 de
 Your project owns the executor boundary:
 
 ```js
-export default async function run({ artifact, variant }) {
-  const fixture = applyRegressionVariant(
-    artifact.sourceReplay.result.source,
-    variant.perturbations
-  );
+export default async function run({ source, variant }) {
   const result = await runAgentVersionUnderTest({
-    memories: fixture.memoryState.before,
-    userMessage: fixture.input
+    memories: source.memoryState.before,
+    userMessage: source.input
   });
 
   return {

@@ -1,6 +1,17 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
+import {
+  applyMemoryRegressionPerturbationsV2,
+  evaluateMemoryRegressionMatrixV2,
+  parseMemoryRegressionArtifactV2,
+  parseMemoryRegressionMatrixObservationsV2,
+  parseMemoryRegressionObservationV2,
+  type MemoryRegressionArtifactV2,
+  type MemoryRegressionMatrixReportV2,
+  type MemoryRegressionObservationV2,
+  type MemoryDecisionRunV3
+} from "@engramviz/core";
 
 type RegressionArtifact = {
   kind: "engram.memory-regression";
@@ -31,18 +42,20 @@ export type CliRegressionObservation = {
 export type CliRegressionFinding = {
   label: string;
   pass: boolean;
-  category: "retrieval" | "context" | "answer";
-  assertion: "mustRetrieve" | "mustNotRetrieve" | "maxLoaded" | "contains" | "notContains";
-  expected: string | number;
-  observed: string | string[] | number;
+  category: "retrieval" | "context" | "answer" | "lifecycle" | "matrix";
+  assertion: string;
+  expected: unknown;
+  observed: unknown;
+  variantId?: string;
 };
 
 export type CliRegressionReport = {
-  artifact: { id: string; title: string };
+  artifact: { id: string; title: string; version?: 1 | 2 };
   pass: boolean;
   findings: CliRegressionFinding[];
-  observation: CliRegressionObservation;
+  observation: CliRegressionObservation | readonly MemoryRegressionObservationV2[];
   caveat: string;
+  matrix?: MemoryRegressionMatrixReportV2;
 };
 
 export type CliRegressionFormat = "pretty" | "json" | "github";
@@ -56,10 +69,25 @@ export async function runRegressionFile(
   }
 ): Promise<CliRegressionReport> {
   const cwd = path.resolve(options.cwd ?? process.cwd());
-  const artifact = parseArtifact(await readJson(path.resolve(cwd, artifactFile), "regression artifact"));
   if (Boolean(options.executorFile) === Boolean(options.observationFile)) {
     throw new Error("Choose exactly one regression input: --executor <module> or --observation <json>.");
   }
+
+  const rawArtifact = await readJson(path.resolve(cwd, artifactFile), "regression artifact");
+  if (isV2Artifact(rawArtifact)) {
+    return runRegressionV2(rawArtifact, {
+      cwd,
+      executorFile: options.executorFile,
+      observationFile: options.observationFile
+    });
+  }
+  if (!isV1Artifact(rawArtifact)) {
+    throw new Error(
+      "Unsupported regression artifact. Expected engram.memory-regression version 1 or 2."
+    );
+  }
+
+  const artifact = parseArtifact(rawArtifact);
 
   const rawObservation = options.observationFile
     ? await readJson(path.resolve(cwd, options.observationFile), "regression observation")
@@ -81,8 +109,86 @@ export function formatRegressionReport(
   format: CliRegressionFormat = "pretty"
 ) {
   if (format === "json") return `${JSON.stringify(report, null, 2)}\n`;
+  if (report.matrix) {
+    return format === "github"
+      ? formatGitHubMatrixReport(report)
+      : formatPrettyMatrixReport(report);
+  }
   if (format === "github") return formatGitHubReport(report);
   return formatPrettyReport(report);
+}
+
+async function runRegressionV2(
+  artifactInput: unknown,
+  options: {
+    cwd: string;
+    executorFile?: string;
+    observationFile?: string;
+  }
+): Promise<CliRegressionReport> {
+  let artifact: MemoryRegressionArtifactV2;
+  try {
+    artifact = parseMemoryRegressionArtifactV2(artifactInput);
+  } catch (error) {
+    throw new Error(`Invalid Memory Regression v2 artifact: ${errorMessage(error)}`);
+  }
+
+  let observations: readonly MemoryRegressionObservationV2[];
+  if (options.observationFile) {
+    const raw = await readJson(
+      path.resolve(options.cwd, options.observationFile),
+      "Memory Regression v2 observations"
+    );
+    try {
+      observations = parseMemoryRegressionMatrixObservationsV2(raw);
+    } catch (error) {
+      throw new Error(`Invalid Memory Regression v2 observation matrix: ${errorMessage(error)}`);
+    }
+  } else {
+    observations = await executeMatrixModule(
+      path.resolve(options.cwd, options.executorFile!),
+      artifact
+    );
+  }
+
+  let matrix: MemoryRegressionMatrixReportV2;
+  try {
+    matrix = evaluateMemoryRegressionMatrixV2(artifact, observations);
+  } catch (error) {
+    throw new Error(`Could not evaluate Memory Regression v2: ${errorMessage(error)}`);
+  }
+
+  const findings = matrix.variants.flatMap<CliRegressionFinding>((variant) => {
+    if (variant.status === "missing") {
+      return [{
+        label: `missing observation for variant "${variant.label}"`,
+        pass: false,
+        category: "matrix" as const,
+        assertion: "variantPresent",
+        expected: variant.id,
+        observed: null,
+        variantId: variant.id
+      }];
+    }
+    return variant.findings.map((finding) => ({
+      label: finding.message,
+      pass: finding.pass,
+      category: finding.category,
+      assertion: finding.assertion,
+      expected: finding.expected,
+      observed: finding.observed,
+      variantId: variant.id
+    }));
+  });
+
+  return {
+    artifact: { id: artifact.id, title: artifact.title, version: 2 },
+    pass: matrix.pass,
+    findings,
+    observation: observations,
+    caveat: artifact.sourceReplay.fidelity.caveats.join(" "),
+    matrix
+  };
 }
 
 async function executeModule(file: string, fixture: unknown): Promise<unknown> {
@@ -92,6 +198,53 @@ async function executeModule(file: string, fixture: unknown): Promise<unknown> {
     throw new Error("Regression executor must export a default function or a function named run.");
   }
   return executor(structuredClone(fixture));
+}
+
+async function executeMatrixModule(
+  file: string,
+  artifact: MemoryRegressionArtifactV2
+): Promise<readonly MemoryRegressionObservationV2[]> {
+  const imported = await import(/* @vite-ignore */ pathToFileURL(file).href);
+  const executor = imported.default ?? imported.run;
+  if (typeof executor !== "function") {
+    throw new Error("Regression executor must export a default function or a function named run.");
+  }
+
+  const observations: MemoryRegressionObservationV2[] = [];
+  for (const variant of artifact.matrix.variants) {
+    const source = applyMemoryRegressionPerturbationsV2(
+      artifact.sourceReplay.result.source as MemoryDecisionRunV3,
+      variant.id,
+      variant.perturbations
+    );
+    let raw: unknown;
+    try {
+      raw = await executor({
+        artifact: structuredClone(artifact),
+        variant: structuredClone(variant),
+        source
+      });
+    } catch (error) {
+      throw new Error(
+        `Memory Regression v2 executor failed for variant "${variant.id}": ${errorMessage(error)}`
+      );
+    }
+    let observation: MemoryRegressionObservationV2;
+    try {
+      observation = parseMemoryRegressionObservationV2(raw);
+    } catch (error) {
+      throw new Error(
+        `Memory Regression v2 executor returned an invalid observation for variant "${variant.id}": ${errorMessage(error)}`
+      );
+    }
+    if (observation.variantId !== variant.id) {
+      throw new Error(
+        `Memory Regression v2 executor returned variant "${observation.variantId}" while running "${variant.id}".`
+      );
+    }
+    observations.push(observation);
+  }
+  return observations;
 }
 
 function evaluate(artifact: RegressionArtifact, observation: CliRegressionObservation) {
@@ -176,7 +329,64 @@ function formatGitHubReport(report: CliRegressionReport) {
   return `${lines.join("\n")}\n`;
 }
 
-function formatValue(value: string | string[] | number) {
+function formatPrettyMatrixReport(report: CliRegressionReport) {
+  const matrix = report.matrix!;
+  const lines = [`${report.pass ? "PASS" : "FAIL"}  ${report.artifact.title} (Memory Regression v2)`];
+  matrix.variants.forEach((variant) => {
+    const status = variant.status === "missing" ? "MISSING" : variant.pass ? "PASS" : "FAIL";
+    lines.push(`${status}  [variant.${variant.id}] ${variant.label}`);
+    variant.findings.forEach((finding) => {
+      lines.push(`  ${finding.pass ? "PASS" : "FAIL"}  [${finding.category}.${finding.assertion}] ${finding.message}`);
+      if (!finding.pass) {
+        lines.push(`        expected: ${formatValue(finding.expected)}`);
+        lines.push(`        observed: ${formatValue(finding.observed)}`);
+      }
+    });
+    if (variant.status === "missing") {
+      lines.push("        expected: one observation for this matrix variant");
+      lines.push("        observed: no observation");
+    }
+  });
+  lines.push(
+    `Summary: ${matrix.summary.variants.passed}/${matrix.summary.variants.total} variants passed; `
+      + `${matrix.summary.findings.passed}/${matrix.summary.findings.total} assertions passed`
+  );
+  lines.push(`Evidence limit: ${report.caveat}`);
+  return `${lines.join("\n")}\n`;
+}
+
+function formatGitHubMatrixReport(report: CliRegressionReport) {
+  const matrix = report.matrix!;
+  const lines = [`${report.pass ? "PASS" : "FAIL"}  ${report.artifact.title} (Memory Regression v2)`];
+  matrix.variants.forEach((variant) => {
+    if (variant.status === "missing") {
+      lines.push(
+        `::error title=${githubEscape(`Engram variant ${variant.id}`, true)}::`
+          + githubEscape(`Missing observation for matrix variant "${variant.label}".`, false)
+      );
+      return;
+    }
+    variant.findings.filter((finding) => !finding.pass).forEach((finding) => {
+      const title = githubEscape(
+        `Engram ${variant.id} ${finding.category}.${finding.assertion}`,
+        true
+      );
+      const message = githubEscape(
+        `${finding.message} Expected ${formatValue(finding.expected)}; observed ${formatValue(finding.observed)}.`,
+        false
+      );
+      lines.push(`::error title=${title}::${message}`);
+    });
+  });
+  lines.push(
+    `Summary: ${matrix.summary.variants.passed}/${matrix.summary.variants.total} variants passed; `
+      + `${matrix.summary.findings.passed}/${matrix.summary.findings.total} assertions passed`
+  );
+  lines.push(`Evidence limit: ${report.caveat}`);
+  return `${lines.join("\n")}\n`;
+}
+
+function formatValue(value: unknown) {
   return JSON.stringify(value);
 }
 
@@ -225,6 +435,14 @@ function parseArtifact(value: unknown): RegressionArtifact {
   };
 }
 
+function isV1Artifact(value: unknown): value is Record<string, unknown> {
+  return isRecord(value) && value.kind === "engram.memory-regression" && value.version === 1;
+}
+
+function isV2Artifact(value: unknown): value is Record<string, unknown> {
+  return isRecord(value) && value.format === "engram.memory-regression" && value.version === 2;
+}
+
 function parseObservation(value: unknown): CliRegressionObservation {
   if (!isRecord(value) || typeof value.answer !== "string") {
     throw new Error("Regression observation must include an answer string.");
@@ -253,4 +471,8 @@ async function readJson(file: string, label: string): Promise<unknown> {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function errorMessage(error: unknown) {
+  return error instanceof Error ? error.message : String(error);
 }
