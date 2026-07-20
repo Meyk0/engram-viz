@@ -35,7 +35,7 @@ describe("public web release boundary", () => {
     expect(guard).toContain("process.exitCode = 1");
   });
 
-  it("syncs public assets from the app-root build path and starts Studio through the local launcher", async () => {
+  it("builds public contracts, syncs assets, and starts Studio through the local launcher", async () => {
     const webPackage = JSON.parse(await readFile(path.join(process.cwd(), "apps", "web", "package.json"), "utf8")) as {
       scripts?: Record<string, string>;
       dependencies?: Record<string, string>;
@@ -44,8 +44,11 @@ describe("public web release boundary", () => {
       scripts?: Record<string, string>;
     };
 
-    expect(webPackage.scripts?.prebuild).toBe("node ../../scripts/sync-public-assets.mjs");
-    expect(webPackage.scripts?.predev).toBe("node ../../scripts/sync-public-assets.mjs");
+    const preparePublicWeb = "npm run build --workspace @engramviz/core && node ../../scripts/sync-public-assets.mjs";
+    expect(webPackage.scripts?.prebuild).toBe(preparePublicWeb);
+    expect(webPackage.scripts?.predev).toBe(preparePublicWeb);
+    expect(webPackage.scripts?.pretypecheck).toBe("npm run build --workspace @engramviz/core");
+    expect(webPackage.dependencies?.["@engramviz/core"]).toBeDefined();
     expect(webPackage.dependencies?.zod).toBeDefined();
     expect(rootPackage.scripts?.start).toContain("scripts/start-local-studio.mjs");
   });
