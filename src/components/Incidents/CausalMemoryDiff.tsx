@@ -105,13 +105,19 @@ export function CausalMemoryDiff({
 
       <BaselineReproduction result={result} />
 
-      <section
+      <details
         className="causal-memory-diff__scope"
         aria-label="Replay capability scope"
         data-replay-level={result.level}
         data-capability-levels={result.capabilities.levels.join(" ")}
         data-deterministic={String(result.capabilities.deterministic)}
       >
+        <summary>
+          <span>Replay boundary</span>
+          <strong>{result.capabilities.reusesRecordedCandidates
+            ? "Recorded candidates reused"
+            : "Candidate source declared below"}</strong>
+        </summary>
         <div className="causal-memory-diff__scope-heading">
           <div>
             <span>Replay level</span>
@@ -139,7 +145,7 @@ export function CausalMemoryDiff({
             </li>
           ))}
         </ul>
-      </section>
+      </details>
 
       <section
         className="causal-memory-diff__divergence"
@@ -202,17 +208,19 @@ export function CausalMemoryDiff({
         />
       ) : null}
 
-      <footer className="causal-memory-diff__caveat">
-        <AlertTriangle aria-hidden="true" size={16} />
-        <div>
+      <details className="causal-memory-diff__caveat">
+        <summary>
+          <AlertTriangle aria-hidden="true" size={16} />
           <strong>Interpretation boundary</strong>
+        </summary>
+        <div>
           <p>{result.caveat}</p>
           <p>
             This view reports observable replay differences only. It does not reveal hidden model
             reasoning or prove that a memory caused an answer.
           </p>
         </div>
-      </footer>
+      </details>
     </article>
   );
 }

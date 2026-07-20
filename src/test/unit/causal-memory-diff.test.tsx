@@ -31,8 +31,9 @@ describe("CausalMemoryDiff", () => {
     expect(screen.getByRole("tabpanel")).toHaveTextContent("Unchanged");
   });
 
-  it("names the earliest divergence and compares baseline and treatment evidence", () => {
+  it("names the earliest divergence and compares baseline and treatment evidence", async () => {
     const result = createStaleLocationPolicyReplay();
+    const user = userEvent.setup();
 
     render(<CausalMemoryDiff result={result} />);
 
@@ -51,6 +52,7 @@ describe("CausalMemoryDiff", () => {
     for (const memoryId of result.diff.stages[0]!.baselineMemoryIds) {
       expect(within(baselineResult).getByText(memoryId)).toBeVisible();
     }
+    await user.click(screen.getByText("Interpretation boundary"));
     expect(screen.getByText(/does not reveal hidden model reasoning or prove/i)).toBeVisible();
   });
 

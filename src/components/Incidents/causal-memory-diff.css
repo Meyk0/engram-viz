@@ -134,6 +134,37 @@
   border-bottom: 1px solid rgba(0, 212, 255, 0.1);
 }
 
+.causal-memory-diff__scope > summary,
+.causal-memory-diff__caveat > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  cursor: pointer;
+  list-style: none;
+}
+
+.causal-memory-diff__scope > summary::-webkit-details-marker,
+.causal-memory-diff__caveat > summary::-webkit-details-marker {
+  display: none;
+}
+
+.causal-memory-diff__scope > summary span {
+  color: rgba(188, 210, 231, 0.62);
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.causal-memory-diff__scope > summary strong {
+  color: rgba(105, 218, 255, 0.8);
+  font-size: 12px;
+}
+
+.causal-memory-diff__scope[open] > summary {
+  margin-bottom: 14px;
+}
+
 .causal-memory-diff__scope-heading {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -441,17 +472,15 @@
 }
 
 .causal-memory-diff__caveat {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  gap: 10px;
   padding: 14px 20px 16px;
   border-top: 1px solid rgba(251, 191, 36, 0.16);
   background: rgba(251, 191, 36, 0.035);
   color: rgba(251, 191, 36, 0.78);
 }
 
-.causal-memory-diff__caveat > svg {
-  margin-top: 2px;
+.causal-memory-diff__caveat > summary {
+  justify-content: flex-start;
+  color: rgba(251, 191, 36, 0.78);
 }
 
 .causal-memory-diff__caveat strong {
@@ -464,6 +493,11 @@
   margin: 3px 0 0;
   color: rgba(211, 226, 239, 0.66);
   font-size: 12px;
+}
+
+.causal-memory-diff__caveat[open] > div {
+  margin-top: 8px;
+  padding-left: 26px;
 }
 
 @media (max-width: 700px) {
