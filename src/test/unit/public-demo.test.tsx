@@ -58,7 +58,8 @@ describe("PublicDemo", () => {
     await user.click(screen.getByRole("button", { name: "Next" }));
     expect(screen.getByText("Step 3 of 5")).toBeVisible();
     expect(screen.getByText("Agent used an outdated location")).toBeVisible();
-    expect(screen.getAllByText("observed").length).toBeGreaterThan(0);
+    expect(screen.getByRole("heading", { name: "A stale fact remained active" })).toBeVisible();
+    expect(screen.getByLabelText("Recorded memory decision ledger")).toBeVisible();
     expect(screen.queryByRole("button", { name: /influence/i })).not.toBeInTheDocument();
     expect(screen.queryByText("Advanced evidence")).not.toBeInTheDocument();
 
@@ -66,15 +67,18 @@ describe("PublicDemo", () => {
     expect(screen.getByText("Step 4 of 5")).toBeVisible();
     expect(screen.getByRole("button", { name: "Next" })).toBeDisabled();
 
-    await user.click(screen.getByRole("button", { name: "Run deterministic repair" }));
+    await user.click(screen.getByRole("button", { name: "Run policy replay" }));
     await waitFor(() => {
-      expect(screen.getByText("Verified against the incident expectation")).toBeVisible();
+      expect(screen.getByText("Baseline reproduced; treatment passed")).toBeVisible();
     });
+    expect(screen.getByText("Memory decision diff")).toBeVisible();
+    expect(screen.getByText("memory_state")).toBeVisible();
     expect(fetchMock).not.toHaveBeenCalled();
     expect(screen.getByRole("button", { name: "Next" })).toBeEnabled();
 
     await user.click(screen.getByRole("button", { name: "Next" }));
     expect(screen.getByText("Step 5 of 5")).toBeVisible();
+    expect(screen.getByRole("heading", { name: "5/5 reliability cases passed" })).toBeVisible();
     expect(screen.getByRole("button", { name: "Copy local demo command" })).toBeVisible();
     expect(screen.getByText("npx --yes @engramviz/cli demo stale-location")).toBeVisible();
     expect(screen.getByRole("link", { name: "Docs" })).toHaveAttribute("href", "/docs");
@@ -83,13 +87,13 @@ describe("PublicDemo", () => {
       "https://github.com/Meyk0/engram-viz"
     );
 
-    await user.click(screen.getByRole("button", { name: "Download regression JSON" }));
+    await user.click(screen.getByRole("button", { name: "Download executable regression" }));
     expect(createObjectUrlMock).toHaveBeenCalledOnce();
     expect(fetchMock).not.toHaveBeenCalled();
 
     await user.click(within(stepNavigation).getByRole("button", { name: "Store" }));
     await user.click(within(stepNavigation).getByRole("button", { name: "Test" }));
-    expect(screen.getByText("Verified against the incident expectation")).toBeVisible();
+    expect(screen.getByRole("heading", { name: "5/5 reliability cases passed" })).toBeVisible();
   });
 
   it("toggles playback and restarts the story", async () => {
