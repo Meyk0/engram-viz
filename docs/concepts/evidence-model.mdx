@@ -32,7 +32,7 @@ Engram can show that:
 
 Engram cannot show hidden chain-of-thought, model activations, or an internal causal path. A loaded memory was available to the model; availability is not proof that the model relied on it. A replay result can also differ because of sampling, provider changes, time-dependent tools, or other uncontrolled inputs.
 
-For that reason, regression artifacts declare `causalClaim: false` and include a caveat. Their contract is behavioral: retrieval IDs, loaded IDs, and answer text matched the stated assertions in the configured executor.
+For that reason, regression artifacts retain replay-fidelity metadata and evidence caveats. Their contract is behavioral: selected and loaded memory semantics plus answer assertions matched in the configured executor. They are not a claim about hidden model reasoning.
 
 ## Missing evidence
 

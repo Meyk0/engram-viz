@@ -26,17 +26,20 @@ Engram is an open-source memory reliability workspace for AI agents. It helps yo
 ## The core loop
 
 <Steps>
-  <Step title="Capture">
-    Capture what the memory system stored, updated, retrieved, selected, and loaded into model context.
+  <Step title="Observe">
+    Capture what the memory system stored, updated, considered, selected, and loaded into model context.
   </Step>
   <Step title="Diagnose">
-    Reconstruct memory state, retrieval candidates, active context, and the final answer without inventing missing evidence.
+    Find the earliest recorded memory decision that can explain the bad answer without inventing missing evidence.
+  </Step>
+  <Step title="Intervene">
+    Change memory state, eligibility, ranking, selection, or context on an isolated branch while preserving the source run.
   </Step>
   <Step title="Replay">
-    Test an isolated memory change, then re-execute the frozen turn and compare observable behavior.
+    Reproduce the baseline, rerun every supported stage, and compare the first observable divergence.
   </Step>
-  <Step title="Test">
-    Export the expected retrieval, context, and answer behavior as a portable `*.engram-test.json` regression.
+  <Step title="Prove">
+    Export semantic lifecycle and answer assertions, then run them across paraphrases, entity changes, score ties, and distractors.
   </Step>
 </Steps>
 
@@ -71,8 +74,9 @@ flowchart LR
   C --> E[Local append-only capture]
   D --> E
   E --> F[Engram Studio]
-  F --> G[Incident branch and replay]
-  G --> H[Portable regression]
+  F --> G[Incident diagnosis and intervention]
+  G --> H[Capability-declared policy replay]
+  H --> I[Semantic regression matrix]
 ```
 
 The 3D brain is a synchronized educational and evidence map. The Incident workspace is the engineering surface for diagnosis, intervention, replay, and verification.

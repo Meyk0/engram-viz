@@ -38,8 +38,8 @@ test("presents the public product promise without Studio controls", async ({ pag
   await expect(page.getByText("Open source / local memory evidence")).toHaveCount(0);
   const incidentWorkflow = page.getByRole("navigation", { name: "Incident workflow" });
   await expect(incidentWorkflow.getByRole("button")).toHaveCount(4);
-  await incidentWorkflow.getByRole("button", { name: "02 Diagnose" }).click();
-  await expect(page.getByRole("heading", { name: "Retrieval selected the stale record." })).toBeVisible();
+  await incidentWorkflow.getByRole("button", { name: "02 Intervene" }).click();
+  await expect(page.getByRole("heading", { name: "Change the policy, not the trace." })).toBeVisible();
   await expect(page.getByLabel("Chat message")).toHaveCount(0);
   await expect(page.getByLabel("Engram mode")).toHaveCount(0);
   await expect(page.getByText("Import a recorded trace", { exact: true })).toHaveCount(0);

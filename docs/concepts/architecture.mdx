@@ -87,14 +87,27 @@ Branch mutations never modify the original checkpoint.
 
 ### Replay
 
-A replay freezes the user message, prior history, provider configuration, and
-retrieved memory set from a turn record. It runs a baseline and a branch variant,
-then reports exact outputs and transparent comparison measurements. Engram does
-not convert text edit distance into an "influence percentage."
+A replay starts from a versioned `MemoryDecisionRun` containing memory state,
+retrieval candidates, selection, active context, answer evidence, and evidence
+coverage per stage. The executor must declare whether it regenerates candidates
+or reuses the recorded set, which policy stages it reruns, whether answer
+generation runs again, and whether execution is deterministic.
+
+Engram first reruns the untreated baseline. A treatment comparison is considered
+valid only when that baseline reproduces the recorded behavior. The causal diff
+then reports the earliest comparable divergence across memory state, retrieval,
+selection, active context, and answer. A missing or incomparable stage is shown
+as indeterminate, not silently promoted into a cause.
 
 ### Regression
 
-A verified incident exports an `engram.memory-regression` v1 artifact containing a frozen fixture, retrieval assertions, answer assertions, and an evidence caveat. `engram test` passes that fixture to a project-owned executor or checks a captured observation. The executor is the only component that can claim equivalence to the agent version under test.
+A verified incident can export an `engram.memory-regression` v2 artifact. It uses
+semantic memory selectors instead of provider-generated IDs, declares replay
+fidelity from the executor capabilities, and bundles a matrix of controlled
+perturbations. Assertions cover selected memories, loaded memories, excluded
+memory states, and affirmed or forbidden answer phrases. `engram test` executes
+each variant through project-owned code or checks supplied observations. Version
+1 artifacts remain supported for existing fixtures.
 
 ## Persistence and security
 

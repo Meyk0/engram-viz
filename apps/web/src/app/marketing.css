@@ -635,8 +635,9 @@ h1 {
 }
 
 .proof-comparison section:last-child small,
+.incident-proof-stage[data-phase="intervene"] .proof-comparison section:last-child strong,
 .incident-proof-stage[data-phase="replay"] .proof-comparison section:last-child strong,
-.incident-proof-stage[data-phase="test"] .proof-comparison section:last-child strong {
+.incident-proof-stage[data-phase="prove"] .proof-comparison section:last-child strong {
   color: var(--green);
 }
 
@@ -661,7 +662,7 @@ h1 {
   font-weight: 640;
 }
 
-.incident-proof-stage[data-phase="test"] footer strong {
+.incident-proof-stage[data-phase="prove"] footer strong {
   color: var(--green);
 }
 

@@ -4,30 +4,30 @@ import { useState } from "react";
 
 const steps = [
   {
-    phase: "Capture",
-    provenance: "Observed",
-    title: "The correction was stored.",
-    description: "The trace contains both the previous location and the newer correction.",
-    leftLabel: "Previous memory",
-    leftValue: "San Francisco",
-    leftMeta: "superseded",
-    rightLabel: "Current memory",
-    rightValue: "Oakland",
-    rightMeta: "active",
-    result: "The right fact exists in memory."
-  },
-  {
     phase: "Diagnose",
     provenance: "Observed",
-    title: "Retrieval selected the stale record.",
-    description: "Engram follows the decision boundary from candidates to loaded context.",
-    leftLabel: "Retrieved",
+    title: "Find the first bad memory decision.",
+    description: "Engram follows the recorded decision from memory state to answer.",
+    leftLabel: "Stale state",
     leftValue: "San Francisco",
-    leftMeta: "stale",
-    rightLabel: "Ignored",
-    rightValue: "Oakland",
-    rightMeta: "current",
-    result: "Observed: the stale record was selected and loaded before generation."
+    leftMeta: "still active",
+    rightLabel: "Selected",
+    rightValue: "San Francisco",
+    rightMeta: "loaded",
+    result: "Earliest recorded failure: the stale fact remained eligible."
+  },
+  {
+    phase: "Intervene",
+    provenance: "Derived",
+    title: "Change the policy, not the trace.",
+    description: "Create an isolated branch that resolves explicit corrections before ranking.",
+    leftLabel: "Recorded policy",
+    leftValue: "Top-1 score",
+    leftMeta: "stale wins",
+    rightLabel: "Branch policy",
+    rightValue: "Resolve updates",
+    rightMeta: "current wins",
+    result: "The source incident stays immutable while the alternative remains reviewable."
   },
   {
     phase: "Replay",
@@ -43,17 +43,17 @@ const steps = [
     result: "The controlled replay changes the answer."
   },
   {
-    phase: "Test",
+    phase: "Prove",
     provenance: "Verified",
     title: "Keep the repair executable.",
-    description: "The retrieval expectation and corrected answer become a portable regression.",
-    leftLabel: "Must exclude",
-    leftValue: "San Francisco",
-    leftMeta: "stale",
-    rightLabel: "Must include",
-    rightValue: "Oakland",
-    rightMeta: "current",
-    result: "The fixture passed its retrieval and answer assertions."
+    description: "Semantic assertions test the repaired behavior across controlled variations.",
+    leftLabel: "Single fixture",
+    leftValue: "Oakland",
+    leftMeta: "source replay",
+    rightLabel: "Reliability matrix",
+    rightValue: "5 / 5",
+    rightMeta: "cases passed",
+    result: "The checked contract covers paraphrases, entity changes, score ties, and distractors."
   }
 ] as const;
 

@@ -10,7 +10,7 @@ import type { MemoryBranch } from "@/lib/lab/types";
 import type { BrainRegion, EngramEvent, EngramMemory } from "@/types";
 
 export const PUBLIC_DEMO_STEP_NAMES = ["Store", "Correct", "Fail", "Repair", "Test"] as const;
-export const PUBLIC_DEMO_PHASE_NAMES = ["Capture", "Diagnose", "Diagnose", "Replay", "Test"] as const;
+export const PUBLIC_DEMO_PHASE_NAMES = ["Observe", "Observe", "Diagnose", "Replay", "Prove"] as const;
 
 export type PublicDemoStepName = (typeof PUBLIC_DEMO_STEP_NAMES)[number];
 

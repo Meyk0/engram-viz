@@ -9,12 +9,11 @@ an immutable checkpoint and a replayable `TurnRecord`; it does not mutate the or
 
 ## Workflow
 
-1. **Capture:** reconstruct four stages: memory state, retrieval, active context, and answer.
-2. **Diagnose:** classify the likely failure as storage, update, retrieval, ranking, context,
-   consolidation, generation, or unknown.
-3. **Replay:** derive a controlled branch mutation, then rerun the recorded turn with the original context and the branch context.
-4. **Test:** export the verified fixture, replay evidence, and retrieval/answer assertions as an
-   `engram.memory-regression` artifact.
+1. **Observe:** reconstruct memory state, retrieval candidates, selection, active context, and answer.
+2. **Diagnose:** identify the earliest recorded stage that failed or mark the explanation indeterminate.
+3. **Intervene:** change one explicit memory or policy decision on an isolated branch.
+4. **Replay:** reproduce the baseline, rerun the supported stages, and inspect the first branch divergence.
+5. **Prove:** export semantic lifecycle and answer assertions as an `engram.memory-regression` matrix.
 
 ## Evidence Provenance
 
@@ -35,15 +34,16 @@ Imported traces are parsed locally. Engram creates an incident only when it can 
 question and the observed model answer. A trace without those fields remains useful in Observe mode but
 cannot support incident replay.
 
-## Replay Boundary
+## Replay boundary
 
-Replay changes only the memory context supplied to the recorded turn. It does not reproduce hidden model
-state, rerun the original retrieval system, or establish deterministic causality. The reference incident
-uses the deterministic demo provider; imported OpenAI incidents use the configured server-side provider.
+Replay capabilities are explicit. The reference policy replay reuses the recorded candidate set, then reruns
+state resolution, eligibility, ranking, selection, context assembly, and a deterministic fixture answer. It
+does not regenerate provider candidates or establish hidden model causality. An integration may claim a
+stronger replay only when its executor actually controls and reports those stages.
 
-## Regression Boundary
+## Regression boundary
 
-Verified incidents export portable `.engram-test.json` files. Checked-in artifacts are validated by
-`npm run test:regressions`, which also runs in `.github/workflows/quality.yml`. A regression artifact
-records the fixture and expected behavior; it does not claim production-provider equivalence unless its
-harness explicitly provides that integration.
+Verified incidents export portable `.engram-test.json` files. Version 2 assertions match memory meaning and
+lifecycle state rather than unstable provider IDs, and can run controlled query, entity, score, timestamp,
+and distractor variants. The artifact proves only what its configured executor ran; production equivalence
+requires a production-equivalent executor.

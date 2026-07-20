@@ -4,26 +4,30 @@ description: "Turn a verified memory incident into executable retrieval, context
 icon: "badge-check"
 ---
 
-A verified incident exports an `engram.memory-regression` artifact. The artifact freezes the relevant memory fixture and declares observable assertions without claiming access to hidden model reasoning.
+A verified incident exports an `engram.memory-regression` artifact. Version 2 declares semantic lifecycle and answer assertions plus a controlled perturbation matrix, without claiming access to hidden model reasoning.
 
 ## Run with an executor
 
 Your project owns the executor boundary:
 
 ```js
-export default async function run(fixture) {
+export default async function run({ artifact, variant }) {
+  const fixture = applyRegressionVariant(
+    artifact.sourceReplay.result.source,
+    variant.perturbations
+  );
   const result = await runAgentVersionUnderTest({
-    memories: fixture.memories,
-    messages: [
-      ...fixture.input.history,
-      { role: "user", content: fixture.input.userMessage }
-    ]
+    memories: fixture.memoryState.before,
+    userMessage: fixture.input
   });
 
   return {
+    variantId: variant.id,
+    memories: result.memories,
     answer: result.answer,
-    retrievedMemoryIds: result.retrievedMemoryIds,
-    loadedMemoryIds: result.loadedMemoryIds
+    selectedMemoryIds: result.selectedMemoryIds,
+    loadedMemoryIds: result.loadedMemoryIds,
+    forcedMemoryIds: result.forcedMemoryIds ?? []
   };
 }
 ```
@@ -36,13 +40,14 @@ npx --yes @engramviz/cli test incident.engram-test.json \
   --format pretty
 ```
 
-The command exits nonzero when a required or forbidden retrieval, active-context
-capacity, or answer-text assertion fails. Failed findings show expected and
-observed values rather than only a generic failure.
+The command invokes the executor once per matrix variant and exits nonzero when
+any required selection, exclusion, context load, or answer assertion fails.
+Failed findings identify the variant and show expected and observed values.
 
 ## Check a recorded observation
 
-When another system already produced the result, compare it directly:
+When another system already produced the matrix results, compare the observation
+array directly:
 
 ```bash
 npx --yes @engramviz/cli test incident.engram-test.json \
@@ -69,5 +74,8 @@ The repository includes a complete copyable workflow at
 [`examples/github-actions/memory-regression.yml`](https://github.com/Meyk0/engram-viz/blob/main/examples/github-actions/memory-regression.yml).
 
 <Info>
-An artifact proves that the configured executor passed observable assertions. Production equivalence exists only when the executor calls the production-equivalent retrieval and generation stack.
+Version 1 artifacts and their ID-based executor contract remain supported. A
+version 2 artifact proves that every supplied matrix variant passed observable
+semantic assertions. Production equivalence exists only when the executor calls
+the production-equivalent retrieval and generation stack.
 </Info>
