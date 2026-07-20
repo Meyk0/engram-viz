@@ -69,7 +69,8 @@ export function compileMemoryRegressionV2(
         mustNotLoad: cloneSelectors(lifecycle?.mustNotLoad ?? defaults.mustNotLoad)
       },
       answer: {
-        match: "normalized-phrase-with-negation-guard",
+        match: answer ? "normalized-phrase-with-negation-guard" : defaultAnswer.match,
+        ...(answer || !defaultAnswer.equals ? {} : { equals: defaultAnswer.equals }),
         contains: normalizePhrases(answer?.contains ?? defaultAnswer.contains),
         notContains: normalizePhrases(answer?.notContains ?? defaultAnswer.notContains)
       }
@@ -91,15 +92,22 @@ export function compileMemoryRegressionV2(
 function deriveAnswerAssertions(replay: MemoryPolicyReplayResult) {
   const assertion = replay.verification.assertion;
   if (assertion?.type === "exact") {
-    return { contains: [assertion.value], notContains: [] };
+    return {
+      match: "normalized-exact" as const,
+      equals: assertion.value,
+      contains: [],
+      notContains: []
+    };
   }
   if (assertion?.type === "contains_all") {
     return {
+      match: "normalized-phrase-with-negation-guard" as const,
       contains: assertion.values,
       notContains: assertion.forbidden ?? []
     };
   }
   return {
+    match: "normalized-phrase-with-negation-guard" as const,
     contains: replay.verification.expectedAnswerFragments,
     notContains: []
   };
@@ -135,6 +143,12 @@ function selectorsForIds(
     const memory = memories.get(id);
     if (!memory) return [];
     const selector = selectorFor(memory);
+    const matches = [...memories.values()].filter((candidate) => matchesSelector(candidate, selector));
+    if (matches.length !== 1) {
+      throw new Error(
+        `Memory ${id} cannot be represented by a unique semantic selector; matched ${matches.length} memories.`
+      );
+    }
     const key = selectorKey(selector);
     if (seen.has(key)) return [];
     seen.add(key);
@@ -170,6 +184,20 @@ function selectorFor(memory: MemoryDecisionMemory): MemorySelectorV2 {
   };
 }
 
+function matchesSelector(memory: MemoryDecisionMemory, selector: MemorySelectorV2) {
+  if (selector.subject !== undefined
+    && normalizeSelectorText(memory.subject ?? "") !== normalizeSelectorText(selector.subject)) {
+    return false;
+  }
+  if (selector.status !== undefined && memory.status !== selector.status) return false;
+  if (selector.valueContains !== undefined) {
+    if (memory.value === undefined) return false;
+    const value = typeof memory.value === "string" ? memory.value : JSON.stringify(memory.value);
+    if (!normalizeSelectorText(value).includes(normalizeSelectorText(selector.valueContains))) return false;
+  }
+  return true;
+}
+
 function searchableValue(value: MemoryDecisionMemory["value"]): string | undefined {
   if (value === undefined) return undefined;
   if (typeof value === "string") return value.trim() || undefined;
@@ -197,4 +225,8 @@ function selectorKey(selector: MemorySelectorV2) {
     selector.status ?? null,
     selector.valueContains?.trim().toLowerCase() ?? null
   ]);
+}
+
+function normalizeSelectorText(value: string) {
+  return value.trim().toLocaleLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
 }

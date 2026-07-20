@@ -4,13 +4,27 @@ import { compileMemoryRegressionV2 } from "@/lib/regressions/v2-compiler";
 import { runMemoryRegressionMatrixV2 } from "@/lib/regressions/v2-runner";
 
 const executor = {
-  id: "regression-location-agent",
+  id: "engram-fixture-location-agent",
   version: "1",
   deterministic: true as const,
   generateAnswer: answerLocationQuestion
 };
 
 describe("memory regression v2 matrix runner", () => {
+  it("rejects an executor that does not match the source replay", () => {
+    const replay = createStaleLocationPolicyReplay();
+    const artifact = compileMemoryRegressionV2({
+      replay,
+      id: "executor-bound-location",
+      title: "Executor identity is explicit"
+    });
+
+    expect(() => runMemoryRegressionMatrixV2(artifact, {
+      ...executor,
+      id: "different-agent"
+    })).toThrow(/does not match the source replay executor/);
+  });
+
   it("reruns source, paraphrase, entity, score, and distractor variants", () => {
     const replay = createStaleLocationPolicyReplay();
     const artifact = compileMemoryRegressionV2({
