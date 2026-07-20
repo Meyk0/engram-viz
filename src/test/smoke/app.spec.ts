@@ -57,7 +57,7 @@ test("loads a replayable sample memory incident from an empty investigation", as
   await expect(incident).toContainText("You live in San Francisco.");
   await expect(incident).toContainText("Oakland");
   await expect(incident).toContainText("A stale fact remained active");
-  await expect(incident).toContainText("Prefer the current fact");
+  await expect(incident.getByRole("button", { name: "Review interventions" })).toBeVisible();
 });
 
 test("replays a recommended incident repair and saves the proof", async ({ page }) => {
@@ -66,13 +66,19 @@ test("replays a recommended incident repair and saves the proof", async ({ page 
   await page.getByRole("button", { name: "Load reference incident" }).click();
 
   const incident = page.getByRole("complementary", { name: "Memory Incident Workspace" });
-  await incident.getByRole("button", { name: "Replay this fix" }).click();
-  await expect(incident).toContainText("Verified against the incident expectation", { timeout: 15_000 });
-  await expect(incident).toContainText("Original");
-  await expect(incident).toContainText("Branch");
+  await incident.getByRole("button", { name: "Review interventions" }).click();
+  await expect(incident).toContainText("Prefer the current fact");
+  await incident.getByRole("button", { name: "Continue with this intervention" }).click();
+  await incident.getByRole("button", { name: "Run context counterfactual" }).click();
+  await expect(incident).toContainText("Proof gate passed for this context-only counterfactual", {
+    timeout: 15_000
+  });
+  await expect(incident).toContainText("Recorded incident");
+  await expect(incident).toContainText("Context counterfactual");
+  await incident.getByRole("button", { name: "Review proof" }).click();
 
   const regressionDownload = page.waitForEvent("download");
-  await incident.getByRole("button", { name: "Save verified regression" }).click();
+  await incident.getByRole("button", { name: "Save context regression" }).click();
   expect((await regressionDownload).suggestedFilename()).toMatch(/\.engram-test\.json$/);
   await expect(incident.getByRole("button", { name: "Download regression again" })).toBeVisible();
 });
@@ -106,7 +112,7 @@ test("keeps the incident narrative primary on mobile", async ({ page }) => {
   expect(box!.width).toBeGreaterThanOrEqual(389);
   await expect(page.getByLabel("Chat message")).toHaveCount(0);
   await expect(incident.getByRole("button", { name: "Inspect Memory state evidence" })).toBeVisible();
-  await expect(incident.getByRole("button", { name: "Replay this fix" })).toBeVisible();
+  await expect(incident.getByRole("button", { name: "Review interventions" })).toBeVisible();
 });
 
 test("branches and replays an immutable memory checkpoint", async ({ page }) => {
@@ -488,7 +494,8 @@ test("imports an OpenAI Agents trace directly into the incident workflow", async
 
   await expect(dialog).toBeHidden();
   await expect(workspace).toContainText("Unexpected answer in Incident import smoke");
-  await expect(workspace).toContainText("A stale fact remained active");
+  await expect(workspace).toContainText("The right memory ranked too low");
+  await expect(workspace).toContainText("Failure stage: retrieval");
   await expect(workspace).toContainText("What city do I live in now?");
   await expect(workspace).toContainText("You live in San Francisco.");
 });
