@@ -7,6 +7,7 @@ import {
   createSampleMemoryIncident,
   createSampleMemoryIncidentCase
 } from "@/lib/lab/sample-incident";
+import type { MemoryBranchReplayResult } from "@/lib/lab/types";
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -134,8 +135,8 @@ describe("IncidentWorkspace", () => {
     expect(screen.getByText("Agent used an outdated location")).toBeVisible();
     expect(screen.getAllByText("You live in San Francisco.")[0]).toBeVisible();
     expect(screen.getAllByText("A stale fact remained active")[0]).toBeVisible();
-    expect(screen.getByText("Prefer the current fact")).toBeVisible();
-    expect(screen.getAllByText("observed").length).toBeGreaterThan(0);
+    expect(screen.queryByText("Prefer the current fact")).not.toBeInTheDocument();
+    expect(screen.getAllByText("Observed").length).toBeGreaterThan(0);
     expect(screen.getAllByText("derived").length).toBeGreaterThan(0);
 
     await user.click(screen.getByRole("button", { name: "Inspect Retrieval evidence" }));
@@ -143,6 +144,52 @@ describe("IncidentWorkspace", () => {
       ["sample-memory-san-francisco", "sample-memory-oakland"],
       ["prefrontal"]
     );
+
+    await user.click(screen.getByRole("button", { name: "Review interventions" }));
+    expect(screen.getByText("Prefer the current fact")).toBeVisible();
+    expect(screen.queryByRole("button", { name: "Replay this fix" })).not.toBeInTheDocument();
+  });
+
+  it("gates each task step on the action that actually completes it", async () => {
+    const user = userEvent.setup();
+
+    render(
+      <IncidentWorkspace
+        incident={createSampleMemoryIncidentCase()}
+        onClose={vi.fn()}
+        onFocus={vi.fn()}
+        onImportTrace={vi.fn()}
+        onLoadSample={vi.fn()}
+        onOpenTool={vi.fn()}
+        onSaveRegression={vi.fn()}
+      />
+    );
+
+    const diagnose = screen.getByRole("tab", { name: /Diagnose/ });
+    const intervene = screen.getByRole("tab", { name: /Intervene/ });
+    const replay = screen.getByRole("tab", { name: /Replay/ });
+    const prove = screen.getByRole("tab", { name: /Prove/ });
+
+    expect(diagnose).toHaveAttribute("aria-selected", "true");
+    expect(intervene).toBeDisabled();
+    expect(replay).toBeDisabled();
+    expect(prove).toBeDisabled();
+
+    await user.click(screen.getByRole("button", { name: "Review interventions" }));
+    expect(diagnose).toHaveAttribute("data-complete", "true");
+    expect(intervene).toHaveAttribute("aria-selected", "true");
+    expect(replay).toBeDisabled();
+    expect(prove).toBeDisabled();
+
+    await user.click(screen.getByRole("button", { name: "Continue with this intervention" }));
+    expect(intervene).toHaveAttribute("data-complete", "true");
+    expect(replay).toHaveAttribute("aria-selected", "true");
+    expect(replay).toHaveAttribute("data-complete", "false");
+    expect(prove).toBeDisabled();
+
+    await user.click(diagnose);
+    expect(diagnose).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByRole("heading", { name: "A stale fact remained active" })).toBeVisible();
   });
 
   it("replays the recommended repair and exports a verified regression", async () => {
@@ -168,6 +215,9 @@ describe("IncidentWorkspace", () => {
       />
     );
 
+    await user.click(screen.getByRole("button", { name: "Review interventions" }));
+    await user.click(screen.getByRole("button", { name: "Continue with this intervention" }));
+    expect(screen.getByRole("tab", { name: /Prove/ })).toBeDisabled();
     await user.click(screen.getByRole("button", { name: "Replay this fix" }));
 
     await waitFor(() => {
@@ -178,9 +228,16 @@ describe("IncidentWorkspace", () => {
       "sample-memory-oakland"
     ]);
     expect(screen.getByText("Verified against the incident expectation")).toBeVisible();
+    expect(screen.getByRole("tab", { name: /Replay/ })).toHaveAttribute("data-complete", "true");
+    expect(screen.getByRole("tab", { name: /Prove/ })).toBeEnabled();
 
+    await user.click(screen.getByRole("button", { name: "Review proof" }));
+    expect(screen.getByRole("tab", { name: /Prove/ })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByRole("tab", { name: /Prove/ })).toHaveAttribute("data-complete", "false");
     await user.click(screen.getByRole("button", { name: "Save verified regression" }));
     expect(onSaveRegression).toHaveBeenCalledOnce();
+    expect(screen.getByRole("tab", { name: /Prove/ })).toHaveAttribute("data-complete", "true");
+    expect(screen.getByText("Regression saved")).toBeVisible();
     expect(onSaveRegression.mock.calls[0]?.[0]).toMatchObject({
       kind: "engram.memory-regression",
       assertions: {
@@ -194,6 +251,43 @@ describe("IncidentWorkspace", () => {
         }
       }
     });
+  });
+
+  it("announces replay work while keeping the active action area outside the scroller", async () => {
+    const user = userEvent.setup();
+    let resolveReplay: ((value: typeof replayResult) => void) | undefined;
+    const replayExecutor = vi.fn(() => new Promise<typeof replayResult>((resolve) => {
+      resolveReplay = resolve;
+    }));
+
+    render(
+      <IncidentWorkspace
+        incident={createSampleMemoryIncidentCase()}
+        onClose={vi.fn()}
+        onFocus={vi.fn()}
+        onImportTrace={vi.fn()}
+        onLoadSample={vi.fn()}
+        onOpenTool={vi.fn()}
+        onSaveRegression={vi.fn()}
+        replayExecutor={replayExecutor}
+      />
+    );
+
+    await user.click(screen.getByRole("button", { name: "Review interventions" }));
+    await user.click(screen.getByRole("button", { name: "Continue with this intervention" }));
+
+    const panel = screen.getByRole("tabpanel");
+    const actions = screen.getByLabelText("replay step actions");
+    expect(panel.parentElement).not.toContainElement(actions);
+    expect(screen.getAllByRole("tabpanel")).toHaveLength(1);
+
+    await user.click(screen.getByRole("button", { name: "Replay this fix" }));
+    expect(panel.parentElement).toHaveAttribute("aria-busy", "true");
+    expect(screen.getByRole("status")).toHaveTextContent("Replaying the original and repaired memory branches");
+
+    resolveReplay?.(replayResult);
+    await waitFor(() => expect(panel.parentElement).toHaveAttribute("aria-busy", "false"));
+    expect(screen.getAllByRole("tabpanel")).toHaveLength(1);
   });
 
   it("labels counterfactual influence as simulated evidence", async () => {
@@ -224,7 +318,7 @@ describe("IncidentWorkspace", () => {
   });
 });
 
-const replayResult = {
+const replayResult: MemoryBranchReplayResult = {
   version: 1,
   evidence: "replayed",
   recordId: "sample-turn-current-city",

@@ -1130,3 +1130,757 @@
     width: 100%;
   }
 }
+
+/* Dedicated incident task flow */
+.incident-workspace {
+  min-height: 0;
+}
+
+.incident-workspace-header {
+  min-height: 56px;
+  padding-inline: 20px;
+}
+
+.incident-workspace-header > div {
+  min-width: 0;
+  font-size: 10px;
+}
+
+.incident-workspace-header > div small {
+  overflow: hidden;
+  margin-left: 4px;
+  font-size: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.incident-workspace-header button {
+  width: 38px;
+  height: 38px;
+  flex: 0 0 auto;
+}
+
+.incident-workspace button:focus-visible,
+.incident-workspace summary:focus-visible,
+.incident-workspace input:focus-visible {
+  border-color: rgba(0, 212, 255, 0.68);
+  outline: 2px solid rgba(0, 212, 255, 0.32);
+  outline-offset: 2px;
+}
+
+.incident-summary {
+  margin: 14px 18px 0;
+  padding: 12px 14px;
+  flex: 0 0 auto;
+  border-color: rgba(0, 212, 255, 0.14);
+  background: rgba(6, 9, 29, 0.82);
+}
+
+.incident-summary-heading {
+  align-items: center;
+}
+
+.incident-summary-heading span,
+.incident-fix-title > span {
+  font-size: 10px;
+}
+
+.incident-summary h2 {
+  margin-top: 4px;
+  font-size: 17px;
+  line-height: 1.25;
+}
+
+.incident-answer-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr) minmax(0, 0.72fr);
+  gap: 6px;
+  margin: 10px 0 0;
+}
+
+.incident-answer-grid > div {
+  min-width: 0;
+  padding: 8px 9px;
+  border: 1px solid rgba(0, 212, 255, 0.08);
+  border-radius: 4px;
+  background: rgba(2, 5, 19, 0.76);
+}
+
+.incident-answer-grid > div[data-answer="observed"] {
+  border-color: rgba(249, 115, 22, 0.24);
+}
+
+.incident-answer-grid > div[data-answer="expected"] {
+  border-color: rgba(20, 241, 149, 0.2);
+}
+
+.incident-answer-grid dt,
+.incident-answer-grid dd {
+  margin: 0;
+}
+
+.incident-answer-grid dt {
+  color: rgba(138, 184, 218, 0.62);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.incident-answer-grid dd {
+  display: -webkit-box;
+  overflow: hidden;
+  margin-top: 4px;
+  color: rgba(222, 233, 255, 0.86);
+  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+  font-size: 12px;
+  line-height: 1.35;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.incident-progress {
+  position: static;
+  z-index: 2;
+  margin: 10px 18px 0;
+  padding: 0;
+  flex: 0 0 auto;
+  border: 1px solid rgba(0, 212, 255, 0.12);
+  border-radius: 6px;
+  background: rgba(3, 6, 21, 0.86);
+  backdrop-filter: none;
+}
+
+.incident-progress > div {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0;
+}
+
+.incident-progress button {
+  position: relative;
+  display: grid;
+  min-width: 0;
+  min-height: 56px;
+  grid-template-columns: 24px minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 0;
+  border-right: 1px solid rgba(0, 212, 255, 0.09);
+  border-radius: 0;
+  background: transparent;
+  text-align: left;
+}
+
+.incident-progress button:first-child {
+  border-radius: 5px 0 0 5px;
+}
+
+.incident-progress button:last-child {
+  border-right: 0;
+  border-radius: 0 5px 5px 0;
+}
+
+.incident-progress button[data-state="current"] {
+  background: rgba(0, 212, 255, 0.1);
+  box-shadow: inset 0 -2px rgba(0, 212, 255, 0.64);
+}
+
+.incident-progress button[data-state="done"] {
+  background: rgba(20, 241, 149, 0.035);
+}
+
+.incident-progress button:disabled {
+  opacity: 0.38;
+}
+
+.incident-progress button i {
+  display: grid;
+  width: 24px;
+  height: 24px;
+  place-items: center;
+  border: 1px solid rgba(0, 212, 255, 0.22);
+  border-radius: 50%;
+  color: rgba(132, 215, 250, 0.76);
+  font-size: 10px;
+  font-style: normal;
+}
+
+.incident-progress button[data-complete="true"] i {
+  border-color: rgba(20, 241, 149, 0.42);
+  color: rgba(20, 241, 149, 0.84);
+}
+
+.incident-progress button strong,
+.incident-progress button small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.incident-progress button strong {
+  color: rgba(223, 237, 255, 0.86);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.incident-progress button small {
+  margin-top: 3px;
+  color: rgba(173, 197, 226, 0.52);
+  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+  font-size: 10px;
+}
+
+.incident-task-scroll {
+  display: block;
+  min-height: 0;
+  flex: 1 1 auto;
+  padding: 12px 18px 18px;
+  overflow-y: auto;
+}
+
+.incident-activity-status {
+  min-height: 0;
+  color: rgba(127, 217, 248, 0.78);
+  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+  font-size: 12px;
+}
+
+.incident-activity-status:empty {
+  display: none;
+}
+
+.incident-task-panel {
+  min-height: 100%;
+  padding: 20px;
+  border: 1px solid rgba(0, 212, 255, 0.12);
+  border-radius: 7px;
+  background: rgba(6, 9, 29, 0.7);
+}
+
+.incident-section-heading > span {
+  font-size: 10px;
+}
+
+.incident-section-heading h3 {
+  margin-top: 8px;
+  font-size: 20px;
+  line-height: 1.25;
+}
+
+.incident-section-heading p {
+  margin-top: 7px;
+  color: rgba(190, 210, 237, 0.64);
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.incident-diagnosis-meta {
+  margin-top: 14px;
+}
+
+.incident-diagnosis-meta > span,
+.incident-evidence-badge {
+  font-size: 10px;
+}
+
+.incident-causal-spine {
+  gap: 12px;
+  margin-top: 18px;
+}
+
+.incident-causal-spine li > svg {
+  top: 31px;
+  right: -12px;
+}
+
+.incident-causal-spine button {
+  min-height: 88px;
+  grid-template-columns: 24px minmax(0, 1fr);
+  gap: 9px;
+  padding: 11px;
+}
+
+.incident-causal-spine button > i {
+  width: 24px;
+  height: 24px;
+  font-size: 10px;
+}
+
+.incident-causal-spine strong {
+  font-size: 10px;
+}
+
+.incident-causal-spine small {
+  margin-top: 6px;
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.incident-evidence-list,
+.incident-influence-results {
+  gap: 9px;
+  margin-top: 14px;
+}
+
+.incident-evidence-list article,
+.incident-influence-results article {
+  padding: 11px 12px;
+}
+
+.incident-evidence-list strong,
+.incident-influence-results strong {
+  font-size: 11px;
+}
+
+.incident-evidence-list p,
+.incident-influence-results p {
+  color: rgba(190, 210, 237, 0.66);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.incident-evidence-list small,
+.incident-influence-results small {
+  font-size: 10px;
+  line-height: 1.45;
+}
+
+.incident-influence {
+  margin-top: 16px;
+  padding-top: 16px;
+}
+
+.incident-influence > div strong {
+  font-size: 12px;
+}
+
+.incident-influence > div span {
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.incident-influence button,
+.incident-intervention-options button,
+.incident-advanced-tools button,
+.incident-source-repair-heading button {
+  min-height: 38px;
+  font-size: 10px;
+}
+
+.incident-recommended-fix {
+  margin-top: 16px;
+  padding: 16px;
+}
+
+.incident-recommended-fix h3 {
+  font-size: 17px;
+}
+
+.incident-recommended-fix p {
+  font-size: 13px;
+}
+
+.incident-recommended-fix small {
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.incident-intervention-options {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.incident-intervention-options button {
+  display: grid;
+  min-height: 72px;
+  justify-items: start;
+  padding: 11px;
+  text-align: left;
+}
+
+.incident-intervention-options button[data-selected="true"] {
+  border-color: rgba(168, 85, 247, 0.48);
+  background: rgba(168, 85, 247, 0.1);
+}
+
+.incident-intervention-options strong {
+  font-size: 11px;
+}
+
+.incident-intervention-options span {
+  margin-top: 5px;
+  color: rgba(186, 204, 231, 0.62);
+  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.incident-source-repair,
+.incident-advanced-tools {
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(0, 212, 255, 0.1);
+}
+
+.incident-source-repair summary,
+.incident-advanced-tools summary {
+  display: flex;
+  width: fit-content;
+  min-height: 36px;
+  align-items: center;
+  gap: 7px;
+  color: rgba(184, 208, 235, 0.66);
+  cursor: pointer;
+  font-size: 11px;
+  list-style: none;
+}
+
+.incident-source-repair[open] summary svg,
+.incident-advanced-tools[open] summary svg {
+  transform: rotate(180deg);
+}
+
+.incident-advanced-tools > div {
+  margin-top: 9px;
+}
+
+.incident-source-repair-heading > span {
+  font-size: 10px;
+}
+
+.incident-source-repair pre {
+  font-size: 11px;
+}
+
+.incident-source-repair > p:last-child {
+  font-size: 12px;
+}
+
+.incident-replay-ready,
+.incident-proof-summary {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-top: 18px;
+  padding: 16px;
+  border: 1px solid rgba(0, 212, 255, 0.16);
+  border-radius: 6px;
+  background: rgba(0, 212, 255, 0.055);
+  color: rgba(105, 218, 255, 0.8);
+}
+
+.incident-proof-summary[data-saved="true"] {
+  border-color: rgba(20, 241, 149, 0.24);
+  background: rgba(20, 241, 149, 0.06);
+  color: rgba(83, 239, 167, 0.82);
+}
+
+.incident-replay-ready strong,
+.incident-proof-summary strong {
+  color: rgba(226, 239, 255, 0.9);
+  font-size: 13px;
+}
+
+.incident-replay-ready p,
+.incident-proof-summary p {
+  margin: 5px 0 0;
+  color: rgba(188, 210, 237, 0.64);
+  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.incident-replay-status {
+  margin-top: 16px;
+  padding: 11px 12px;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.incident-replay-grid {
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.incident-replay-grid article {
+  padding: 13px;
+}
+
+.incident-replay-grid span,
+.incident-context-diff > span {
+  font-size: 10px;
+}
+
+.incident-replay-grid p {
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.incident-replay-grid small {
+  font-size: 10px;
+}
+
+.incident-context-diff {
+  margin-top: 10px;
+  padding: 10px 12px;
+}
+
+.incident-context-diff code {
+  font-size: 11px;
+}
+
+.incident-caveat,
+.incident-error,
+.incident-muted {
+  color: rgba(176, 198, 226, 0.62);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.incident-prove ul {
+  gap: 9px;
+  margin-top: 16px;
+}
+
+.incident-prove li {
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.incident-action-bar {
+  position: relative;
+  z-index: 4;
+  display: flex;
+  min-height: 66px;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 18px;
+  border-top: 1px solid rgba(0, 212, 255, 0.13);
+  background: rgba(3, 5, 18, 0.98);
+  box-shadow: 0 -12px 28px rgba(0, 0, 0, 0.2);
+}
+
+.incident-action-bar > span {
+  min-width: 1px;
+}
+
+.incident-action-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.incident-action-bar .incident-primary-action,
+.incident-secondary-action {
+  display: inline-flex;
+  min-height: 42px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin: 0;
+  padding: 0 15px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.incident-secondary-action {
+  color: rgba(195, 216, 242, 0.72);
+}
+
+/* Keep the preserved empty state readable and touch-friendly. */
+.incident-empty > span,
+.incident-empty-divider,
+.incident-recorded-turns > label,
+.incident-empty-advanced summary {
+  font-size: 10px !important;
+}
+
+.incident-empty > p,
+.incident-recorded-turns > div:first-child span,
+.incident-recorded-list span,
+.incident-capture-status,
+.incident-empty-loop small {
+  font-size: 12px;
+}
+
+.incident-recorded-turns > div:first-child strong,
+.incident-recorded-list strong,
+.incident-empty-loop strong {
+  font-size: 11px;
+}
+
+.incident-recorded-list small {
+  font-size: 10px;
+}
+
+.incident-empty-loop i {
+  font-size: 10px;
+}
+
+.incident-recorded-list button,
+.incident-empty-actions > button,
+.incident-recorded-actions button,
+.incident-empty-advanced button {
+  min-height: 38px;
+  font-size: 10px;
+}
+
+.incident-recorded-turns > input {
+  min-height: 40px;
+  font-size: 12px;
+}
+
+@media (max-width: 980px) {
+  .incident-progress button small {
+    display: none;
+  }
+
+  .incident-progress button {
+    grid-template-columns: 22px minmax(0, 1fr);
+    padding-inline: 7px;
+  }
+}
+
+@media (max-width: 760px) {
+  .incident-workspace-header {
+    min-height: 52px;
+    padding-inline: 12px;
+  }
+
+  .incident-workspace-header > div small {
+    display: none;
+  }
+
+  .incident-summary {
+    margin: 10px 12px 0;
+    padding: 10px 11px;
+  }
+
+  .incident-summary h2 {
+    font-size: 15px;
+  }
+
+  .incident-answer-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .incident-answer-grid > div:first-child {
+    grid-column: 1 / -1;
+  }
+
+  .incident-progress {
+    margin: 8px 12px 0;
+  }
+
+  .incident-progress button {
+    min-height: 52px;
+    grid-template-columns: 1fr;
+    justify-items: center;
+    gap: 3px;
+    padding: 6px 4px;
+    text-align: center;
+  }
+
+  .incident-progress button i {
+    width: 22px;
+    height: 22px;
+  }
+
+  .incident-progress button strong {
+    font-size: 10px;
+  }
+
+  .incident-task-scroll {
+    padding: 10px 12px 14px;
+  }
+
+  .incident-task-panel {
+    min-height: auto;
+    padding: 15px;
+  }
+
+  .incident-section-heading h3 {
+    font-size: 18px;
+  }
+
+  .incident-causal-spine,
+  .incident-intervention-options,
+  .incident-replay-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .incident-causal-spine button {
+    min-height: 66px;
+  }
+
+  .incident-influence {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .incident-influence button {
+    width: 100%;
+  }
+
+  .incident-context-diff {
+    grid-template-columns: 1fr;
+  }
+
+  .incident-context-diff code {
+    overflow: visible;
+    white-space: normal;
+  }
+
+  .incident-action-bar {
+    min-height: 64px;
+    padding: 9px 12px max(9px, env(safe-area-inset-bottom));
+  }
+
+  .incident-action-bar .incident-primary-action,
+  .incident-secondary-action {
+    min-height: 44px;
+  }
+
+  .incident-action-group {
+    min-width: 0;
+    flex: 1;
+    justify-content: flex-end;
+  }
+
+  .incident-action-group .incident-secondary-action {
+    padding-inline: 10px;
+  }
+}
+
+@media (max-width: 430px) {
+  .incident-action-bar .incident-primary-action {
+    max-width: 72%;
+    padding-inline: 11px;
+    line-height: 1.3;
+  }
+
+  .incident-action-group .incident-primary-action {
+    max-width: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .incident-workspace *,
+  .incident-workspace *::before,
+  .incident-workspace *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}

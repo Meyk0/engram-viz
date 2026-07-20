@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import {
+  ArrowLeft,
   ArrowRight,
   Check,
   ChevronDown,
@@ -38,6 +39,19 @@ import {
 } from "@/lib/regressions";
 import type { BrainRegion } from "@/types";
 import "./incident-workspace.css";
+
+type IncidentTaskStep = "diagnose" | "intervene" | "replay" | "prove";
+
+const incidentTaskSteps: Array<{
+  id: IncidentTaskStep;
+  label: string;
+  detail: string;
+}> = [
+  { id: "diagnose", label: "Diagnose", detail: "Find the failing memory decision" },
+  { id: "intervene", label: "Intervene", detail: "Choose an isolated repair" },
+  { id: "replay", label: "Replay", detail: "Run the same turn again" },
+  { id: "prove", label: "Prove", detail: "Save the repair as a test" }
+];
 
 type IncidentWorkspaceProps = {
   checkpoints?: MemoryCheckpoint[];
@@ -109,6 +123,9 @@ export function IncidentWorkspace({
   const [expectedAnswer, setExpectedAnswer] = useState("");
   const [selectedTraceId, setSelectedTraceId] = useState<string | undefined>();
   const [recipeCopied, setRecipeCopied] = useState(false);
+  const [activeStep, setActiveStep] = useState<IncidentTaskStep>("diagnose");
+  const [diagnosisReviewed, setDiagnosisReviewed] = useState(false);
+  const [interventionConfirmed, setInterventionConfirmed] = useState(false);
 
   if (!incident) {
     return (
@@ -288,7 +305,19 @@ export function IncidentWorkspace({
       ? answerSupportsExpectation(replayResult.branchAnswer, incident.expectedAnswer)
       : replayResult.changed
     : false;
-  const currentStep = replayResult || regressionSaved ? 4 : selectedIntervention ? 3 : 2;
+
+  const completedSteps: Record<IncidentTaskStep, boolean> = {
+    diagnose: diagnosisReviewed,
+    intervene: interventionConfirmed,
+    replay: Boolean(replayResult),
+    prove: regressionSaved
+  };
+  const availableSteps: Record<IncidentTaskStep, boolean> = {
+    diagnose: true,
+    intervene: diagnosisReviewed,
+    replay: interventionConfirmed,
+    prove: Boolean(replayResult)
+  };
 
   function selectStage(stageId: string) {
     const stage = incident?.stages.find((candidate) => candidate.id === stageId);
@@ -299,6 +328,7 @@ export function IncidentWorkspace({
 
   function selectIntervention(intervention: MemoryIncidentIntervention) {
     setSelectedInterventionId(intervention.id);
+    setInterventionConfirmed(false);
     setReplayResult(undefined);
     setReplayError(undefined);
     setRegressionSaved(false);
@@ -336,6 +366,7 @@ export function IncidentWorkspace({
 
       const result = memoryBranchReplayResultSchema.parse(payload);
       setReplayResult(result);
+      setActiveStep("replay");
       onReplayComplete?.(result);
     } catch (error) {
       setReplayError(error instanceof Error ? error.message : "The replay could not be completed.");
@@ -415,6 +446,38 @@ export function IncidentWorkspace({
     setRegressionSaved(true);
   }
 
+  function openStep(step: IncidentTaskStep) {
+    if (!incident || !availableSteps[step]) return;
+    setActiveStep(step);
+    if (step === "diagnose") {
+      const diagnosisStage = incident.stages.find((stage) => stage.kind === incident.diagnosis.stage);
+      if (diagnosisStage) onFocus(diagnosisStage.memoryIds, stageRegions(diagnosisStage.kind));
+      return;
+    }
+    if (step === "intervene" && selectedIntervention) {
+      onFocus(selectedIntervention.affectedMemoryIds, selectedIntervention.focusedRegions);
+      return;
+    }
+    if ((step === "replay" || step === "prove") && selectedIntervention) {
+      onFocus(selectedIntervention.affectedMemoryIds, selectedIntervention.focusedRegions);
+    }
+  }
+
+  function continueFromDiagnosis() {
+    setDiagnosisReviewed(true);
+    setActiveStep("intervene");
+    if (selectedIntervention) {
+      onFocus(selectedIntervention.affectedMemoryIds, selectedIntervention.focusedRegions);
+    }
+  }
+
+  function confirmIntervention() {
+    if (!selectedIntervention) return;
+    setInterventionConfirmed(true);
+    setActiveStep("replay");
+    onFocus(selectedIntervention.affectedMemoryIds, selectedIntervention.focusedRegions);
+  }
+
   return (
     <aside
       aria-hidden={presentationPhase === "hidden" ? true : undefined}
@@ -424,143 +487,149 @@ export function IncidentWorkspace({
       data-presentation-phase={presentationPhase}
     >
       {guidedDemo ? null : <WorkspaceHeader onClose={onClose} />}
-      <div className="incident-scroll">
-        {guidedDemo ? null : <WorkflowProgress current={currentStep} />}
+      <IncidentSummary incident={incident} />
+      {guidedDemo ? null : (
+        <WorkflowProgress
+          active={activeStep}
+          available={availableSteps}
+          completed={completedSteps}
+          onSelect={openStep}
+        />
+      )}
 
-        <section className="incident-summary">
-          <div className="incident-summary-heading">
-            <div>
-              <span><i data-status={incident.status} /> Open incident</span>
-              <h2>{incident.title}</h2>
-            </div>
-            <EvidenceBadge origin={incident.diagnosis.origin} />
-          </div>
-          <div className="incident-answer-grid">
-            <article>
-              <span>Question</span>
-              <p>{incident.question}</p>
-            </article>
-            <article data-answer="observed">
-              <span>Observed answer</span>
-              <p>{incident.observedAnswer}</p>
-            </article>
-            {incident.expectedAnswer ? (
-              <article data-answer="expected">
-                <span>Expected</span>
-                <p>{incident.expectedAnswer}</p>
-              </article>
-            ) : null}
-          </div>
-        </section>
+      <div
+        aria-busy={replayPending || influencePending}
+        className="incident-scroll incident-task-scroll"
+      >
+        <div className="incident-activity-status" role="status" aria-live="polite">
+          {replayPending
+            ? "Replaying the original and repaired memory branches..."
+            : influencePending
+              ? "Testing the influence of each loaded memory..."
+              : regressionSaved
+                ? "Regression saved."
+                : ""}
+        </div>
 
-        <section className="incident-section incident-causal" aria-labelledby="incident-causal-title">
-          <SectionHeading
-            eyebrow="Capture"
-            title="Follow the memory decision"
-            detail="Each stage is reconstructed from the recorded turn. Select one to inspect its evidence."
-          />
-          <ol className="incident-causal-spine" id="incident-causal-title">
-            {incident.stages.map((stage, index) => (
-              <li key={stage.id}>
-                <button
-                  aria-current={selectedStage?.id === stage.id ? "step" : undefined}
-                  aria-label={`Inspect ${stage.label} evidence`}
-                  data-active={selectedStage?.id === stage.id}
-                  data-status={stage.status}
-                  onClick={() => selectStage(stage.id)}
-                  type="button"
-                >
-                  <i>{stage.status === "passed" ? <Check size={11} /> : index + 1}</i>
-                  <span><strong>{stage.label}</strong><small>{stage.summary}</small></span>
-                </button>
-                {index < incident.stages.length - 1 ? <ArrowRight size={13} aria-hidden="true" /> : null}
-              </li>
-            ))}
-          </ol>
-          {selectedStage ? (
-            <div className="incident-evidence-list">
-              {selectedStage.evidenceIds.flatMap((id) => {
-                const evidence = incident.evidence.find((item) => item.id === id);
-                return evidence ? [(
-                  <article key={evidence.id}>
-                    <div><EvidenceBadge origin={evidence.origin} /><strong>{evidence.label}</strong></div>
-                    <p>{evidence.detail}</p>
-                  </article>
-                )] : [];
-              })}
+        {activeStep === "diagnose" ? (
+          <section
+            aria-labelledby={guidedDemo ? "incident-diagnose-heading" : "incident-tab-diagnose"}
+            className="incident-task-panel"
+            id="incident-panel-diagnose"
+            role="tabpanel"
+          >
+            <SectionHeading
+              eyebrow="Step 1 · Diagnose"
+              title={incident.diagnosis.label}
+              detail={incident.diagnosis.summary}
+              titleId="incident-diagnose-heading"
+            />
+            <div className="incident-diagnosis-meta">
+              <span>Rule-based diagnosis</span>
+              <span>Failure stage: {labelStage(incident.diagnosis.stage)}</span>
+              <EvidenceBadge origin={incident.diagnosis.origin} />
             </div>
-          ) : null}
-        </section>
-
-        <section className="incident-section incident-diagnosis" aria-labelledby="incident-diagnosis-title">
-          <SectionHeading
-            eyebrow="Diagnose"
-            title={incident.diagnosis.label}
-            detail={incident.diagnosis.summary}
-          />
-          <div className="incident-diagnosis-meta" id="incident-diagnosis-title">
-            <span>Rule-based diagnosis</span>
-            <span>Failure stage: {labelStage(incident.diagnosis.stage)}</span>
-            <EvidenceBadge origin={incident.diagnosis.origin} />
-          </div>
-          {guidedDemo ? null : (
-            <div className="incident-influence">
-              <div>
-                <strong>Memory influence analysis</strong>
-                <span>Replay once without each used memory to test answer sensitivity.</span>
-              </div>
-              <button disabled={influencePending || incident.record.retrievedMemories.length === 0} onClick={() => void runInfluenceAnalysis()} type="button">
-                <Radar size={13} /> {influencePending ? "Running replays..." : "Run influence check"}
-              </button>
-            </div>
-          )}
-          {!guidedDemo && influenceError ? <p className="incident-error">{influenceError}</p> : null}
-          {!guidedDemo && influenceResults.length > 0 ? (
-            <div className="incident-influence-results">
-              {influenceResults.map((result) => {
-                const memory = incident.memories.find((candidate) => candidate.id === result.memoryId);
-                return (
-                  <article key={result.memoryId} data-changed={result.changed}>
-                    <div><EvidenceBadge origin="simulated" /><strong>{memory?.text ?? result.memoryId}</strong></div>
-                    <p>{result.changed ? "Removing this memory changed the replayed answer." : "Removing this memory did not change the replayed answer."}</p>
-                    <small>{Math.round(result.normalizedTextDistance * 100)}% answer distance · controlled replay, not proof of hidden causality</small>
-                  </article>
-                );
-              })}
-            </div>
-          ) : null}
-        </section>
-
-        <section className="incident-section incident-intervention" aria-labelledby="incident-intervention-title">
-          <SectionHeading
-            eyebrow="Replay"
-            title="Test a memory repair"
-            detail="The recorded incident remains immutable. Engram creates an isolated branch for every experiment."
-          />
-          {selectedIntervention ? (
-            <article className="incident-recommended-fix" id="incident-intervention-title">
-              <div className="incident-fix-title">
-                <span><Sparkles size={12} /> {selectedIntervention.recommended ? "Recommended fix" : "Selected experiment"}</span>
-                <EvidenceBadge origin="derived" />
-              </div>
-              <h3>{selectedIntervention.label}</h3>
-              <p>{selectedIntervention.description}</p>
-              <small>{selectedIntervention.reason}</small>
-              <button className="incident-primary-action" disabled={replayPending} onClick={() => void replayIntervention()} type="button">
-                <Play size={13} /> {replayPending
-                  ? "Replaying original and branch..."
-                  : guidedDemo ? "Run deterministic repair" : "Replay this fix"}
-              </button>
-            </article>
-          ) : (
-            <p className="incident-muted">No safe memory-state intervention was derived from this evidence.</p>
-          )}
-          {!guidedDemo && interventions.length > 1 ? (
-            <details className="incident-other-tests">
-              <summary><ChevronDown size={13} /> Other controlled tests</summary>
-              <div>
-                {interventions.slice(1).map((intervention) => (
+            <ol className="incident-causal-spine" aria-label="Recorded memory decision stages">
+              {incident.stages.map((stage, index) => (
+                <li key={stage.id}>
                   <button
+                    aria-current={selectedStage?.id === stage.id ? "step" : undefined}
+                    aria-label={`Inspect ${stage.label} evidence`}
+                    data-active={selectedStage?.id === stage.id}
+                    data-status={stage.status}
+                    onClick={() => selectStage(stage.id)}
+                    type="button"
+                  >
+                    <i>{stage.status === "passed" ? <Check size={13} /> : index + 1}</i>
+                    <span><strong>{stage.label}</strong><small>{stage.summary}</small></span>
+                  </button>
+                  {index < incident.stages.length - 1 ? <ArrowRight size={14} aria-hidden="true" /> : null}
+                </li>
+              ))}
+            </ol>
+            {selectedStage ? (
+              <div className="incident-evidence-list" aria-label={`${selectedStage.label} evidence`}>
+                {selectedStage.evidenceIds.flatMap((id) => {
+                  const evidence = incident.evidence.find((item) => item.id === id);
+                  return evidence ? [(
+                    <article key={evidence.id}>
+                      <div><EvidenceBadge origin={evidence.origin} /><strong>{evidence.label}</strong></div>
+                      <p>{evidence.detail}</p>
+                    </article>
+                  )] : [];
+                })}
+              </div>
+            ) : null}
+            {guidedDemo ? null : (
+              <div className="incident-influence">
+                <div>
+                  <strong>Memory influence analysis</strong>
+                  <span>Replay once without each used memory to test answer sensitivity.</span>
+                </div>
+                <button disabled={influencePending || incident.record.retrievedMemories.length === 0} onClick={() => void runInfluenceAnalysis()} type="button">
+                  <Radar size={15} /> {influencePending ? "Running replays..." : "Run influence check"}
+                </button>
+              </div>
+            )}
+            {!guidedDemo && influenceError ? <p className="incident-error" role="alert">{influenceError}</p> : null}
+            {!guidedDemo && influenceResults.length > 0 ? (
+              <div className="incident-influence-results">
+                {influenceResults.map((result) => {
+                  const memory = incident.memories.find((candidate) => candidate.id === result.memoryId);
+                  return (
+                    <article key={result.memoryId} data-changed={result.changed}>
+                      <div><EvidenceBadge origin="simulated" /><strong>{memory?.text ?? result.memoryId}</strong></div>
+                      <p>{result.changed ? "Removing this memory changed the replayed answer." : "Removing this memory did not change the replayed answer."}</p>
+                      <small>{Math.round(result.normalizedTextDistance * 100)}% answer distance · controlled replay, not proof of hidden causality</small>
+                    </article>
+                  );
+                })}
+              </div>
+            ) : null}
+            {guidedDemo ? null : (
+              <details className="incident-advanced-tools">
+                <summary><ChevronDown size={14} /> Advanced evidence tools</summary>
+                <div>
+                  <button type="button" onClick={() => onOpenTool("timeMachine")}><GitBranch size={14} /> Time Machine</button>
+                  <button type="button" onClick={() => onOpenTool("integrity")}><ShieldCheck size={14} /> Integrity</button>
+                  <button type="button" onClick={() => onOpenTool("retrieval")}><Radar size={14} /> Retrieval MRI</button>
+                </div>
+              </details>
+            )}
+          </section>
+        ) : null}
+
+        {activeStep === "intervene" ? (
+          <section
+            aria-labelledby={guidedDemo ? "incident-intervene-heading" : "incident-tab-intervene"}
+            className="incident-task-panel incident-intervention"
+            id="incident-panel-intervene"
+            role="tabpanel"
+          >
+            <SectionHeading
+              eyebrow="Step 2 · Intervene"
+              title="Choose one controlled repair"
+              detail="The recorded incident remains immutable. Every repair is tested on an isolated branch."
+              titleId="incident-intervene-heading"
+            />
+            {selectedIntervention ? (
+              <article className="incident-recommended-fix">
+                <div className="incident-fix-title">
+                  <span><Sparkles size={14} /> {selectedIntervention.recommended ? "Recommended intervention" : "Selected intervention"}</span>
+                  <EvidenceBadge origin="derived" />
+                </div>
+                <h3>{selectedIntervention.label}</h3>
+                <p>{selectedIntervention.description}</p>
+                <small>{selectedIntervention.reason}</small>
+              </article>
+            ) : (
+              <p className="incident-muted">No safe memory-state intervention was derived from this evidence.</p>
+            )}
+            {interventions.length > 1 ? (
+              <div className="incident-intervention-options" aria-label="Available interventions">
+                {interventions.map((intervention) => (
+                  <button
+                    aria-pressed={selectedIntervention?.id === intervention.id}
                     data-selected={selectedIntervention?.id === intervention.id}
                     key={intervention.id}
                     onClick={() => selectIntervention(intervention)}
@@ -571,102 +640,162 @@ export function IncidentWorkspace({
                   </button>
                 ))}
               </div>
-            </details>
-          ) : null}
-          {replayError ? <p className="incident-error">{replayError}</p> : null}
-        </section>
-
-        {!guidedDemo && remediationRecipe ? (
-          <section className="incident-section incident-source-repair" aria-labelledby="incident-source-repair-title">
-            <SectionHeading
-              eyebrow="Source-safe"
-              title={remediationRecipe.title}
-              detail={remediationRecipe.summary}
-            />
-            <div className="incident-source-repair-heading" id="incident-source-repair-title">
-              <span>{remediationRecipe.provider}</span>
-              <button
-                onClick={() => {
-                  void navigator.clipboard.writeText(remediationRecipe.code);
-                  setRecipeCopied(true);
-                  window.setTimeout(() => setRecipeCopied(false), 1_500);
-                }}
-                type="button"
-              >
-                <Clipboard size={12} /> {recipeCopied ? "Copied" : "Copy recipe"}
-              </button>
-            </div>
-            <pre><code>{remediationRecipe.code}</code></pre>
-            <p>{remediationRecipe.warning}</p>
+            ) : null}
+            {!guidedDemo && remediationRecipe ? (
+              <details className="incident-source-repair">
+                <summary><ChevronDown size={14} /> View source remediation</summary>
+                <div className="incident-source-repair-heading">
+                  <span>{remediationRecipe.provider}</span>
+                  <button
+                    onClick={() => {
+                      void navigator.clipboard.writeText(remediationRecipe.code);
+                      setRecipeCopied(true);
+                      window.setTimeout(() => setRecipeCopied(false), 1_500);
+                    }}
+                    type="button"
+                  >
+                    <Clipboard size={14} /> {recipeCopied ? "Copied" : "Copy recipe"}
+                  </button>
+                </div>
+                <pre><code>{remediationRecipe.code}</code></pre>
+                <p>{remediationRecipe.warning}</p>
+              </details>
+            ) : null}
           </section>
         ) : null}
 
-        {replayResult ? (
-          <section className="incident-section incident-replay" aria-labelledby="incident-replay-title">
+        {activeStep === "replay" ? (
+          <section
+            aria-labelledby={guidedDemo ? "incident-replay-heading" : "incident-tab-replay"}
+            className="incident-task-panel incident-replay"
+            id="incident-panel-replay"
+            role="tabpanel"
+          >
             <SectionHeading
-              eyebrow="Replay"
-              title={replayVerified ? "The repair produced the expected behavior" : replayResult.changed ? "The answer changed" : "The answer remained stable"}
-              detail={guidedDemo
-                ? "A fixed fixture executor evaluated the same recorded turn against the original and branch contexts."
-                : "Both answers were generated from the same recorded turn with only the branch memory context changed."}
+              eyebrow="Step 3 · Replay"
+              title={replayResult
+                ? replayVerified
+                  ? "The repair produced the expected behavior"
+                  : replayResult.changed ? "The answer changed" : "The answer remained stable"
+                : "Replay the original and repaired branches"}
+              detail={replayResult
+                ? guidedDemo
+                  ? "A fixed fixture executor evaluated the same recorded turn against both contexts."
+                  : "Both answers used the same recorded turn; only the branch memory context changed."
+                : `Ready to test “${selectedIntervention?.label ?? "the selected intervention"}” without mutating the incident.`}
+              titleId="incident-replay-heading"
             />
-            <div className="incident-replay-status" data-verified={replayVerified} id="incident-replay-title">
-              {replayVerified ? <ShieldCheck size={15} /> : <FlaskConical size={15} />}
-              <span>{replayVerified ? "Verified against the incident expectation" : "Review the changed behavior before saving a regression"}</span>
-            </div>
-            <div className="incident-replay-grid">
-              <article>
-                <span>Original</span>
-                <p>{replayResult.baselineAnswer}</p>
-                <small>{replayResult.baselineMemoryIds.length} context memories</small>
-              </article>
-              <article data-replay="branch">
-                <span>Branch</span>
-                <p>{replayResult.branchAnswer}</p>
-                <small>{replayResult.branchMemoryIds.length} context memories</small>
-              </article>
-            </div>
-            <div className="incident-context-diff">
-              <span>Context change</span>
-              <code>{formatContextDiff(replayResult)}</code>
-            </div>
-            <p className="incident-caveat">{replayResult.caveat}</p>
+            {replayResult ? (
+              <>
+                <div className="incident-replay-status" data-verified={replayVerified}>
+                  {replayVerified ? <ShieldCheck size={17} /> : <FlaskConical size={17} />}
+                  <span>{replayVerified ? "Verified against the incident expectation" : "Replay completed, but the result did not meet the expected answer"}</span>
+                </div>
+                <div className="incident-replay-grid">
+                  <article>
+                    <span>Original</span>
+                    <p>{replayResult.baselineAnswer}</p>
+                    <small>{replayResult.baselineMemoryIds.length} context memories</small>
+                  </article>
+                  <article data-replay="branch">
+                    <span>Repaired branch</span>
+                    <p>{replayResult.branchAnswer}</p>
+                    <small>{replayResult.branchMemoryIds.length} context memories</small>
+                  </article>
+                </div>
+                <div className="incident-context-diff">
+                  <span>Context change</span>
+                  <code>{formatContextDiff(replayResult)}</code>
+                </div>
+                <p className="incident-caveat">{replayResult.caveat}</p>
+              </>
+            ) : (
+              <div className="incident-replay-ready">
+                <FlaskConical size={20} />
+                <div>
+                  <strong>The source incident stays frozen</strong>
+                  <p>Engram will compare the original answer with a branch containing only the selected memory intervention.</p>
+                </div>
+              </div>
+            )}
+            {replayError ? <p className="incident-error" role="alert">{replayError}</p> : null}
           </section>
         ) : null}
 
-        {replayResult ? (
-          <section className="incident-section incident-prove" aria-labelledby="incident-prove-title">
+        {activeStep === "prove" && replayResult ? (
+          <section
+            aria-labelledby={guidedDemo ? "incident-prove-heading" : "incident-tab-prove"}
+            className="incident-task-panel incident-prove"
+            id="incident-panel-prove"
+            role="tabpanel"
+          >
             <SectionHeading
-              eyebrow="Test"
+              eyebrow="Step 4 · Prove"
               title="Keep the repair from regressing"
               detail={guidedDemo
                 ? "Build a portable test from the frozen memory fixture, replay evidence, and lifecycle assertions."
                 : "Export the frozen memory state, turn input, replay evidence, and lifecycle assertions as a portable test."}
+              titleId="incident-prove-heading"
             />
-            <div id="incident-prove-title">
-              <ul>
-                <li><Check size={12} /> Require the branch memories in active context</li>
-                <li><Check size={12} /> Reject memories removed by the repair</li>
-                <li><Check size={12} /> Assert the expected answer evidence</li>
-              </ul>
-              <button className="incident-primary-action" disabled={!replayVerified} onClick={saveRegression} type="button">
-                <Download size={13} /> {regressionSaved ? "Download regression again" : "Save verified regression"}
-              </button>
+            <div className="incident-proof-summary" data-saved={regressionSaved}>
+              {regressionSaved ? <ShieldCheck size={20} /> : <Download size={20} />}
+              <div>
+                <strong>{regressionSaved ? "Regression saved" : replayVerified ? "Verified replay ready to save" : "Replay needs review"}</strong>
+                <p>{regressionSaved
+                  ? "The repair is now a portable memory regression artifact."
+                  : replayVerified
+                    ? "The test will preserve both the memory lifecycle and expected answer evidence."
+                    : "The branch did not meet the expected answer, so it cannot be saved as a verified repair."}</p>
+              </div>
             </div>
+            <ul>
+              <li><Check size={14} /> Require the branch memories in active context</li>
+              <li><Check size={14} /> Reject memories removed by the repair</li>
+              <li><Check size={14} /> Assert the expected answer evidence</li>
+            </ul>
           </section>
         ) : null}
-
-        {guidedDemo ? null : (
-          <section className="incident-advanced-tools" aria-label="Advanced incident tools">
-            <span>Advanced evidence</span>
-            <div>
-              <button type="button" onClick={() => onOpenTool("timeMachine")}><GitBranch size={12} /> Time Machine</button>
-              <button type="button" onClick={() => onOpenTool("integrity")}><ShieldCheck size={12} /> Integrity</button>
-              <button type="button" onClick={() => onOpenTool("retrieval")}><Radar size={12} /> Retrieval MRI</button>
-            </div>
-          </section>
-        )}
       </div>
+
+      <footer className="incident-action-bar" aria-label={`${activeStep} step actions`}>
+        {activeStep !== "diagnose" ? (
+          <button className="incident-secondary-action" onClick={() => openStep(previousStep(activeStep))} type="button">
+            <ArrowLeft size={16} /> Back
+          </button>
+        ) : <span />}
+        {activeStep === "diagnose" ? (
+          <button className="incident-primary-action" onClick={continueFromDiagnosis} type="button">
+            Review interventions <ArrowRight size={16} />
+          </button>
+        ) : null}
+        {activeStep === "intervene" ? (
+          <button className="incident-primary-action" disabled={!selectedIntervention} onClick={confirmIntervention} type="button">
+            Continue with this intervention <ArrowRight size={16} />
+          </button>
+        ) : null}
+        {activeStep === "replay" && !replayResult ? (
+          <button className="incident-primary-action" disabled={replayPending || !selectedIntervention} onClick={() => void replayIntervention()} type="button">
+            <Play size={16} /> {replayPending
+              ? "Replaying original and branch..."
+              : guidedDemo ? "Run deterministic repair" : "Replay this fix"}
+          </button>
+        ) : null}
+        {activeStep === "replay" && replayResult ? (
+          <div className="incident-action-group">
+            <button className="incident-secondary-action" disabled={replayPending} onClick={() => void replayIntervention()} type="button">
+              <Play size={15} /> Replay again
+            </button>
+            <button className="incident-primary-action" onClick={() => openStep("prove")} type="button">
+              Review proof <ArrowRight size={16} />
+            </button>
+          </div>
+        ) : null}
+        {activeStep === "prove" ? (
+          <button className="incident-primary-action" disabled={!replayVerified} onClick={saveRegression} type="button">
+            <Download size={16} /> {regressionSaved ? "Download regression again" : "Save verified regression"}
+          </button>
+        ) : null}
+      </footer>
     </aside>
   );
 }
@@ -705,21 +834,88 @@ function jsonText(value: unknown): string | undefined {
   return undefined;
 }
 
-function WorkflowProgress({ current }: { current: number }) {
-  const labels = ["Capture", "Diagnose", "Replay", "Test"];
+function IncidentSummary({ incident }: { incident: MemoryIncident }) {
   return (
-    <nav className="incident-progress" aria-label="Incident investigation workflow">
-      <ol>{labels.map((label, index) => {
-        const number = index + 1;
-        const state = number < current ? "done" : number === current ? "current" : "pending";
-        return <li key={label} data-state={state}><i>{number < current ? <Check size={10} /> : number}</i><span>{label}</span></li>;
-      })}</ol>
+    <section className="incident-summary" aria-label="Incident summary">
+      <div className="incident-summary-heading">
+        <div>
+          <span><i data-status={incident.status} /> Open incident</span>
+          <h2>{incident.title}</h2>
+        </div>
+        <EvidenceBadge origin={incident.diagnosis.origin} />
+      </div>
+      <dl className="incident-answer-grid">
+        <div>
+          <dt>Question</dt>
+          <dd>{incident.question}</dd>
+        </div>
+        <div data-answer="observed">
+          <dt>Observed</dt>
+          <dd>{incident.observedAnswer}</dd>
+        </div>
+        {incident.expectedAnswer ? (
+          <div data-answer="expected">
+            <dt>Expected</dt>
+            <dd>{incident.expectedAnswer}</dd>
+          </div>
+        ) : null}
+      </dl>
+    </section>
+  );
+}
+
+function WorkflowProgress({
+  active,
+  available,
+  completed,
+  onSelect
+}: {
+  active: IncidentTaskStep;
+  available: Record<IncidentTaskStep, boolean>;
+  completed: Record<IncidentTaskStep, boolean>;
+  onSelect: (step: IncidentTaskStep) => void;
+}) {
+  return (
+    <nav className="incident-progress" aria-label="Incident task flow">
+      <div role="tablist" aria-orientation="horizontal">
+        {incidentTaskSteps.map((step, index) => {
+          const isActive = active === step.id;
+          const isComplete = completed[step.id];
+          return (
+            <button
+              aria-controls={`incident-panel-${step.id}`}
+              aria-selected={isActive}
+              data-complete={isComplete}
+              data-state={isActive ? "current" : isComplete ? "done" : "pending"}
+              disabled={!available[step.id]}
+              id={`incident-tab-${step.id}`}
+              key={step.id}
+              onClick={() => onSelect(step.id)}
+              role="tab"
+              type="button"
+            >
+              <i>{isComplete ? <Check size={13} /> : index + 1}</i>
+              <span><strong>{step.label}</strong><small>{step.detail}</small></span>
+            </button>
+          );
+        })}
+      </div>
     </nav>
   );
 }
 
-function SectionHeading({ eyebrow, title, detail }: { eyebrow: string; title: string; detail: string }) {
-  return <header className="incident-section-heading"><span>{eyebrow}</span><h3>{title}</h3><p>{detail}</p></header>;
+function SectionHeading({
+  eyebrow,
+  title,
+  detail,
+  titleId
+}: {
+  eyebrow: string;
+  title: string;
+  detail: string;
+  titleId?: string;
+}) {
+  return <header className="incident-section-heading"><span>{eyebrow}</span><h3 id={titleId}>{title}</h3><p>{detail}</p></header>;
 }
 
 function EvidenceBadge({ origin }: { origin: MemoryIncident["evidence"][number]["origin"] }) {
@@ -734,6 +930,12 @@ function stageRegions(stage: MemoryIncident["stages"][number]["kind"]): BrainReg
 
 function labelStage(stage: MemoryIncident["diagnosis"]["stage"]) {
   return stage.replace("_", " ");
+}
+
+function previousStep(step: IncidentTaskStep): IncidentTaskStep {
+  if (step === "prove") return "replay";
+  if (step === "replay") return "intervene";
+  return "diagnose";
 }
 
 function formatContextDiff(result: MemoryBranchReplayResult) {
