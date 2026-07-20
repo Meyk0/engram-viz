@@ -372,7 +372,7 @@ function decisionRun(
     },
     answer: {
       content: answer,
-      provider: { id: "deterministic-test" },
+      provider: { id: "deterministic-policy-test", model: "1.0.0" },
       evidence: "simulated"
     },
     evidenceCoverage: {
