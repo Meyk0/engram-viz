@@ -627,6 +627,53 @@
   overflow-wrap: anywhere;
 }
 
+.public-fixture-boundary,
+.public-stack-validation {
+  display: grid;
+  gap: 5px;
+  margin-top: 12px;
+  padding: 11px 12px;
+  border-left: 2px solid rgba(251, 191, 36, 0.46);
+  background: rgba(251, 191, 36, 0.045);
+}
+
+.public-fixture-boundary strong,
+.public-stack-validation > span {
+  color: rgba(244, 224, 173, 0.88);
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.public-fixture-boundary span {
+  color: rgba(205, 218, 234, 0.64);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.public-stack-validation {
+  border-left-color: rgba(0, 212, 255, 0.46);
+  background: rgba(0, 212, 255, 0.035);
+}
+
+.public-stack-validation > span {
+  color: rgba(113, 222, 250, 0.86);
+}
+
+.public-stack-validation code {
+  color: rgba(203, 225, 244, 0.72);
+  font-size: 10px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.public-stack-validation a {
+  width: max-content;
+  color: rgba(113, 222, 250, 0.78);
+  font-size: 11px;
+  text-decoration: none;
+}
+
 .public-demo .incident-workspace[data-presentation="guided-demo"] .incident-scroll {
   gap: 10px;
   padding: 14px 16px 28px;
@@ -645,19 +692,6 @@
 }
 
 .public-demo .incident-workspace[data-presentation="guided-demo"] .incident-causal-spine li > svg {
-  display: none;
-}
-
-.public-demo .incident-workspace[data-presentation-phase="fail"] .incident-intervention,
-.public-demo .incident-workspace[data-presentation-phase="fail"] .incident-replay,
-.public-demo .incident-workspace[data-presentation-phase="fail"] .incident-prove,
-.public-demo .incident-workspace[data-presentation-phase="repair"] .incident-causal,
-.public-demo .incident-workspace[data-presentation-phase="repair"] .incident-diagnosis,
-.public-demo .incident-workspace[data-presentation-phase="repair"] .incident-prove,
-.public-demo .incident-workspace[data-presentation-phase="test"] .incident-summary,
-.public-demo .incident-workspace[data-presentation-phase="test"] .incident-causal,
-.public-demo .incident-workspace[data-presentation-phase="test"] .incident-diagnosis,
-.public-demo .incident-workspace[data-presentation-phase="test"] .incident-intervention {
   display: none;
 }
 
@@ -797,7 +831,7 @@
 
 .public-demo-steps {
   display: grid;
-  grid-template-columns: repeat(5, minmax(70px, 1fr));
+  grid-template-columns: repeat(6, minmax(64px, 1fr));
 }
 
 .public-demo-steps button {
@@ -820,12 +854,6 @@
   display: grid;
   gap: 2px;
   justify-items: center;
-}
-
-.public-demo-steps button > span small {
-  color: rgba(125, 234, 255, 0.55);
-  font-size: 11px;
-  letter-spacing: 0.1em;
 }
 
 .public-demo-steps button:not(:last-child)::after {
@@ -943,12 +971,13 @@
   border-left-color: rgba(20, 241, 149, 0.62);
 }
 
-.public-demo[data-step="fail"] .public-demo-signal {
+.public-demo[data-step="diagnose"] .public-demo-signal {
   border-left-color: rgba(249, 115, 22, 0.72);
 }
 
-.public-demo[data-step="repair"] .public-demo-signal,
-.public-demo[data-step="test"] .public-demo-signal {
+.public-demo[data-step="intervene"] .public-demo-signal,
+.public-demo[data-step="replay"] .public-demo-signal,
+.public-demo[data-step="prove"] .public-demo-signal {
   border-left-color: rgba(20, 241, 149, 0.62);
 }
 
@@ -1138,7 +1167,7 @@
   .public-demo-steps {
     grid-column: 1 / -1;
     grid-row: 2;
-    grid-template-columns: repeat(5, minmax(0, 1fr));
+    grid-template-columns: repeat(6, minmax(0, 1fr));
   }
 
   .public-demo-steps button {
@@ -1175,10 +1204,6 @@
   .public-demo-next button {
     min-width: 86px;
     height: 44px;
-  }
-
-  .public-demo-steps button > span small {
-    font-size: 11px;
   }
 
   .public-demo .incident-summary h2,
@@ -1219,5 +1244,70 @@
   .public-demo-local-handoff code {
     font-size: 11px;
     white-space: normal;
+  }
+
+  .public-demo[data-step="diagnose"] .brain-scene,
+  .public-demo[data-step="intervene"] .brain-scene,
+  .public-demo[data-step="replay"] .brain-scene,
+  .public-demo[data-step="prove"] .brain-scene,
+  .public-demo[data-step="diagnose"] .public-demo-narrative,
+  .public-demo[data-step="intervene"] .public-demo-narrative,
+  .public-demo[data-step="replay"] .public-demo-narrative,
+  .public-demo[data-step="prove"] .public-demo-narrative,
+  .public-demo[data-step="diagnose"] .public-demo-caveat,
+  .public-demo[data-step="intervene"] .public-demo-caveat,
+  .public-demo[data-step="replay"] .public-demo-caveat,
+  .public-demo[data-step="prove"] .public-demo-caveat {
+    display: none;
+  }
+
+  .public-demo[data-step="diagnose"] .incident-workspace[data-presentation="guided-demo"],
+  .public-demo[data-step="intervene"] .incident-workspace[data-presentation="guided-demo"],
+  .public-demo[data-step="replay"] .incident-workspace[data-presentation="guided-demo"],
+  .public-demo[data-step="prove"] .incident-workspace[data-presentation="guided-demo"] {
+    inset: 0;
+  }
+
+  .public-demo[data-step="diagnose"] .public-incident-v2__summary,
+  .public-demo[data-step="intervene"] .public-incident-v2__summary,
+  .public-demo[data-step="replay"] .public-incident-v2__summary,
+  .public-demo[data-step="prove"] .public-incident-v2__summary {
+    position: relative;
+    padding-block: 10px;
+  }
+
+  .public-demo[data-step="diagnose"] .public-incident-v2__summary h2,
+  .public-demo[data-step="intervene"] .public-incident-v2__summary h2,
+  .public-demo[data-step="replay"] .public-incident-v2__summary h2,
+  .public-demo[data-step="prove"] .public-incident-v2__summary h2 {
+    font-size: 16px;
+  }
+
+  .public-demo[data-step="diagnose"] .public-incident-v2__summary dl,
+  .public-demo[data-step="intervene"] .public-incident-v2__summary dl,
+  .public-demo[data-step="replay"] .public-incident-v2__summary dl,
+  .public-demo[data-step="prove"] .public-incident-v2__summary dl {
+    grid-template-columns: 1fr 1fr;
+    margin-top: 8px;
+  }
+
+  .public-demo[data-step="diagnose"] .public-incident-v2__summary dl > div:first-child,
+  .public-demo[data-step="intervene"] .public-incident-v2__summary dl > div:first-child,
+  .public-demo[data-step="replay"] .public-incident-v2__summary dl > div:first-child,
+  .public-demo[data-step="prove"] .public-incident-v2__summary dl > div:first-child {
+    display: none;
+  }
+
+  .public-demo[data-step="diagnose"] .public-incident-step,
+  .public-demo[data-step="intervene"] .public-incident-step,
+  .public-demo[data-step="replay"] .public-incident-step,
+  .public-demo[data-step="prove"] .public-incident-step {
+    padding-block: 14px 36px;
+  }
+
+  .public-demo[data-step="intervene"] .public-policy-intervention .incident-primary-action {
+    position: sticky;
+    bottom: 8px;
+    width: 100%;
   }
 }

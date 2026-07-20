@@ -28,13 +28,14 @@ import "@/components/UI/incident-workspace.css";
 type PublicIncidentDemoProps = {
   onFocus: (memoryIds: string[], regions?: BrainRegion[]) => void;
   onReplayComplete: () => void;
-  phase: "hidden" | "fail" | "repair" | "test";
+  phase: "hidden" | "diagnose" | "intervene" | "replay" | "test";
   story: PublicDemoStory;
 };
 
 const localDemoCommand = "npx --yes @engramviz/cli demo stale-location";
+const validateCommand = "npx --yes @engramviz/cli test engram-stale-location-v2.engram-test.json --executor ./engram-regression.mjs";
 const matrixExecutor = {
-  id: "engram-public-location-agent",
+  id: "engram-fixture-location-agent",
   version: "1",
   deterministic: true as const,
   generateAnswer: answerLocationQuestion
@@ -200,7 +201,7 @@ export function PublicIncidentDemo({ onFocus, onReplayComplete, phase, story }: 
           </dl>
         </header>
 
-        {phase === "fail" ? (
+        {phase === "diagnose" ? (
           <section className="public-incident-step" aria-labelledby="public-diagnose-title">
             <StepHeader
               eyebrow="1 / Diagnose"
@@ -229,52 +230,57 @@ export function PublicIncidentDemo({ onFocus, onReplayComplete, phase, story }: 
           </section>
         ) : null}
 
-        {phase === "repair" ? (
+        {phase === "intervene" ? (
           <section className="public-incident-step" aria-labelledby="public-intervene-title">
             <StepHeader
-              eyebrow={replayResult ? "3 / Replay" : "2 / Intervene"}
-              title={replayResult ? "Compare the policy branch" : "Change the memory policy, not the trace"}
-              detail={replayResult
-                ? "Engram first reproduced the bad baseline, then reran state resolution through answer generation over the recorded candidate set."
-                : "The source run stays immutable. This branch resolves explicit corrections before ranking and excludes superseded facts."}
+              eyebrow="2 / Intervene"
+              title="Change the memory policy, not the trace"
+              detail="The source run stays immutable. This branch resolves explicit corrections before ranking and excludes superseded facts."
               id="public-intervene-title"
             />
-            {!replayResult ? (
-              <article className="public-policy-intervention">
-                <div><FlaskConical size={16} /><span>Policy intervention</span></div>
-                <h3>Prefer the latest active correction</h3>
-                <ol>
-                  <li>Resolve same-subject memories with explicit correction evidence.</li>
-                  <li>Mark the older fact superseded in the branch.</li>
-                  <li>Rerun eligibility, ranking, selection, context, and the fixture answer.</li>
-                </ol>
-                <p>Candidate generation is not rerun; the replay uses the recorded candidate set and says so explicitly.</p>
-                <button
-                  aria-busy={replayPending}
-                  className="incident-primary-action"
-                  disabled={replayPending}
-                  onClick={() => void runRepair()}
-                  type="button"
-                >
-                  <Play size={14} /> {replayPending ? "Replaying policy pipeline..." : "Run policy replay"}
-                </button>
-              </article>
-            ) : (
-              <>
-                <div className="public-replay-verdict" data-verified={replayVerified} role="status">
-                  <ShieldCheck size={17} />
-                  <span>
-                    <strong>{replayVerified ? "Baseline reproduced; treatment passed" : "Replay needs review"}</strong>
-                    <small>{replayResult.baseline.answer.content} → {replayResult.treatment.answer.content}</small>
-                  </span>
-                </div>
-                <CausalMemoryDiff
-                  result={replayResult}
-                  onFocusMemoryIds={(memoryIds) => onFocus(memoryIds, ["hippocampus", "prefrontal"])}
-                />
-              </>
-            )}
+            <article className="public-policy-intervention">
+              <div><FlaskConical size={16} /><span>Policy intervention</span></div>
+              <h3>Prefer the latest active correction</h3>
+              <ol>
+                <li>Resolve same-subject memories with explicit correction evidence.</li>
+                <li>Mark the older fact superseded in the branch.</li>
+                <li>Rerun eligibility, ranking, selection, context, and the fixture answer.</li>
+              </ol>
+              <p>Candidate generation is not rerun; the replay uses the recorded candidate set and says so explicitly.</p>
+              <button
+                aria-busy={replayPending}
+                className="incident-primary-action"
+                disabled={replayPending || Boolean(replayResult)}
+                onClick={() => void runRepair()}
+                type="button"
+              >
+                {replayResult ? <Check size={14} /> : <Play size={14} />}
+                {replayPending ? "Replaying policy pipeline..." : replayResult ? "Replay complete" : "Run policy replay"}
+              </button>
+            </article>
             {replayError ? <p className="incident-error" role="alert">{replayError}</p> : null}
+          </section>
+        ) : null}
+
+        {phase === "replay" && replayResult ? (
+          <section className="public-incident-step" aria-labelledby="public-replay-title">
+            <StepHeader
+              eyebrow="3 / Replay"
+              title="Compare the isolated policy branch"
+              detail="Engram first reproduced the bad baseline, then reran state resolution through answer generation over the recorded candidate set."
+              id="public-replay-title"
+            />
+            <div className="public-replay-verdict" data-verified={replayVerified} role="status">
+              <ShieldCheck size={17} />
+              <span>
+                <strong>{replayVerified ? "Baseline reproduced; treatment passed" : "Replay needs review"}</strong>
+                <small>{replayResult.baseline.answer.content} → {replayResult.treatment.answer.content}</small>
+              </span>
+            </div>
+            <CausalMemoryDiff
+              result={replayResult}
+              onFocusMemoryIds={(memoryIds) => onFocus(memoryIds, ["hippocampus", "prefrontal"])}
+            />
           </section>
         ) : null}
 
@@ -282,7 +288,7 @@ export function PublicIncidentDemo({ onFocus, onReplayComplete, phase, story }: 
           <section className="public-incident-step" aria-labelledby="public-prove-title">
             <StepHeader
               eyebrow="4 / Prove"
-              title={`${matrixRun.report.summary.variants.passed}/${matrixRun.report.summary.variants.total} reliability cases passed`}
+              title={`Fixture policy simulation: ${matrixRun.report.summary.variants.passed}/${matrixRun.report.summary.variants.total} controlled variants`}
               detail="The repair is now a portable semantic contract: which kind of memory must be selected and loaded, what must stay out, and what the answer must affirm."
               id="public-prove-title"
             />
@@ -298,9 +304,18 @@ export function PublicIncidentDemo({ onFocus, onReplayComplete, phase, story }: 
               <span>Semantic assertions survive provider-generated IDs</span>
               <code>mustSelect(current_location: active) · mustNotLoad(current_location: superseded)</code>
             </div>
+            <div className="public-fixture-boundary" role="note">
+              <strong>What this proves</strong>
+              <span>Recorded candidates · deterministic sample executor · provider retrieval not rerun</span>
+            </div>
             <button className="incident-primary-action" disabled={!matrixRun.report.pass} onClick={downloadRegression} type="button">
-              <Download size={14} /> Download executable regression
+              <Download size={14} /> Download v2 regression contract
             </button>
+            <div className="public-stack-validation">
+              <span>Validate against your stack</span>
+              <code>{validateCommand}</code>
+              <a href="/docs/investigate/regression-tests">Connect an executor</a>
+            </div>
             <div className="public-demo-local-handoff">
               <code>{localDemoCommand}</code>
               <button onClick={() => void copyLocalDemoCommand()} type="button">

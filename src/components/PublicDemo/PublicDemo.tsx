@@ -16,7 +16,6 @@ import { Brain3D } from "@/components/Brain/Brain3D";
 import { PublicIncidentDemo } from "@/components/PublicDemo/PublicIncidentDemo";
 import {
   createPublicDemoStory,
-  PUBLIC_DEMO_PHASE_NAMES,
   PUBLIC_DEMO_STEP_NAMES,
   type PublicDemoFrame
 } from "@/lib/lab/demo-story";
@@ -36,13 +35,17 @@ export function PublicDemo() {
   const [stepIndex, setStepIndex] = useState(0);
   const [playing, setPlaying] = useState(false);
   const [sessionEpoch, setSessionEpoch] = useState(0);
-  const [repairComplete, setRepairComplete] = useState(false);
+  const [replayComplete, setReplayComplete] = useState(false);
   const [reduceMotion, setReduceMotion] = useState(false);
   const [focusOverride, setFocusOverride] = useState<FocusOverride>();
   const frame = story.frames[stepIndex] ?? story.frames[0];
   const incidentPhase = stepIndex < 2
     ? "hidden"
-    : stepIndex === 2 ? "fail" : stepIndex === 3 ? "repair" : "test";
+    : stepIndex === 2
+      ? "diagnose"
+      : stepIndex === 3
+        ? "intervene"
+        : stepIndex === 4 ? "replay" : "test";
 
   useEffect(() => {
     if (typeof window.matchMedia !== "function") return;
@@ -55,7 +58,7 @@ export function PublicDemo() {
 
   useEffect(() => {
     if (!playing) return;
-    if (stepIndex === 3 && !repairComplete) return;
+    if (stepIndex === 3 && !replayComplete) return;
 
     const timeout = window.setTimeout(() => {
       if (stepIndex >= PUBLIC_DEMO_STEP_NAMES.length - 1) {
@@ -66,7 +69,7 @@ export function PublicDemo() {
     }, PLAYBACK_HOLD_MS);
 
     return () => window.clearTimeout(timeout);
-  }, [playing, repairComplete, stepIndex]);
+  }, [playing, replayComplete, stepIndex]);
 
   if (!frame) return null;
 
@@ -74,10 +77,10 @@ export function PublicDemo() {
   const focusedMemoryIds = currentFocus?.memoryIds ?? frame.focusedMemoryIds;
   const focusedRegions = currentFocus?.regions ?? frame.focusedRegions;
   const nextDisabled = stepIndex === PUBLIC_DEMO_STEP_NAMES.length - 1
-    || (stepIndex === 3 && !repairComplete);
+    || (stepIndex === 3 && !replayComplete);
 
   function goToStep(nextStep: number) {
-    if (nextStep === 4 && !repairComplete) return;
+    if (nextStep >= 4 && !replayComplete) return;
     setStepIndex(Math.max(0, Math.min(nextStep, PUBLIC_DEMO_STEP_NAMES.length - 1)));
   }
 
@@ -85,7 +88,7 @@ export function PublicDemo() {
     setPlaying(false);
     setStepIndex(0);
     setSessionEpoch((current) => current + 1);
-    setRepairComplete(false);
+    setReplayComplete(false);
     setFocusOverride(undefined);
   }
 
@@ -136,7 +139,7 @@ export function PublicDemo() {
         <PublicIncidentDemo
           key={sessionEpoch}
           onFocus={(memoryIds, regions = []) => setFocusOverride({ stepIndex, memoryIds, regions })}
-          onReplayComplete={() => setRepairComplete(true)}
+          onReplayComplete={() => setReplayComplete(true)}
           phase={incidentPhase}
           story={story}
         />
@@ -178,13 +181,13 @@ export function PublicDemo() {
               aria-label={name}
               aria-current={index === stepIndex ? "step" : undefined}
               data-complete={index < stepIndex}
-              disabled={index === 4 && !repairComplete}
+              disabled={index >= 4 && !replayComplete}
               key={name}
               onClick={() => goToStep(index)}
               type="button"
             >
               <i aria-hidden="true">{index < stepIndex ? <Check size={10} /> : index + 1}</i>
-              <span><small>{PUBLIC_DEMO_PHASE_NAMES[index]}</small>{name}</span>
+              <span>{name}</span>
             </button>
           ))}
         </nav>

@@ -9,8 +9,7 @@ import { createSampleMemoryIncidentCase } from "@/lib/lab/sample-incident";
 import type { MemoryBranch } from "@/lib/lab/types";
 import type { BrainRegion, EngramEvent, EngramMemory } from "@/types";
 
-export const PUBLIC_DEMO_STEP_NAMES = ["Store", "Correct", "Fail", "Repair", "Test"] as const;
-export const PUBLIC_DEMO_PHASE_NAMES = ["Observe", "Observe", "Diagnose", "Replay", "Prove"] as const;
+export const PUBLIC_DEMO_STEP_NAMES = ["Store", "Correct", "Diagnose", "Intervene", "Replay", "Prove"] as const;
 
 export type PublicDemoStepName = (typeof PUBLIC_DEMO_STEP_NAMES)[number];
 
@@ -108,7 +107,7 @@ export function createPublicDemoStory(): PublicDemoStory {
       focusedRegions: ["hippocampus"]
     },
     {
-      name: "Fail",
+      name: "Diagnose",
       eyebrow: "Recorded incident",
       title: "The stale location wins retrieval",
       description: "Top-1 retrieval selects the stale fact, so the answer says San Francisco.",
@@ -123,12 +122,29 @@ export function createPublicDemoStory(): PublicDemoStory {
       focusedRegions: ["hippocampus", "prefrontal"]
     },
     {
-      name: "Repair",
+      name: "Intervene",
       eyebrow: "Isolated branch",
-      title: "Prefer the current fact",
-      description: "An isolated branch supersedes the stale fact without changing the recorded incident.",
+      title: "Change the memory policy",
+      description: "An isolated branch resolves explicit corrections without changing the recorded incident.",
       provenance: "Derived branch intervention",
       evidence: intervention.reason,
+      regionLabel: "Hippocampus / state-policy analogy",
+      memories: repairedMemories.map(cloneMemory),
+      events: [
+        { type: "init", memories: repairedMemories.map(cloneMemory) }
+      ],
+      loadedMemoryIds: [],
+      retrievedMemoryIds: [],
+      focusedMemoryIds: [staleMemory.id, currentMemory.id],
+      focusedRegions: ["hippocampus"]
+    },
+    {
+      name: "Replay",
+      eyebrow: "Policy replay",
+      title: "Reproduce, then compare",
+      description: "The baseline must reproduce before Engram accepts the treatment comparison.",
+      provenance: "Deterministic fixture replay",
+      evidence: "The branch selects and loads the current Oakland memory.",
       regionLabel: "Hippocampus to active-context analogy",
       memories: repairedMemories.map(cloneMemory),
       events: [
@@ -142,7 +158,7 @@ export function createPublicDemoStory(): PublicDemoStory {
       focusedRegions: ["hippocampus", "prefrontal"]
     },
     {
-      name: "Test",
+      name: "Prove",
       eyebrow: "Deterministic regression",
       title: "Freeze the repaired behavior",
       description: "The same question now loads Oakland and becomes a portable regression.",

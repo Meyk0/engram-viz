@@ -9,17 +9,18 @@ import {
 } from "@/lib/lab/demo-story";
 
 describe("public guided demo fixture", () => {
-  it("derives exactly five honest frames from the stale-location incident", () => {
+  it("derives exactly six honest frames from the stale-location incident", () => {
     const story = createPublicDemoStory();
 
     expect(story.frames.map((frame) => frame.name)).toEqual([
       "Store",
       "Correct",
-      "Fail",
-      "Repair",
-      "Test"
+      "Diagnose",
+      "Intervene",
+      "Replay",
+      "Prove"
     ]);
-    expect(PUBLIC_DEMO_STEP_NAMES).toHaveLength(5);
+    expect(PUBLIC_DEMO_STEP_NAMES).toHaveLength(6);
     expect(story.frames[0]?.focusedRegions).toEqual(["hippocampus"]);
     expect(story.frames[2]).toMatchObject({
       loadedMemoryIds: ["sample-memory-san-francisco"],
@@ -27,10 +28,14 @@ describe("public guided demo fixture", () => {
       evidence: "You live in San Francisco."
     });
     expect(story.frames[3]).toMatchObject({
+      loadedMemoryIds: [],
+      retrievedMemoryIds: []
+    });
+    expect(story.frames[4]).toMatchObject({
       loadedMemoryIds: ["sample-memory-oakland"],
       retrievedMemoryIds: ["sample-memory-oakland"]
     });
-    expect(story.frames[4]?.focusedRegions).toEqual(["prefrontal"]);
+    expect(story.frames[5]?.focusedRegions).toEqual(["prefrontal"]);
   });
 
   it("replays the controlled branch deterministically without mutating its request", async () => {
@@ -49,11 +54,19 @@ describe("public guided demo fixture", () => {
     expect(request).toEqual(before);
     expect(first).toMatchObject({
       evidence: "replayed",
+      mode: "context-only-counterfactual",
       baselineMemoryIds: ["sample-memory-san-francisco"],
       branchMemoryIds: ["sample-memory-oakland"],
       baselineAnswer: "You live in San Francisco.",
       branchAnswer: "You live in Oakland.",
       changed: true,
+      reproduction: { reproduced: true },
+      capabilities: {
+        rerunsCandidateGeneration: false,
+        rerunsSelection: false,
+        rerunsContextAssembly: true,
+        rerunsGeneration: true
+      },
       provider: { id: "demo" }
     });
     expect(first.comparison.normalizedTextDistance).toBeGreaterThan(0);

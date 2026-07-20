@@ -30,7 +30,7 @@ async function expectNonblankCanvas(canvas: Locator) {
 test("presents the public product promise without Studio controls", async ({ page }) => {
   await page.goto("/");
 
-  await expect(page.getByRole("heading", { name: "Debug the memory behind a bad answer." })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Replay and regression-test agent memory policies." })).toBeVisible();
   await expect(page.getByRole("link", { name: "Run the guided incident" })).toHaveAttribute("href", "/demo");
   await expect(page.getByLabel("Guided demo command", { exact: true })).toContainText(
     "npx --yes @engramviz/cli demo stale-location"
@@ -52,7 +52,7 @@ test("keeps the command and visual signature clear on the mobile landing page", 
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/");
 
-  await expect(page.getByRole("heading", { name: "Debug the memory behind a bad answer." })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Replay and regression-test agent memory policies." })).toBeVisible();
   await expect(page.getByLabel("Guided demo command", { exact: true })).toBeVisible();
   await expect(page.getByRole("link", { name: "Run the guided incident" })).toBeVisible();
   await expectNonblankCanvas(page.locator("canvas").first());
@@ -60,7 +60,7 @@ test("keeps the command and visual signature clear on the mobile landing page", 
   expect(overflow).toBeLessThanOrEqual(1);
 });
 
-test("repairs the five-step fixture incident without calling an Engram API", async ({ page, context }) => {
+test("repairs the six-step fixture incident without calling an Engram API", async ({ page, context }) => {
   const applicationApiRequests: string[] = [];
   page.on("request", (request) => {
     const pathname = new URL(request.url()).pathname;
@@ -72,8 +72,8 @@ test("repairs the five-step fixture incident without calling an Engram API", asy
 
   await page.goto("/demo");
   const steps = page.getByRole("navigation", { name: "Guided demo steps" }).getByRole("button");
-  await expect(steps).toHaveCount(5);
-  for (const name of ["Store", "Correct", "Fail", "Repair", "Test"]) {
+  await expect(steps).toHaveCount(6);
+  for (const name of ["Store", "Correct", "Diagnose", "Intervene", "Replay", "Prove"]) {
     await expect(steps.filter({ hasText: name })).toHaveCount(1);
   }
 
@@ -81,19 +81,23 @@ test("repairs the five-step fixture incident without calling an Engram API", asy
   await next.click();
   await expect(page.locator(".public-demo")).toHaveAttribute("data-step", "correct");
   await next.click();
-  await expect(page.locator(".public-demo")).toHaveAttribute("data-step", "fail");
+  await expect(page.locator(".public-demo")).toHaveAttribute("data-step", "diagnose");
   await expect(page.getByRole("heading", { name: "A stale fact remained active" })).toBeVisible();
   await next.click();
-  await expect(page.locator(".public-demo")).toHaveAttribute("data-step", "repair");
+  await expect(page.locator(".public-demo")).toHaveAttribute("data-step", "intervene");
   await expect(next).toBeDisabled();
   await page.getByRole("button", { name: "Run policy replay" }).click();
-  await expect(page.getByText("Baseline reproduced; treatment passed")).toBeVisible();
-  await expect(page.getByText("You live in Oakland.", { exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Replay complete" })).toBeDisabled();
   await expect(next).toBeEnabled();
   await next.click();
-  await expect(page.locator(".public-demo")).toHaveAttribute("data-step", "test");
+  await expect(page.locator(".public-demo")).toHaveAttribute("data-step", "replay");
+  await expect(page.getByText("Baseline reproduced; treatment passed")).toBeVisible();
+  await expect(page.getByText("You live in Oakland.", { exact: true })).toBeVisible();
+  await next.click();
+  await expect(page.locator(".public-demo")).toHaveAttribute("data-step", "prove");
+  await expect(page.getByText(/provider retrieval not rerun/i)).toBeVisible();
   const regressionDownload = page.waitForEvent("download");
-  await page.getByRole("button", { name: "Download executable regression" }).click();
+  await page.getByRole("button", { name: "Download v2 regression contract" }).click();
   expect((await regressionDownload).suggestedFilename()).toBe("engram-stale-location-v2.engram-test.json");
 
   await page.getByRole("button", { name: "Copy local demo command" }).click();
@@ -132,4 +136,26 @@ test("keeps the brain and demo controls usable on mobile", async ({ page }) => {
   }
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
   expect(overflow).toBeLessThanOrEqual(1);
+});
+
+test("keeps the intervention action reachable on a short mobile viewport", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 667 });
+  await page.goto("/demo");
+
+  const next = page.getByRole("button", { name: /^Next/ });
+  await next.click();
+  await next.click();
+  await next.click();
+  await expect(page.locator(".public-demo")).toHaveAttribute("data-step", "intervene");
+
+  const action = page.getByRole("button", { name: "Run policy replay" });
+  await action.scrollIntoViewIfNeeded();
+  await expect(action).toBeVisible();
+  const box = await action.boundingBox();
+  expect(box).not.toBeNull();
+  expect(box!.y).toBeGreaterThanOrEqual(54);
+  expect(box!.y + box!.height).toBeLessThanOrEqual(667 - 154);
+  await action.click();
+  await expect(page.getByRole("button", { name: "Replay complete" })).toBeDisabled();
+  await expect(next).toBeEnabled();
 });

@@ -32,19 +32,16 @@ describe("PublicDemo", () => {
     vi.unstubAllGlobals();
   });
 
-  it("presents five user-paced steps and a deterministic no-fetch repair", async () => {
+  it("presents six user-paced steps and an evidence-scoped no-fetch repair", async () => {
     const user = userEvent.setup();
     render(<PublicDemo />);
 
     const stepNavigation = screen.getByRole("navigation", { name: "Guided demo steps" });
-    expect(within(stepNavigation).getAllByRole("button")).toHaveLength(5);
-    for (const name of ["Store", "Correct", "Fail", "Repair", "Test"]) {
+    expect(within(stepNavigation).getAllByRole("button")).toHaveLength(6);
+    for (const name of ["Store", "Correct", "Diagnose", "Intervene", "Replay", "Prove"]) {
       expect(within(stepNavigation).getByRole("button", { name })).toBeVisible();
     }
-    for (const phase of ["Capture", "Diagnose", "Replay", "Test"]) {
-      expect(within(stepNavigation).getAllByText(phase).length).toBeGreaterThan(0);
-    }
-    expect(screen.getByText("Step 1 of 5")).toBeVisible();
+    expect(screen.getByText("Step 1 of 6")).toBeVisible();
     expect(screen.getByRole("button", { name: "Previous step" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Play guided demo" })).toBeVisible();
     expect(screen.getByRole("button", { name: "Restart demo" })).toBeVisible();
@@ -52,11 +49,11 @@ describe("PublicDemo", () => {
     expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Next" }));
-    expect(screen.getByText("Step 2 of 5")).toBeVisible();
+    expect(screen.getByText("Step 2 of 6")).toBeVisible();
     expect(screen.getByTestId("brain-canvas")).toHaveTextContent("sample-memory-oakland / hippocampus");
 
     await user.click(screen.getByRole("button", { name: "Next" }));
-    expect(screen.getByText("Step 3 of 5")).toBeVisible();
+    expect(screen.getByText("Step 3 of 6")).toBeVisible();
     expect(screen.getByText("Agent used an outdated location")).toBeVisible();
     expect(screen.getByRole("heading", { name: "A stale fact remained active" })).toBeVisible();
     expect(screen.getByLabelText("Recorded memory decision ledger")).toBeVisible();
@@ -64,21 +61,26 @@ describe("PublicDemo", () => {
     expect(screen.queryByText("Advanced evidence")).not.toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Next" }));
-    expect(screen.getByText("Step 4 of 5")).toBeVisible();
+    expect(screen.getByText("Step 4 of 6")).toBeVisible();
     expect(screen.getByRole("button", { name: "Next" })).toBeDisabled();
 
     await user.click(screen.getByRole("button", { name: "Run policy replay" }));
-    await waitFor(() => {
-      expect(screen.getByText("Baseline reproduced; treatment passed")).toBeVisible();
-    });
-    expect(screen.getByText("Memory decision diff")).toBeVisible();
-    expect(screen.getByText("memory_state")).toBeVisible();
+    await waitFor(() => expect(screen.getByRole("button", { name: "Replay complete" })).toBeDisabled());
+    expect(screen.queryByText("Memory decision diff")).not.toBeInTheDocument();
     expect(fetchMock).not.toHaveBeenCalled();
     expect(screen.getByRole("button", { name: "Next" })).toBeEnabled();
 
     await user.click(screen.getByRole("button", { name: "Next" }));
-    expect(screen.getByText("Step 5 of 5")).toBeVisible();
-    expect(screen.getByRole("heading", { name: "5/5 reliability cases passed" })).toBeVisible();
+    expect(screen.getByText("Step 5 of 6")).toBeVisible();
+    expect(screen.getByText("Baseline reproduced; treatment passed")).toBeVisible();
+    expect(screen.getByText("Memory decision diff")).toBeVisible();
+    expect(screen.getByText("memory_state")).toBeVisible();
+
+    await user.click(screen.getByRole("button", { name: "Next" }));
+    expect(screen.getByText("Step 6 of 6")).toBeVisible();
+    expect(screen.getByRole("heading", { name: "Fixture policy simulation: 5/5 controlled variants" })).toBeVisible();
+    expect(screen.getByText(/provider retrieval not rerun/i)).toBeVisible();
+    expect(screen.getByText(/@engramviz\/cli test/)).toBeVisible();
     expect(screen.getByRole("button", { name: "Copy local demo command" })).toBeVisible();
     expect(screen.getByText("npx --yes @engramviz/cli demo stale-location")).toBeVisible();
     expect(screen.getByRole("link", { name: "Docs" })).toHaveAttribute("href", "/docs");
@@ -87,13 +89,13 @@ describe("PublicDemo", () => {
       "https://github.com/Meyk0/engram-viz"
     );
 
-    await user.click(screen.getByRole("button", { name: "Download executable regression" }));
+    await user.click(screen.getByRole("button", { name: "Download v2 regression contract" }));
     expect(createObjectUrlMock).toHaveBeenCalledOnce();
     expect(fetchMock).not.toHaveBeenCalled();
 
     await user.click(within(stepNavigation).getByRole("button", { name: "Store" }));
-    await user.click(within(stepNavigation).getByRole("button", { name: "Test" }));
-    expect(screen.getByRole("heading", { name: "5/5 reliability cases passed" })).toBeVisible();
+    await user.click(within(stepNavigation).getByRole("button", { name: "Prove" }));
+    expect(screen.getByRole("heading", { name: "Fixture policy simulation: 5/5 controlled variants" })).toBeVisible();
   });
 
   it("toggles playback and restarts the story", async () => {
@@ -105,9 +107,9 @@ describe("PublicDemo", () => {
     await user.click(screen.getByRole("button", { name: "Pause guided demo" }));
 
     await user.click(screen.getByRole("button", { name: "Next" }));
-    expect(screen.getByText("Step 2 of 5")).toBeVisible();
+    expect(screen.getByText("Step 2 of 6")).toBeVisible();
     await user.click(screen.getByRole("button", { name: "Restart demo" }));
-    expect(screen.getByText("Step 1 of 5")).toBeVisible();
+    expect(screen.getByText("Step 1 of 6")).toBeVisible();
     expect(screen.getByRole("heading", { name: "Store the original location" })).toBeVisible();
   });
 

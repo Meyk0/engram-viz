@@ -43,10 +43,10 @@ export default function HomePage() {
 
         <div className="hero-inner">
           <div className="hero-copy" id="main-content">
-            <h1 id="hero-title">Debug the memory behind a bad answer.</h1>
+            <h1 id="hero-title">Replay and regression-test agent memory policies.</h1>
             <p className="hero-lede">
-              See what your agent stored, retrieved, and loaded into context. Change one memory decision,
-              replay the same turn, and keep the fix as a regression test.
+              Import a captured failure, inspect the exact state, ranking, selection, and context decisions,
+              then test an alternative policy on an isolated branch and keep the repair executable in CI.
             </p>
             <MarketingCommand />
             <div className="hero-actions">
@@ -67,8 +67,8 @@ export default function HomePage() {
           <div className="section-heading">
             <span className="section-number">01</span>
             <div>
-              <h2 id="proof-title">See the decision, not just the trace.</h2>
-              <p>Follow one stale-memory incident from captured state to a checked regression.</p>
+              <h2 id="proof-title">From trace evidence to a memory-policy test.</h2>
+              <p>Diagnose one stale-memory incident, replay a controlled repair, then make it portable.</p>
             </div>
           </div>
           <IncidentProof />
@@ -81,7 +81,7 @@ export default function HomePage() {
             <span className="section-number">02</span>
             <div>
               <h2 id="integrations-title">Use your existing memory stack.</h2>
-              <p>Capture retrieval, loaded context, and the answer with the SDK or an adapter.</p>
+              <p>Capture retrieval, loaded context, and answers with the SDK or an adapter.</p>
             </div>
           </div>
           <div className="integration-rail" aria-label="Supported integrations">
@@ -105,6 +105,10 @@ export default function HomePage() {
               Engram shows observable application behavior, not chain-of-thought or hidden model activations.
               Replay is behavioral evidence, not causal proof. Missing evidence stays unavailable instead of
               becoming a confident story.
+            </p>
+            <p>
+              Use Engram beside general tracing tools as the specialized memory-policy layer: reconstruct the
+              lifecycle decision, intervene on it, and turn the repair into a semantic regression contract.
             </p>
             <div className="evidence-legend" aria-label="Evidence levels">
               <span><i data-level="observed" />Observed</span>
