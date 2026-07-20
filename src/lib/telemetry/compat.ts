@@ -30,6 +30,7 @@ export function engramEventToTelemetry(
     content: memory.text,
     tier: brainRegionToMemoryTier(memory.region),
     scope,
+    ...(context.owner ? { owner: context.owner } : {}),
     ...(context.provider ? { provider: context.provider } : {}),
     ...(context.storeId ? { storeId: context.storeId } : {}),
     metadata: memoryMetadata(memory)
@@ -143,15 +144,21 @@ export function telemetryEventToEngramEvent(event: MemoryTelemetryEvent): Engram
 function telemetryBase(context: MemoryTelemetryContext): Omit<MemoryTelemetryEvent, "operation"> {
   return {
     schemaVersion: 2,
-    eventId: context.eventId ?? `${context.traceId}:memory:${context.sequence}`,
+    eventId: context.eventId ?? (context.turnId
+      ? `${context.traceId}:${context.turnId}:memory:${context.sequence}`
+      : `${context.traceId}:memory:${context.sequence}`),
     traceId: context.traceId,
+    ...(context.turnId ? { turnId: context.turnId } : {}),
     timestamp: context.timestamp,
     sequence: context.sequence,
     ...(context.spanId ? { spanId: context.spanId } : {}),
     ...(context.parentSpanId ? { parentSpanId: context.parentSpanId } : {}),
+    ...(context.tenantId ? { tenantId: context.tenantId } : {}),
     ...(context.sessionId ? { sessionId: context.sessionId } : {}),
     ...(context.projectId ? { projectId: context.projectId } : {}),
     ...(context.userId ? { userId: context.userId } : {}),
+    ...(context.namespace ? { namespace: context.namespace } : {}),
+    ...(context.owner ? { owner: context.owner } : {}),
     ...(context.actor ? { actor: context.actor } : {}),
     evidence: {
       level: context.evidence?.level ?? "mapped",

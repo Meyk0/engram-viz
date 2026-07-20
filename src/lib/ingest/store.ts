@@ -468,6 +468,9 @@ function parseStoredRow(value: unknown, context: TelemetryTenantContext): Supaba
   if (event.projectId !== undefined && event.projectId !== projectId) {
     throw new MemoryTelemetryStoreRequestError(502, "Stored event payload has a mismatched project.");
   }
+  if (event.tenantId !== undefined && event.tenantId !== tenantId) {
+    throw new MemoryTelemetryStoreRequestError(502, "Stored event payload has a mismatched tenant.");
+  }
   const sequence = optionalNonnegativeInteger(value.sequence, "sequence");
   if (sequence !== event.sequence) {
     throw new MemoryTelemetryStoreRequestError(502, "Stored event sequence does not match its payload.");
@@ -510,6 +513,11 @@ function validateEventForContext(
   if (event.projectId !== undefined && event.projectId !== context.projectId) {
     throw new MemoryTelemetryStoreConfigurationError(
       `Telemetry event "${event.eventId}" belongs to a different project.`
+    );
+  }
+  if (event.tenantId !== undefined && event.tenantId !== context.tenantId) {
+    throw new MemoryTelemetryStoreConfigurationError(
+      `Telemetry event "${event.eventId}" belongs to a different tenant.`
     );
   }
   return event;

@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { parseMemoryTelemetryEvent, type MemoryTelemetryEvent } from "@engramviz/core";
 import { EngramClient } from "../../../packages/sdk/src/index";
+import { engramEventToTelemetry } from "@/lib/telemetry/compat";
 
 describe("telemetry evidence v3 contracts", () => {
   it("accepts candidate memory snapshots with structured ownership", () => {
@@ -120,6 +121,46 @@ describe("telemetry evidence v3 contracts", () => {
     expect(event).toMatchObject({
       userId: "user-a",
       owner: { userId: "user-a" }
+    });
+  });
+
+  it("preserves canonical ownership through compatibility conversion", () => {
+    const [event] = engramEventToTelemetry({
+      type: "store",
+      memory: {
+        id: "memory-owned",
+        text: "User likes indigo.",
+        importance: 0.8,
+        region: "hippocampus",
+        created_at: "2026-07-20T12:00:00.000Z",
+        access_count: 0
+      }
+    }, {
+      traceId: "trace-owned",
+      turnId: "turn-owned",
+      tenantId: "tenant-a",
+      projectId: "project-a",
+      sessionId: "session-a",
+      userId: "user-a",
+      namespace: ["users", "user-a", "memories"],
+      owner: { ownerId: "provider-owner-a", userId: "user-a", namespace: ["users", "user-a", "memories"] },
+      sequence: 0,
+      timestamp: "2026-07-20T12:00:00.000Z"
+    });
+
+    expect(event).toMatchObject({
+      eventId: "trace-owned:turn-owned:memory:0",
+      turnId: "turn-owned",
+      tenantId: "tenant-a",
+      namespace: ["users", "user-a", "memories"],
+      owner: { ownerId: "provider-owner-a", userId: "user-a" },
+      memory: {
+        owner: {
+          ownerId: "provider-owner-a",
+          userId: "user-a",
+          namespace: ["users", "user-a", "memories"]
+        }
+      }
     });
   });
 });

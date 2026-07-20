@@ -20,6 +20,7 @@ export type EngramClientOptions = {
   projectId?: string;
   tenantId?: string;
   sessionId?: string;
+  namespace?: string[];
   adapter?: string;
   fetch?: typeof fetch;
   strict?: boolean;
@@ -33,6 +34,7 @@ export type EngramTurnOptions = {
   turnId?: string;
   sessionId?: string;
   userId?: string;
+  namespace?: string[];
   owner?: TelemetryMemoryOwner;
   metadata?: Record<string, JsonValue>;
 };
@@ -77,6 +79,7 @@ export class EngramClient {
   readonly projectId: string;
   readonly tenantId?: string;
   readonly sessionId: string;
+  readonly namespace?: string[];
 
   private readonly token: string;
   private readonly fetchImpl: typeof fetch;
@@ -89,8 +92,9 @@ export class EngramClient {
     this.endpoint = normalizeEndpoint(options.endpoint ?? process.env.ENGRAM_URL ?? "http://localhost:3100");
     this.token = required(options.token ?? process.env.ENGRAM_TOKEN, "Engram ingest token");
     this.projectId = required(options.projectId ?? process.env.ENGRAM_PROJECT_ID, "Engram project id");
-    this.tenantId = options.tenantId;
-    this.sessionId = options.sessionId ?? randomUUID();
+    this.tenantId = optionalIdentity(options.tenantId, "Engram tenant id");
+    this.sessionId = optionalIdentity(options.sessionId, "Engram session id") ?? randomUUID();
+    this.namespace = normalizeNamespace(options.namespace, "Engram namespace");
     this.adapter = options.adapter ?? "engram-sdk";
     this.fetchImpl = options.fetch ?? globalThis.fetch;
     this.strict = options.strict ?? false;
@@ -173,6 +177,8 @@ export class EngramTurn {
   readonly traceId: string;
   readonly sessionId: string;
   readonly userId?: string;
+  readonly tenantId?: string;
+  readonly namespace?: string[];
   readonly owner?: TelemetryMemoryOwner;
   readonly startedAt = new Date().toISOString();
   readonly input: string;
@@ -188,9 +194,21 @@ export class EngramTurn {
     this.client = client;
     this.turnId = options.turnId ?? randomUUID();
     this.traceId = options.traceId ?? randomUUID();
-    this.sessionId = options.sessionId ?? client.sessionId;
-    this.userId = options.userId;
-    this.owner = options.owner ?? (options.userId ? { userId: options.userId } : undefined);
+    this.sessionId = optionalIdentity(options.sessionId, "Turn session id") ?? client.sessionId;
+    this.tenantId = client.tenantId;
+    const normalizedOwner = normalizeOwner(options.owner);
+    const userId = optionalIdentity(options.userId, "Turn user id") ?? normalizedOwner?.userId;
+    const namespace = normalizeNamespace(options.namespace, "Turn namespace") ??
+      normalizedOwner?.namespace ?? client.namespace;
+    assertCompatibleIdentity("user id", userId, normalizedOwner?.userId);
+    assertCompatibleIdentity("session id", this.sessionId, normalizedOwner?.sessionId);
+    assertCompatibleNamespace(namespace, normalizedOwner?.namespace);
+    this.userId = userId;
+    this.namespace = namespace;
+    this.owner = normalizedOwner ?? (userId || namespace ? {
+      ...(userId ? { userId } : {}),
+      ...(namespace ? { namespace } : {})
+    } : undefined);
     this.input = required(options.input, "Turn input");
     this.provider = options.provider;
     this.metadata = options.metadata;
@@ -264,9 +282,11 @@ export class EngramTurn {
       schemaVersion: 1,
       turnId: this.turnId,
       traceId: this.traceId,
+      ...(this.tenantId ? { tenantId: this.tenantId } : {}),
       sessionId: this.sessionId,
       projectId: this.client.projectId,
       ...(this.userId ? { userId: this.userId } : {}),
+      ...(this.namespace ? { namespace: this.namespace } : {}),
       ...(this.owner ? { owner: this.owner } : {}),
       startedAt: this.startedAt,
       completedAt,
@@ -289,11 +309,14 @@ export class EngramTurn {
     this.sequence += 1;
     const event: MemoryTelemetryEvent = {
       schemaVersion: 2,
-      eventId: `${this.traceId}:memory:${sequence}`,
+      eventId: `${this.traceId}:${this.turnId}:memory:${sequence}`,
       traceId: this.traceId,
+      turnId: this.turnId,
+      ...(this.tenantId ? { tenantId: this.tenantId } : {}),
       sessionId: this.sessionId,
       projectId: this.client.projectId,
       ...(this.userId ? { userId: this.userId } : {}),
+      ...(this.namespace ? { namespace: this.namespace } : {}),
       ...(this.owner ? { owner: this.owner } : {}),
       timestamp: new Date().toISOString(),
       sequence,
@@ -317,12 +340,15 @@ export function getActiveEngramTurn(): EngramTurn | undefined {
 }
 
 function normalizeMemory(memory: CaptureMemory, defaultOwner?: TelemetryMemoryOwner): TelemetryMemoryRef {
+  const explicitOwner = normalizeOwner(memory.owner);
+  if (explicitOwner && defaultOwner) assertCompatibleOwners(defaultOwner, explicitOwner);
+  const owner = explicitOwner ?? defaultOwner;
   return {
     id: required(memory.id, "Memory id"),
     ...(memory.content !== undefined ? { content: memory.content } : {}),
     tier: memory.tier ?? "episodic",
     scope: memory.scope ?? "user",
-    ...((memory.owner ?? defaultOwner) ? { owner: memory.owner ?? defaultOwner } : {}),
+    ...(owner ? { owner } : {}),
     ...(memory.provider ? { provider: memory.provider } : {}),
     ...(memory.storeId ? { storeId: memory.storeId } : {}),
     ...(memory.metadata ? { metadata: memory.metadata } : {})
@@ -351,4 +377,48 @@ function required(value: string | undefined, label: string) {
 function normalizeError(error: unknown) {
   if (error instanceof Error) return { name: error.name, message: error.message || "Unknown error" };
   return { message: typeof error === "string" && error.trim() ? error : "Unknown error" };
+}
+
+function optionalIdentity(value: string | undefined, label: string) {
+  if (value === undefined) return undefined;
+  return required(value, label);
+}
+
+function normalizeNamespace(value: readonly string[] | undefined, label: string): string[] | undefined {
+  if (value === undefined) return undefined;
+  const normalized = value.map((part) => required(part, `${label} segment`));
+  if (normalized.length === 0) throw new TypeError(`${label} requires at least one segment.`);
+  return [...normalized];
+}
+
+function normalizeOwner(owner: TelemetryMemoryOwner | undefined): TelemetryMemoryOwner | undefined {
+  if (!owner) return undefined;
+  const normalized: TelemetryMemoryOwner = {
+    ...(owner.ownerId ? { ownerId: required(owner.ownerId, "Memory owner id") } : {}),
+    ...(owner.userId ? { userId: required(owner.userId, "Memory owner user id") } : {}),
+    ...(owner.sessionId ? { sessionId: required(owner.sessionId, "Memory owner session id") } : {}),
+    ...(owner.agentId ? { agentId: required(owner.agentId, "Memory owner agent id") } : {}),
+    ...(owner.namespace ? { namespace: normalizeNamespace(owner.namespace, "Memory owner namespace") } : {})
+  };
+  if (Object.keys(normalized).length === 0) throw new TypeError("Memory owner requires identity evidence.");
+  return normalized;
+}
+
+function assertCompatibleIdentity(label: string, left: string | undefined, right: string | undefined) {
+  if (left && right && left !== right) {
+    throw new TypeError(`Turn ${label} conflicts with memory owner ${label}.`);
+  }
+}
+
+function assertCompatibleNamespace(left: readonly string[] | undefined, right: readonly string[] | undefined) {
+  if (left && right && JSON.stringify(left) !== JSON.stringify(right)) {
+    throw new TypeError("Turn namespace conflicts with memory owner namespace.");
+  }
+}
+
+function assertCompatibleOwners(left: TelemetryMemoryOwner, right: TelemetryMemoryOwner) {
+  for (const key of ["ownerId", "userId", "sessionId", "agentId"] as const) {
+    assertCompatibleIdentity(key.replace(/([A-Z])/g, " $1").toLowerCase(), left[key], right[key]);
+  }
+  assertCompatibleNamespace(left.namespace, right.namespace);
 }

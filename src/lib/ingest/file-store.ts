@@ -52,6 +52,9 @@ export class FileMemoryTelemetryStore implements MemoryTelemetryStore {
         if (event.projectId !== undefined && event.projectId !== context.projectId) {
           throw new Error(`Telemetry event "${event.eventId}" belongs to a different project.`);
         }
+        if (event.tenantId !== undefined && event.tenantId !== context.tenantId) {
+          throw new Error(`Telemetry event "${event.eventId}" belongs to a different tenant.`);
+        }
         const key = eventKey(context.tenantId, context.projectId, event.eventId);
         if (existing.has(key) || batch.has(key)) {
           duplicateEventIds.push(event.eventId);

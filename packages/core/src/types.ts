@@ -25,6 +25,19 @@ export type TelemetryMemoryOwner = {
   namespace?: string[];
 };
 
+/**
+ * Additive, provider-neutral identity evidence for a captured memory decision.
+ * Older telemetry can omit any field; consumers must not infer missing values.
+ */
+export type MemoryTelemetryPrincipal = {
+  tenantId?: string;
+  projectId?: string;
+  userId?: string;
+  sessionId?: string;
+  namespace?: string[];
+  owner?: TelemetryMemoryOwner;
+};
+
 export type TelemetryMemoryRef = {
   id: string;
   content?: JsonValue;
@@ -51,11 +64,14 @@ export type MemoryTelemetryEvent = {
   schemaVersion: 2;
   eventId: string;
   traceId: string;
+  turnId?: string;
   spanId?: string;
   parentSpanId?: string;
+  tenantId?: string;
   sessionId?: string;
   projectId?: string;
   userId?: string;
+  namespace?: string[];
   owner?: TelemetryMemoryOwner;
   timestamp: string;
   sequence: number;
@@ -88,11 +104,14 @@ export type MemoryTelemetryContext = {
   sequence: number;
   timestamp: string;
   eventId?: string;
+  turnId?: string;
   spanId?: string;
   parentSpanId?: string;
+  tenantId?: string;
   sessionId?: string;
   projectId?: string;
   userId?: string;
+  namespace?: string[];
   owner?: TelemetryMemoryOwner;
   scope?: MemoryScope;
   storeId?: string;
@@ -105,9 +124,11 @@ export type AgentTurnEnvelope = {
   schemaVersion: 1;
   turnId: string;
   traceId: string;
+  tenantId?: string;
   sessionId?: string;
   projectId?: string;
   userId?: string;
+  namespace?: string[];
   owner?: TelemetryMemoryOwner;
   startedAt: string;
   completedAt: string;

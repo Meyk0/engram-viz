@@ -40,18 +40,98 @@ describe("@engramviz/sdk", () => {
     const events = (telemetryRequest.body as { events: Array<Record<string, unknown>> }).events;
     expect(events.map((event) => event.operation)).toEqual(["retrieve", "load"]);
     expect(events.map((event) => event.eventId)).toEqual([
-      "trace-sdk:memory:0",
-      "trace-sdk:memory:1"
+      "trace-sdk:turn-sdk:memory:0",
+      "trace-sdk:turn-sdk:memory:1"
     ]);
+    expect(events.map((event) => event.turnId)).toEqual(["turn-sdk", "turn-sdk"]);
     const turnRequest = requests.find((request) => request.url.endsWith("/api/turns/v1"))!;
     expect(turnRequest.body).toMatchObject({
       turnId: "turn-sdk",
       traceId: "trace-sdk",
       status: "completed",
       output: "You live in Oakland.",
-      telemetryEventIds: ["trace-sdk:memory:0", "trace-sdk:memory:1"]
+      telemetryEventIds: ["trace-sdk:turn-sdk:memory:0", "trace-sdk:turn-sdk:memory:1"]
     });
     expect(getActiveEngramTurn()).toBeUndefined();
+  });
+
+  it("keeps event ids unique across turns that share one trace", async () => {
+    const requests: Array<{ url: string; body: unknown }> = [];
+    const client = new EngramClient({
+      endpoint: "http://localhost:3100",
+      token: "local-token",
+      tenantId: "tenant-sdk",
+      projectId: "sdk-test",
+      sessionId: "session-sdk",
+      namespace: ["users", "user-a", "memories"],
+      fetch: vi.fn(async (input, init) => {
+        requests.push({ url: String(input), body: JSON.parse(String(init?.body)) });
+        return Response.json({}, { status: 202 });
+      }),
+      strict: true
+    });
+
+    for (const turnId of ["turn-a", "turn-b"]) {
+      await client.withTurn({
+        input: `Input ${turnId}`,
+        provider: { id: "fixture" },
+        traceId: "trace-shared",
+        turnId,
+        userId: "user-a"
+      }, async (turn) => {
+        await turn.store({ id: `memory-${turnId}`, content: turnId });
+        return "Done.";
+      });
+    }
+
+    const telemetry = requests
+      .filter((request) => request.url.endsWith("/api/telemetry/v2"))
+      .flatMap((request) => (request.body as { events: Array<Record<string, unknown>> }).events);
+    expect(telemetry.map((event) => event.eventId)).toEqual([
+      "trace-shared:turn-a:memory:0",
+      "trace-shared:turn-b:memory:0"
+    ]);
+    expect(new Set(telemetry.map((event) => event.eventId))).toHaveLength(2);
+    expect(telemetry).toEqual(telemetry.map((event, index) => expect.objectContaining({
+      turnId: index === 0 ? "turn-a" : "turn-b",
+      tenantId: "tenant-sdk",
+      projectId: "sdk-test",
+      userId: "user-a",
+      sessionId: "session-sdk",
+      namespace: ["users", "user-a", "memories"],
+      owner: {
+        userId: "user-a",
+        namespace: ["users", "user-a", "memories"]
+      }
+    })));
+  });
+
+  it("rejects contradictory turn and owner identities", async () => {
+    const client = new EngramClient({
+      endpoint: "http://localhost:3100",
+      token: "local-token",
+      projectId: "sdk-test",
+      sessionId: "session-sdk",
+      fetch: vi.fn(async () => Response.json({}, { status: 202 })),
+      strict: true
+    });
+
+    await expect(client.withTurn({
+      input: "Conflict",
+      provider: { id: "fixture" },
+      userId: "user-a",
+      owner: { userId: "user-b" }
+    }, async () => "Never runs"))
+      .rejects.toThrow(/user id conflicts/i);
+
+    await expect(client.withTurn({
+      input: "Memory conflict",
+      provider: { id: "fixture" },
+      userId: "user-a"
+    }, async (turn) => {
+      await turn.store({ id: "memory-other-owner", owner: { userId: "user-b" } });
+      return "Never completes";
+    })).rejects.toThrow(/user id conflicts/i);
   });
 
   it("records an error envelope and preserves the application error", async () => {

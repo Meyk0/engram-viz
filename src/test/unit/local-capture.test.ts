@@ -55,20 +55,31 @@ describe("local agent capture", () => {
   });
 
   it("reconstructs a stale-location incident from observed memory evidence", () => {
+    const storeSanFrancisco = turn("turn-store-sf", "trace-store-sf", "I moved to San Francisco.", "That sounds exciting.");
+    storeSanFrancisco.startedAt = "2026-07-14T10:00:00.000Z";
+    storeSanFrancisco.completedAt = "2026-07-14T10:00:01.000Z";
+    const storeOakland = turn("turn-store-oak", "trace-store-oak", "Actually, I live in Oakland now.", "Got it.");
+    storeOakland.startedAt = "2026-07-14T10:01:00.000Z";
+    storeOakland.completedAt = "2026-07-14T10:01:01.000Z";
+    const answer = turn("turn-answer", "trace-answer", "What city do I live in now?", "You live in San Francisco.");
+    answer.startedAt = "2026-07-14T10:02:00.000Z";
+    answer.completedAt = "2026-07-14T10:02:01.000Z";
     const turns: StoredAgentTurn[] = [
-      storedTurn(1, turn("turn-store-sf", "trace-store-sf", "I moved to San Francisco.", "That sounds exciting.")),
-      storedTurn(2, turn("turn-store-oak", "trace-store-oak", "Actually, I live in Oakland now.", "Got it.")),
-      storedTurn(3, turn("turn-answer", "trace-answer", "What city do I live in now?", "You live in San Francisco."))
+      storedTurn(1, storeSanFrancisco),
+      storedTurn(2, storeOakland),
+      storedTurn(3, answer)
     ];
     const telemetry: StoredMemoryTelemetryEvent[] = [
       storedEvent(1, memoryEvent("event-sf", "trace-store-sf", "memory-sf", "User moved to San Francisco.")),
       storedEvent(2, memoryEvent("event-oak", "trace-store-oak", "memory-oak", "User lives in Oakland now.", {
+        timestamp: "2026-07-14T10:01:00.000Z",
         operation: "update",
         mutation: { sourceMemoryIds: ["memory-sf"], targetMemoryIds: ["memory-oak"], reason: "Current city changed" }
       })),
-      storedEvent(3, retrievalEvent()),
+      storedEvent(3, { ...retrievalEvent(), timestamp: "2026-07-14T10:02:00.100Z" }),
       storedEvent(4, {
         ...baseEvent("event-load", "trace-answer", 2),
+        timestamp: "2026-07-14T10:02:00.200Z",
         operation: "load",
         memoryIds: ["memory-sf"],
         retrieval: { loadedIds: ["memory-sf"] }

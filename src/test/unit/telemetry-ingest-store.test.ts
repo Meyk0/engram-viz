@@ -143,6 +143,45 @@ describe("InMemoryMemoryTelemetryStore", () => {
     });
   });
 
+  it("accepts same-sequence events from two turns while deduping retry delivery", async () => {
+    const store = createInMemoryMemoryTelemetryStore({ now: () => receivedAt });
+    const first = event(0, {
+      eventId: "trace:turn-a:memory:0",
+      turnId: "turn-a",
+      tenantId: tenantA.tenantId
+    });
+    const second = event(0, {
+      eventId: "trace:turn-b:memory:0",
+      turnId: "turn-b",
+      tenantId: tenantA.tenantId,
+      memory: {
+        id: "memory-turn-b",
+        tier: "episodic",
+        scope: "user"
+      }
+    });
+
+    expect(await store.append(tenantA, [first, second, first])).toEqual({
+      acceptedEventIds: [first.eventId, second.eventId],
+      duplicateEventIds: [first.eventId],
+      highWaterCursor: 2
+    });
+    expect((await store.read(tenantA, { afterCursor: 0, limit: 10 })).events.map((record) => ({
+      eventId: record.eventId,
+      turnId: record.event.turnId,
+      sequence: record.sequence
+    }))).toEqual([
+      { eventId: first.eventId, turnId: "turn-a", sequence: 0 },
+      { eventId: second.eventId, turnId: "turn-b", sequence: 0 }
+    ]);
+  });
+
+  it("rejects telemetry that declares a different tenant", async () => {
+    const store = createInMemoryMemoryTelemetryStore({ now: () => receivedAt });
+    await expect(store.append(tenantA, [event(0, { tenantId: "tenant-other" })]))
+      .rejects.toThrow(/different tenant/i);
+  });
+
   it("returns deeply immutable snapshots that cannot mutate stored data", async () => {
     const original = event(0);
     const store = createInMemoryMemoryTelemetryStore({ now: () => receivedAt });
