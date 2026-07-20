@@ -60,7 +60,8 @@ export function buildMemoryIncidentFromTrace(
   const retrievedMemories = resolveRetrievedMemories(
     baseCheckpoint.memories,
     retrieve?.accessed ?? [],
-    retrieve?.ids ?? []
+    retrieve?.ids ?? [],
+    baseCheckpoint.events
   );
   const startedAt = answerStep.startedAt ?? baseCheckpoint.createdAt;
   const completedAt = answerStep.endedAt ?? startedAt;
@@ -85,6 +86,7 @@ export function buildMemoryIncidentFromTrace(
     label: compactLabel(question),
     query: retrieve?.query ?? question,
     answer,
+    memories: uniqueMemories([...baseCheckpoint.memories, ...retrievedMemories]),
     turnRecord: record
   };
   const evidenceOrigins = traceEvidenceOrigins(trace.steps.slice(0, answerStepIndex + 1));
@@ -170,9 +172,17 @@ function mappingOrigin(
 function resolveRetrievedMemories(
   memories: EngramMemory[],
   accessed: EngramMemory[],
-  ids: string[]
+  ids: string[],
+  events: EngramEvent[]
 ): EngramMemory[] {
-  const byId = new Map([...memories, ...accessed].map((memory) => [memory.id, memory]));
+  const historical = events.flatMap((event): EngramMemory[] => {
+    if (event.type === "init") return event.memories;
+    if (event.type === "store") return [event.memory];
+    if (event.type === "consolidate") return [event.added];
+    if (event.type === "retrieve") return event.accessed ?? [];
+    return [];
+  });
+  const byId = new Map([...historical, ...memories, ...accessed].map((memory) => [memory.id, memory]));
   return ids.flatMap((id) => {
     const memory = byId.get(id);
     return memory ? [structuredClone(memory)] : [];
@@ -197,4 +207,8 @@ function isJsonRecord(value: JsonValue): value is Record<string, JsonValue> {
 function compactLabel(value: string) {
   const trimmed = value.trim().replace(/\s+/g, " ");
   return trimmed.length > 62 ? `${trimmed.slice(0, 59)}...` : trimmed;
+}
+
+function uniqueMemories(memories: EngramMemory[]) {
+  return [...new Map(memories.map((memory) => [memory.id, structuredClone(memory)])).values()];
 }

@@ -1,9 +1,13 @@
-import type { AgentTurnEnvelope, MemoryTelemetryEvent } from "@engramviz/core";
+import type {
+  AgentTurnEnvelope,
+  MemoryTelemetryEvent,
+  TelemetryMemoryOwner
+} from "@engramviz/core";
 import { telemetryEventToEngramEvent } from "@/lib/telemetry/compat";
 import type { StoredMemoryTelemetryEvent } from "@/lib/ingest/types";
 import type { StoredAgentTurn } from "@/lib/turns/store";
 import type { JsonValue, NormalizedTrace, TraceMemoryMapping } from "@/lib/traces/types";
-import type { EngramEvent, EngramMemory } from "@/types";
+import type { EngramEvent, EngramMemory, MemoryRetrievalTrace } from "@/types";
 
 export function buildTelemetryTraces(
   turns: readonly StoredAgentTurn[],
@@ -14,19 +18,39 @@ export function buildTelemetryTraces(
   );
   const eventsByTrace = new Map<string, StoredMemoryTelemetryEvent[]>();
   for (const record of storedEvents) {
-    const records = eventsByTrace.get(record.event.traceId) ?? [];
+    const key = tracePartitionKey(record.tenantId, record.projectId, record.event.traceId);
+    const records = eventsByTrace.get(key) ?? [];
     records.push(record);
-    eventsByTrace.set(record.event.traceId, records);
+    eventsByTrace.set(key, records);
   }
-  const memoryState = new Map<string, EngramMemory>();
+  const memoryStates = new Map<string, Map<string, EngramMemory>>();
 
   return orderedTurns.map((storedTurn) => {
-    const traceEvents = (eventsByTrace.get(storedTurn.turn.traceId) ?? [])
+    const traceKey = tracePartitionKey(storedTurn.tenantId, storedTurn.projectId, storedTurn.turn.traceId);
+    const matchingEvents = (eventsByTrace.get(traceKey) ?? [])
       .filter((record) =>
-        !storedTurn.turn.telemetryEventIds?.length ||
-        storedTurn.turn.telemetryEventIds.includes(record.eventId)
+        eventBelongsToTurn(record.event, storedTurn.turn) && (
+          !storedTurn.turn.telemetryEventIds?.length ||
+          storedTurn.turn.telemetryEventIds.includes(record.eventId)
+        )
       )
       .sort((left, right) => left.event.sequence - right.event.sequence || left.cursor - right.cursor);
+    const declaredOwner = declaredTurnOwner(storedTurn.turn);
+    const observedOwner = inferSingleEventOwner(matchingEvents);
+    const inferredOwner = mergeCompatibleOwners(declaredOwner, observedOwner) ?? declaredOwner ?? observedOwner;
+    const identityTurn = inferredOwner
+      ? {
+          ...storedTurn.turn,
+          owner: inferredOwner,
+          ...(storedTurn.turn.userId || !inferredOwner.userId ? {} : { userId: inferredOwner.userId })
+        }
+      : storedTurn.turn;
+    const partitionKey = statePartitionKey(storedTurn, inferredOwner);
+    const memoryState = memoryStates.get(partitionKey) ?? new Map<string, EngramMemory>();
+    memoryStates.set(partitionKey, memoryState);
+    const traceEvents = matchingEvents
+      .filter((record) => eventBelongsToTurn(record.event, identityTurn))
+      .map((record) => ({ ...record, event: eventVisibleToTurn(record.event, identityTurn) }));
     const trace = telemetryTurnToNormalizedTrace(storedTurn.turn, traceEvents, [...memoryState.values()]);
     for (const record of traceEvents) applyMemoryMutation(memoryState, record.event);
     return trace;
@@ -100,6 +124,8 @@ export function telemetryTurnToNormalizedTrace(
       metadata: {
         turnId: turn.turnId,
         status: turn.status,
+        ...(turn.userId ? { userId: turn.userId } : {}),
+        ...(turn.owner ? { owner: turn.owner } : {}),
         ...(turn.metadata ?? {})
       }
     },
@@ -113,13 +139,22 @@ function telemetryMapping(
 ): TraceMemoryMapping | null {
   const mapped = telemetryEventToEngramEvent(event);
   if (!mapped) return null;
+  const candidateMemories = event.operation === "retrieve"
+    ? candidateSnapshotMemories(event)
+    : [];
   const mappedWithMemory = mapped.type === "retrieve"
     ? {
         ...mapped,
-        accessed: mapped.ids.flatMap((id) => {
-          const memory = memoryState.get(id);
-          return memory ? [structuredClone(memory)] : [];
-        })
+        accessed: uniqueMemories([
+          ...candidateMemories,
+          ...mapped.ids.flatMap((id) => {
+            const memory = memoryState.get(id);
+            return memory ? [structuredClone(memory)] : [];
+          })
+        ]),
+        retrieval: hasSelectionEvidence(event)
+          ? mapped.retrieval
+          : candidateOnlyRetrieval(mapped.retrieval, event.retrieval?.candidates?.length ?? 0)
       }
     : mapped;
   return {
@@ -167,6 +202,176 @@ function telemetryInput(event: MemoryTelemetryEvent): JsonValue {
   }
   if (event.memory) return toJsonValue({ memory: event.memory });
   return { memoryIds: event.memoryIds ?? [] };
+}
+
+function candidateSnapshotMemories(event: MemoryTelemetryEvent): EngramMemory[] {
+  return event.retrieval?.candidates?.flatMap((candidate) => {
+    if (!candidate.memory) return [];
+    const mapped = telemetryEventToEngramEvent({
+      ...event,
+      operation: "store",
+      memory: candidate.memory,
+      memoryIds: undefined,
+      retrieval: undefined,
+      mutation: undefined
+    });
+    return mapped?.type === "store" ? [mapped.memory] : [];
+  }) ?? [];
+}
+
+function uniqueMemories(memories: readonly EngramMemory[]) {
+  return [...new Map(memories.map((memory) => [memory.id, structuredClone(memory)])).values()];
+}
+
+function hasSelectionEvidence(event: MemoryTelemetryEvent) {
+  return event.retrieval?.selectedIds !== undefined ||
+    Boolean(event.retrieval?.candidates?.some((candidate) => candidate.selected !== undefined));
+}
+
+function candidateOnlyRetrieval(
+  retrieval: MemoryRetrievalTrace | undefined,
+  candidateCount: number
+): MemoryRetrievalTrace {
+  return {
+    provider: retrieval?.provider ?? "fallback",
+    candidateCount,
+    ...(retrieval?.eligibleCount !== undefined ? { eligibleCount: retrieval.eligibleCount } : {}),
+    ...(retrieval?.limit !== undefined ? { limit: retrieval.limit } : {}),
+    reason: "Candidate generation was observed, but downstream selection was not."
+  };
+}
+
+function tracePartitionKey(tenantId: string, projectId: string, traceId: string) {
+  return JSON.stringify([tenantId, projectId, traceId]);
+}
+
+function statePartitionKey(storedTurn: StoredAgentTurn, inferredOwner?: TelemetryMemoryOwner) {
+  const { turn } = storedTurn;
+  const principal = principalKey(turn, inferredOwner);
+  return JSON.stringify([storedTurn.tenantId, storedTurn.projectId, principal]);
+}
+
+function eventBelongsToTurn(event: MemoryTelemetryEvent, turn: AgentTurnEnvelope) {
+  if (event.traceId !== turn.traceId) return false;
+  if (turn.sessionId && event.sessionId && turn.sessionId !== event.sessionId) return false;
+  if (turn.userId && event.userId && turn.userId !== event.userId) return false;
+  const owner = declaredTurnOwner(turn);
+  if (owner && event.owner && ownersConflict(owner, event.owner)) return false;
+  if (owner && event.memory?.owner && ownersConflict(owner, event.memory.owner)) return false;
+  return true;
+}
+
+function eventVisibleToTurn(event: MemoryTelemetryEvent, turn: AgentTurnEnvelope): MemoryTelemetryEvent {
+  if (event.operation !== "retrieve" || !event.retrieval?.candidates) return event;
+  const owner = turnIdentity(turn);
+  const candidates = event.retrieval.candidates.filter((candidate) =>
+    !candidate.memory?.owner || !owner || !ownersConflict(owner, candidate.memory.owner)
+  );
+  if (candidates.length === event.retrieval.candidates.length) return event;
+  const visibleIds = new Set(candidates.map((candidate) => candidate.memoryId));
+  const hiddenIds = new Set(event.retrieval.candidates
+    .map((candidate) => candidate.memoryId)
+    .filter((id) => !visibleIds.has(id)));
+  return {
+    ...event,
+    ...(event.memoryIds ? { memoryIds: event.memoryIds.filter((id) => !hiddenIds.has(id)) } : {}),
+    retrieval: {
+      ...event.retrieval,
+      candidates,
+      ...(event.retrieval.selectedIds ? {
+        selectedIds: event.retrieval.selectedIds.filter((id) => !hiddenIds.has(id))
+      } : {}),
+      ...(event.retrieval.loadedIds ? {
+        loadedIds: event.retrieval.loadedIds.filter((id) => !hiddenIds.has(id))
+      } : {})
+    }
+  };
+}
+
+function principalKey(turn: AgentTurnEnvelope, inferredOwner?: TelemetryMemoryOwner) {
+  const owner = inferredOwner ?? turn.owner;
+  if (owner?.ownerId || owner?.namespace || owner?.agentId || owner?.sessionId) {
+    return `owner:${ownerKey(owner)}`;
+  }
+  const userId = owner?.userId ?? turn.userId;
+  if (userId) return `user:${userId}`;
+  if (turn.sessionId) return `session:${turn.sessionId}`;
+  return `trace:${turn.traceId}`;
+}
+
+function declaredTurnOwner(turn: AgentTurnEnvelope): TelemetryMemoryOwner | undefined {
+  if (turn.owner) return turn.owner;
+  return turn.userId ? { userId: turn.userId } : undefined;
+}
+
+function inferSingleEventOwner(records: readonly StoredMemoryTelemetryEvent[]): TelemetryMemoryOwner | undefined {
+  const owners = records.flatMap((record) => {
+    const { event } = record;
+    return [
+      ...(event.owner ? [event.owner] : []),
+      ...(!event.owner && event.userId ? [{ userId: event.userId }] : []),
+      ...(event.memory?.owner ? [event.memory.owner] : []),
+      ...(event.retrieval?.candidates?.flatMap((candidate) => candidate.memory?.owner ? [candidate.memory.owner] : []) ?? [])
+    ];
+  });
+  if (owners.length === 0) return undefined;
+  let merged = owners[0]!;
+  for (const owner of owners.slice(1)) {
+    const next = mergeCompatibleOwners(merged, owner);
+    if (!next) return undefined;
+    merged = next;
+  }
+  return merged;
+}
+
+function turnIdentity(turn: AgentTurnEnvelope): TelemetryMemoryOwner | undefined {
+  if (turn.owner) return turn.owner;
+  if (turn.userId || turn.sessionId) {
+    return {
+      ...(turn.userId ? { userId: turn.userId } : {}),
+      ...(turn.sessionId ? { sessionId: turn.sessionId } : {})
+    };
+  }
+  return undefined;
+}
+
+function ownerKey(owner: TelemetryMemoryOwner) {
+  return JSON.stringify({
+    ownerId: owner.ownerId ?? null,
+    userId: owner.userId ?? null,
+    sessionId: owner.sessionId ?? null,
+    agentId: owner.agentId ?? null,
+    namespace: owner.namespace ?? null
+  });
+}
+
+function ownersConflict(left: TelemetryMemoryOwner, right: TelemetryMemoryOwner) {
+  const scalarKeys = ["ownerId", "userId", "sessionId", "agentId"] as const;
+  let compared = false;
+  for (const key of scalarKeys) {
+    if (!left[key] || !right[key]) continue;
+    compared = true;
+    if (left[key] !== right[key]) return true;
+  }
+  if (left.namespace && right.namespace) {
+    compared = true;
+    if (ownerKey({ namespace: left.namespace }) !== ownerKey({ namespace: right.namespace })) return true;
+  }
+  return !compared;
+}
+
+function mergeCompatibleOwners(
+  left: TelemetryMemoryOwner | undefined,
+  right: TelemetryMemoryOwner | undefined
+): TelemetryMemoryOwner | undefined {
+  if (!left) return right;
+  if (!right) return left;
+  if (ownersConflict(left, right)) return undefined;
+  return {
+    ...left,
+    ...right,
+    ...(left.namespace || right.namespace ? { namespace: right.namespace ?? left.namespace } : {})
+  };
 }
 
 function toJsonValue(value: unknown): JsonValue {

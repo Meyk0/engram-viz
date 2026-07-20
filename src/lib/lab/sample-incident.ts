@@ -34,6 +34,7 @@ const oaklandMemory: EngramMemory = {
   confidence: 0.96,
   sourceText: "Actually, I live in Oakland now.",
   status: "active",
+  supersedes: [sanFranciscoMemory.id],
   region: "hippocampus",
   created_at: "2026-07-14T17:55:00.000Z",
   access_count: 0

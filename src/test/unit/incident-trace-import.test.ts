@@ -30,6 +30,19 @@ describe("incident trace import", () => {
     expect(incident.diagnosis.kind).toBe("retrieval");
   });
 
+  it("does not infer a correction from topic and recency alone", () => {
+    const fixture = openAIIncidentTrace();
+    const oakland = fixture.items.find((item) => item.id === "store-oakland") as unknown as {
+      span_data: { data: { event: { memory: { supersedes?: string[] } } } };
+    };
+    delete oakland.span_data.data.event.memory.supersedes;
+
+    const incident = buildMemoryIncidentFromTrace(importAgentTrace(fixture).trace, { expectedAnswer: "Oakland" });
+
+    expect(incident.diagnosis.kind).toBe("ranking");
+    expect(incident.diagnosis.stage).toBe("retrieval");
+  });
+
   it("rejects traces without a recorded model answer", () => {
     const trace = importAgentTrace({
       items: [
@@ -58,7 +71,10 @@ function openAIIncidentTrace() {
       }),
       memorySpan("store-oakland", {
         type: "store",
-        memory: memory("memory-oakland", "User lives in Oakland now.", "current location", "2026-07-14T10:10:00.000Z")
+        memory: {
+          ...memory("memory-oakland", "User lives in Oakland now.", "current location", "2026-07-14T10:10:00.000Z"),
+          supersedes: ["memory-sf"]
+        }
       }),
       memorySpan("retrieve-location", {
         type: "retrieve",

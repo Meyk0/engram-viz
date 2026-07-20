@@ -15,11 +15,22 @@ export const jsonValueSchema: z.ZodType<unknown> = z.lazy(() =>
 export const memoryTierSchema = z.enum(["working", "episodic", "semantic", "procedural", "unknown"]);
 export const memoryScopeSchema = z.enum(["user", "agent", "run", "shared", "unknown"]);
 
+export const telemetryMemoryOwnerSchema = z.object({
+  ownerId: z.string().min(1).optional(),
+  userId: z.string().min(1).optional(),
+  sessionId: z.string().min(1).optional(),
+  agentId: z.string().min(1).optional(),
+  namespace: z.array(z.string().min(1)).min(1).optional()
+}).refine((owner) => Boolean(
+  owner.ownerId || owner.userId || owner.sessionId || owner.agentId || owner.namespace?.length
+), { message: "A memory owner requires at least one identity field." });
+
 export const telemetryMemoryRefSchema = z.object({
   id: z.string().min(1),
   content: jsonValueSchema.optional(),
   tier: memoryTierSchema,
   scope: memoryScopeSchema,
+  owner: telemetryMemoryOwnerSchema.optional(),
   provider: z.string().min(1).optional(),
   storeId: z.string().min(1).optional(),
   metadata: z.record(z.string(), jsonValueSchema).optional()
@@ -27,11 +38,20 @@ export const telemetryMemoryRefSchema = z.object({
 
 const retrievalCandidateSchema = z.object({
   memoryId: z.string().min(1),
+  memory: telemetryMemoryRefSchema.optional(),
   rank: z.number().int().positive().optional(),
   score: z.number().finite().optional(),
   eligible: z.boolean().optional(),
   selected: z.boolean().optional(),
   filterReason: z.string().min(1).optional()
+}).superRefine((candidate, context) => {
+  if (candidate.memory && candidate.memory.id !== candidate.memoryId) {
+    context.addIssue({
+      code: "custom",
+      message: "Candidate memory snapshot id must match memoryId.",
+      path: ["memory", "id"]
+    });
+  }
 });
 
 export const memoryTelemetryEventSchema = z.object({
@@ -43,6 +63,7 @@ export const memoryTelemetryEventSchema = z.object({
   sessionId: z.string().min(1).optional(),
   projectId: z.string().min(1).optional(),
   userId: z.string().min(1).optional(),
+  owner: telemetryMemoryOwnerSchema.optional(),
   timestamp: z.string().datetime(),
   sequence: z.number().int().nonnegative(),
   operation: z.enum(["store", "retrieve", "load", "update", "supersede", "delete", "summarize", "expire"]),
@@ -90,6 +111,8 @@ export const agentTurnEnvelopeSchema = z.object({
   traceId: z.string().min(1),
   sessionId: z.string().min(1).optional(),
   projectId: z.string().min(1).optional(),
+  userId: z.string().min(1).optional(),
+  owner: telemetryMemoryOwnerSchema.optional(),
   startedAt: z.string().datetime(),
   completedAt: z.string().datetime(),
   input: z.string().min(1).max(100_000),

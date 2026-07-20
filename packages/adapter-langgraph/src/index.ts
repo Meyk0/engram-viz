@@ -1,4 +1,4 @@
-import type { CaptureMemory, EngramClient, EngramTurn } from "@engramviz/sdk";
+import type { CaptureMemory, CaptureRetrieval, EngramClient, EngramTurn } from "@engramviz/sdk";
 
 type AnyMethod = (...args: never[]) => unknown;
 
@@ -38,6 +38,8 @@ export type InstrumentLangGraphStoreOptions = {
   tier?: CaptureMemory["tier"];
   scope?: CaptureMemory["scope"];
   storeId?: string;
+  owner?: CaptureMemory["owner"] | ((item: Pick<LangGraphStoreItem, "namespace" | "key" | "value">) => CaptureMemory["owner"]);
+  /** Declares selection only when the application actually selects Store results. */
   selectedIds?: (records: readonly LangGraphStoreItem[], result: unknown) => readonly string[];
   classifyPut?: "store" | "update" | ((put: LangGraphPut) => "store" | "update");
   content?: (item: Pick<LangGraphStoreItem, "namespace" | "key" | "value">) => CaptureMemory["content"];
@@ -138,23 +140,32 @@ async function captureSearch(
   const searchOptions = recordValue(args[1]);
   const namespace = namespaceValue(args[0]) ?? [];
   const query = stringValue(searchOptions?.query) ?? `namespace:${namespace.join("/") || "root"}`;
-  const selected = new Set(options.selectedIds?.(records, result) ?? langGraphMemoryIds(records));
+  const selectedIds = options.selectedIds?.(records, result);
+  const selected = selectedIds ? new Set(selectedIds) : undefined;
   await turn.retrieve({
     query,
     candidates: records.map((record, index) => {
       const memoryId = langGraphMemoryId(record.namespace, record.key);
       return {
         memoryId,
+        memory: toTelemetryMemory(record, options),
         rank: index + 1,
         ...(record.score !== undefined ? { score: record.score } : {}),
-        selected: selected.has(memoryId)
+        ...(selected ? { selected: selected.has(memoryId) } : {})
       };
     }),
-    selectedIds: records
-      .map((record) => langGraphMemoryId(record.namespace, record.key))
-      .filter((memoryId) => selected.has(memoryId)),
+    ...(selected ? {
+      selectedIds: records
+        .map((record) => langGraphMemoryId(record.namespace, record.key))
+        .filter((memoryId) => selected.has(memoryId))
+    } : {}),
     limit: positiveInteger(searchOptions?.limit)
-  }, evidence("search", "Ranks and scores are copied from the LangGraph Store response."));
+  }, evidence(
+    "search",
+    selected
+      ? "Candidate snapshots, ranks, and scores are mapped from LangGraph; selection is declared by the configured selectedIds callback."
+      : "Candidate snapshots, ranks, and scores are mapped from LangGraph; downstream selection is not observable at this Store boundary."
+  ));
 }
 
 async function captureGet(
@@ -166,13 +177,33 @@ async function captureGet(
   const namespace = namespaceValue(args[0]) ?? [];
   const key = stringValue(args[1]) ?? "unknown";
   const records = langGraphStoreItems(result);
-  const ids = records.map((record) => langGraphMemoryId(record.namespace, record.key));
+  const selectedIds = options.selectedIds?.(records, result);
+  const selected = selectedIds ? new Set(selectedIds) : undefined;
   await turn.retrieve({
     query: `key:${langGraphMemoryId(namespace, key)}`,
-    candidates: ids.map((memoryId) => ({ memoryId, rank: 1, selected: true })),
-    selectedIds: ids,
+    candidates: records.map((record) => {
+      const memoryId = langGraphMemoryId(record.namespace, record.key);
+      return {
+        memoryId,
+        memory: toTelemetryMemory(record, options),
+        rank: 1,
+        ...(selected ? { selected: selected.has(memoryId) } : {})
+      };
+    }),
+    ...(selected ? {
+      selectedIds: records
+        .map((record) => langGraphMemoryId(record.namespace, record.key))
+        .filter((memoryId) => selected.has(memoryId))
+    } : {}),
     limit: 1
-  }, evidence("get", records.length > 0 ? "LangGraph returned the requested Store item." : "LangGraph returned no Store item."));
+  }, evidence(
+    "get",
+    records.length > 0
+      ? selected
+        ? "LangGraph returned the requested Store item; selection is declared by the configured selectedIds callback."
+        : "LangGraph returned the requested Store item; downstream selection is not observable at this Store boundary."
+      : "LangGraph returned no Store item."
+  ));
   if (!namespaceValue(args[0]) || !stringValue(args[1])) {
     gap(options, "get", "LangGraph get did not expose a valid namespace and key.", result);
   }
@@ -237,11 +268,13 @@ function toCaptureMemory(put: LangGraphPut, options: InstrumentLangGraphStoreOpt
   const item = { namespace: put.namespace, key: put.key, value: put.value };
   const customContent = options.content?.(item);
   const content = customContent ?? preferredContent(put.value) ?? jsonValue(put.value);
+  const owner = resolveOwner(item, options);
   return {
     id: langGraphMemoryId(put.namespace, put.key),
     ...(content !== undefined ? { content } : {}),
     tier: options.tier ?? "episodic",
     scope: options.scope ?? "user",
+    ...(owner ? { owner } : {}),
     provider: "langgraph",
     ...(options.storeId ? { storeId: options.storeId } : {}),
     metadata: {
@@ -250,6 +283,45 @@ function toCaptureMemory(put: LangGraphPut, options: InstrumentLangGraphStoreOpt
       upsert: true,
       ...(put.index !== undefined ? { index: put.index } : {})
     }
+  };
+}
+
+type CandidateMemory = NonNullable<NonNullable<CaptureRetrieval["candidates"]>[number]["memory"]>;
+
+function toTelemetryMemory(
+  item: LangGraphStoreItem,
+  options: InstrumentLangGraphStoreOptions
+): CandidateMemory {
+  const content = options.content?.(item) ?? preferredContent(item.value) ?? jsonValue(item.value);
+  const owner = resolveOwner(item, options);
+  return {
+    id: langGraphMemoryId(item.namespace, item.key),
+    ...(content !== undefined ? { content } : {}),
+    tier: options.tier ?? "episodic",
+    scope: options.scope ?? "user",
+    ...(owner ? { owner } : {}),
+    provider: "langgraph",
+    ...(options.storeId ? { storeId: options.storeId } : {}),
+    metadata: {
+      namespace: item.namespace,
+      key: item.key,
+      ...(item.createdAt ? { createdAt: item.createdAt } : {}),
+      ...(item.updatedAt ? { updatedAt: item.updatedAt } : {})
+    }
+  };
+}
+
+function resolveOwner(
+  item: Pick<LangGraphStoreItem, "namespace" | "key" | "value">,
+  options: InstrumentLangGraphStoreOptions
+): CaptureMemory["owner"] {
+  const configured = typeof options.owner === "function" ? options.owner(item) : options.owner;
+  const userIndex = item.namespace.findIndex((part) => part.toLowerCase() === "users");
+  const inferredUserId = userIndex >= 0 ? item.namespace[userIndex + 1] : undefined;
+  return {
+    namespace: [...item.namespace],
+    ...(inferredUserId ? { userId: inferredUserId } : {}),
+    ...(configured ?? {})
   };
 }
 

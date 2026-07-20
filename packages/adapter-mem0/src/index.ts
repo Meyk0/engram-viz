@@ -1,4 +1,4 @@
-import type { CaptureMemory, EngramClient, EngramTurn } from "@engramviz/sdk";
+import type { CaptureMemory, CaptureRetrieval, EngramClient, EngramTurn } from "@engramviz/sdk";
 
 type AnyMethod = (...args: never[]) => unknown;
 
@@ -29,6 +29,8 @@ export type InstrumentMem0Options = {
   tier?: CaptureMemory["tier"];
   scope?: CaptureMemory["scope"];
   storeId?: string;
+  owner?: CaptureMemory["owner"] | ((record: Mem0MemoryRecord) => CaptureMemory["owner"]);
+  /** Declares selection only when the application actually selects search results. */
   selectedIds?: (records: readonly Mem0MemoryRecord[], result: unknown) => readonly string[];
   onInstrumentationGap?: (gap: Mem0InstrumentationGap) => void;
 };
@@ -121,18 +123,28 @@ async function captureSearch(
     await turn.retrieve({ query: stringValue(args[0]) ?? "", candidates: [], selectedIds: [] }, evidence("search"));
     return;
   }
-  const selected = new Set(options.selectedIds?.(records, result) ?? records.map((record) => record.id));
+  const selectedIds = options.selectedIds?.(records, result);
+  const selected = selectedIds ? new Set(selectedIds) : undefined;
+  const searchOwner = ownerFromMem0Options(findOptions(args));
   await turn.retrieve({
     query: stringValue(args[0]) ?? "",
     candidates: records.map((record, index) => ({
       memoryId: record.id,
+      memory: toTelemetryMemory(record, options, searchOwner),
       rank: index + 1,
       ...(record.score !== undefined ? { score: record.score } : {}),
-      selected: selected.has(record.id)
+      ...(selected ? { selected: selected.has(record.id) } : {})
     })),
-    selectedIds: records.filter((record) => selected.has(record.id)).map((record) => record.id),
+    ...(selected ? {
+      selectedIds: records.filter((record) => selected.has(record.id)).map((record) => record.id)
+    } : {}),
     limit: positiveInteger(findOptions(args)?.limit ?? findOptions(args)?.topK)
-  }, evidence("search", "Ranks and scores are copied from the Mem0 search response."));
+  }, evidence(
+    "search",
+    selected
+      ? "Candidate snapshots, ranks, and scores are copied from Mem0; selection is declared by the configured selectedIds callback."
+      : "Candidate snapshots, ranks, and scores are copied from Mem0; downstream selection is not observable at this boundary."
+  ));
 }
 
 async function captureUpdate(
@@ -170,14 +182,62 @@ async function captureDelete(
 function toCaptureMemory(record: Mem0MemoryRecord, options: InstrumentMem0Options): CaptureMemory {
   const createdAt = stringValue(record.raw.created_at) ?? stringValue(record.raw.createdAt);
   const metadata = sanitizeMetadata(record.metadata);
+  const owner = resolveOwner(record, options);
   return {
     id: record.id,
     ...(record.memory ? { content: record.memory } : {}),
     tier: options.tier ?? "episodic",
     scope: options.scope ?? "user",
+    ...(owner ? { owner } : {}),
     provider: "mem0",
     ...(options.storeId ? { storeId: options.storeId } : {}),
     ...((metadata || createdAt) ? { metadata: { ...(metadata ?? {}), ...(createdAt ? { createdAt } : {}) } } : {})
+  };
+}
+
+type CandidateMemory = NonNullable<NonNullable<CaptureRetrieval["candidates"]>[number]["memory"]>;
+
+function toTelemetryMemory(
+  record: Mem0MemoryRecord,
+  options: InstrumentMem0Options,
+  fallbackOwner?: CaptureMemory["owner"]
+): CandidateMemory {
+  const memory = toCaptureMemory(record, options);
+  const owner = memory.owner ?? fallbackOwner;
+  return {
+    id: memory.id,
+    ...(memory.content !== undefined ? { content: memory.content } : {}),
+    tier: memory.tier ?? "episodic",
+    scope: memory.scope ?? "user",
+    ...(owner ? { owner } : {}),
+    ...(memory.provider ? { provider: memory.provider } : {}),
+    ...(memory.storeId ? { storeId: memory.storeId } : {}),
+    ...(memory.metadata ? { metadata: memory.metadata } : {})
+  };
+}
+
+function resolveOwner(record: Mem0MemoryRecord, options: InstrumentMem0Options) {
+  const configured = typeof options.owner === "function" ? options.owner(record) : options.owner;
+  return configured ?? ownerFromMem0Options(record.metadata);
+}
+
+function ownerFromMem0Options(value: Record<string, unknown> | undefined): CaptureMemory["owner"] {
+  const filters = recordValue(value?.filters);
+  const ownerId = stringValue(value?.owner_id) ?? stringValue(value?.ownerId)
+    ?? stringValue(filters?.owner_id) ?? stringValue(filters?.ownerId);
+  const userId = stringValue(value?.user_id) ?? stringValue(value?.userId)
+    ?? stringValue(filters?.user_id) ?? stringValue(filters?.userId);
+  const sessionId = stringValue(value?.run_id) ?? stringValue(value?.session_id)
+    ?? stringValue(value?.sessionId) ?? stringValue(filters?.run_id)
+    ?? stringValue(filters?.session_id) ?? stringValue(filters?.sessionId);
+  const agentId = stringValue(value?.agent_id) ?? stringValue(value?.agentId)
+    ?? stringValue(filters?.agent_id) ?? stringValue(filters?.agentId);
+  if (!ownerId && !userId && !sessionId && !agentId) return undefined;
+  return {
+    ...(ownerId ? { ownerId } : {}),
+    ...(userId ? { userId } : {}),
+    ...(sessionId ? { sessionId } : {}),
+    ...(agentId ? { agentId } : {})
   };
 }
 

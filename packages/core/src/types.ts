@@ -15,11 +15,22 @@ export type MemoryTier = "working" | "episodic" | "semantic" | "procedural" | "u
 export type MemoryScope = "user" | "agent" | "run" | "shared" | "unknown";
 export type MemoryTelemetryEvidenceLevel = "observed" | "mapped";
 
+export type TelemetryMemoryOwner = {
+  /** Provider-neutral owner key when the provider exposes one directly. */
+  ownerId?: string;
+  userId?: string;
+  sessionId?: string;
+  agentId?: string;
+  /** Provider namespace retained as structured ownership evidence. */
+  namespace?: string[];
+};
+
 export type TelemetryMemoryRef = {
   id: string;
   content?: JsonValue;
   tier: MemoryTier;
   scope: MemoryScope;
+  owner?: TelemetryMemoryOwner;
   provider?: string;
   storeId?: string;
   metadata?: Record<string, JsonValue>;
@@ -27,6 +38,8 @@ export type TelemetryMemoryRef = {
 
 export type TelemetryRetrievalCandidate = {
   memoryId: string;
+  /** Snapshot returned by candidate generation, when the provider exposes it. */
+  memory?: TelemetryMemoryRef;
   rank?: number;
   score?: number;
   eligible?: boolean;
@@ -43,6 +56,7 @@ export type MemoryTelemetryEvent = {
   sessionId?: string;
   projectId?: string;
   userId?: string;
+  owner?: TelemetryMemoryOwner;
   timestamp: string;
   sequence: number;
   operation: MemoryTelemetryOperation;
@@ -79,6 +93,7 @@ export type MemoryTelemetryContext = {
   sessionId?: string;
   projectId?: string;
   userId?: string;
+  owner?: TelemetryMemoryOwner;
   scope?: MemoryScope;
   storeId?: string;
   provider?: string;
@@ -92,6 +107,8 @@ export type AgentTurnEnvelope = {
   traceId: string;
   sessionId?: string;
   projectId?: string;
+  userId?: string;
+  owner?: TelemetryMemoryOwner;
   startedAt: string;
   completedAt: string;
   input: string;

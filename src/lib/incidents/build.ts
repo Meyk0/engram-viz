@@ -360,20 +360,11 @@ function diagnosis(
 function findStaleSelection(selected: EngramMemory[], ignored: EngramMemory[]) {
   for (const stale of selected) {
     const newer = ignored
-      .filter((candidate) =>
-        candidate.supersedes?.includes(stale.id) ||
-        (sameMemorySubject(stale, candidate) && Date.parse(candidate.created_at) > Date.parse(stale.created_at))
-      )
+      .filter((candidate) => candidate.supersedes?.includes(stale.id))
       .sort((left, right) => Date.parse(right.created_at) - Date.parse(left.created_at))[0];
     if (newer) return { stale, newer };
   }
   return undefined;
-}
-
-function sameMemorySubject(left: EngramMemory, right: EngramMemory): boolean {
-  const leftTopic = normalize(left.topic ?? left.kind ?? "");
-  const rightTopic = normalize(right.topic ?? right.kind ?? "");
-  return Boolean(leftTopic && rightTopic && leftTopic === rightTopic);
 }
 
 function defaultIncidentTitle(diagnosis: MemoryIncidentDiagnosis): string {

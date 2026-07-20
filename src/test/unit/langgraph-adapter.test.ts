@@ -57,15 +57,16 @@ describe("@engramviz/adapter-langgraph", () => {
     expect(events[1]).toMatchObject({
       retrieval: {
         query: "namespace:users/user-1/memories",
-        selectedIds: ["langgraph:users/user-1/memories/city"],
         candidates: [{
           memoryId: "langgraph:users/user-1/memories/city",
-          rank: 1,
-          selected: true
+          rank: 1
         }],
         limit: 3
       }
     });
+    expect((events[1]?.retrieval as { selectedIds?: string[] }).selectedIds).toBeUndefined();
+    expect((events[1]?.retrieval as { candidates?: Array<{ selected?: boolean }> }).candidates?.[0]?.selected)
+      .toBeUndefined();
     expect(events[2]).toMatchObject({ memoryIds: ["langgraph:users/user-1/memories/city"] });
   });
 

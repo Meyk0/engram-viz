@@ -10,6 +10,7 @@ import {
   type MemoryTelemetryOperation,
   type MemoryTier,
   type TelemetryMemoryRef,
+  type TelemetryMemoryOwner,
   type TelemetryRetrievalCandidate
 } from "@engramviz/core";
 
@@ -31,6 +32,8 @@ export type EngramTurnOptions = {
   traceId?: string;
   turnId?: string;
   sessionId?: string;
+  userId?: string;
+  owner?: TelemetryMemoryOwner;
   metadata?: Record<string, JsonValue>;
 };
 
@@ -39,6 +42,7 @@ export type CaptureMemory = {
   content?: JsonValue;
   tier?: MemoryTier;
   scope?: MemoryScope;
+  owner?: TelemetryMemoryOwner;
   provider?: string;
   storeId?: string;
   metadata?: Record<string, JsonValue>;
@@ -168,6 +172,8 @@ export class EngramTurn {
   readonly turnId: string;
   readonly traceId: string;
   readonly sessionId: string;
+  readonly userId?: string;
+  readonly owner?: TelemetryMemoryOwner;
   readonly startedAt = new Date().toISOString();
   readonly input: string;
   readonly provider: EngramTurnOptions["provider"];
@@ -183,28 +189,34 @@ export class EngramTurn {
     this.turnId = options.turnId ?? randomUUID();
     this.traceId = options.traceId ?? randomUUID();
     this.sessionId = options.sessionId ?? client.sessionId;
+    this.userId = options.userId;
+    this.owner = options.owner ?? (options.userId ? { userId: options.userId } : undefined);
     this.input = required(options.input, "Turn input");
     this.provider = options.provider;
     this.metadata = options.metadata;
   }
 
   store(memory: CaptureMemory, evidence?: CaptureEvidence) {
-    return this.memoryEvent("store", { memory: normalizeMemory(memory) }, evidence);
+    return this.memoryEvent("store", { memory: normalizeMemory(memory, this.owner) }, evidence);
   }
 
   update(memory: CaptureMemory, mutation: CaptureMutation = {}, evidence?: CaptureEvidence) {
-    return this.memoryEvent("update", { memory: normalizeMemory(memory), mutation }, evidence);
+    return this.memoryEvent("update", { memory: normalizeMemory(memory, this.owner), mutation }, evidence);
   }
 
   retrieve(input: CaptureRetrieval, evidence?: CaptureEvidence) {
-    const selectedIds = input.selectedIds ?? input.candidates?.filter((candidate) => candidate.selected).map((candidate) => candidate.memoryId) ?? [];
+    const hasSelectionEvidence = input.selectedIds !== undefined ||
+      Boolean(input.candidates?.some((candidate) => candidate.selected !== undefined));
+    const selectedIds = uniqueIds(input.selectedIds ?? input.candidates
+      ?.filter((candidate) => candidate.selected === true)
+      .map((candidate) => candidate.memoryId) ?? []);
     return this.memoryEvent("retrieve", {
-      memoryIds: selectedIds,
+      ...(hasSelectionEvidence ? { memoryIds: selectedIds } : {}),
       retrieval: {
         query: input.query,
         ...(input.limit ? { limit: input.limit } : {}),
         ...(input.candidates ? { candidates: input.candidates } : {}),
-        selectedIds
+        ...(hasSelectionEvidence ? { selectedIds } : {})
       }
     }, evidence);
   }
@@ -233,7 +245,7 @@ export class EngramTurn {
 
   summarize(memory: CaptureMemory, sourceMemoryIds: readonly string[], reason?: string, evidence?: CaptureEvidence) {
     return this.memoryEvent("summarize", {
-      memory: normalizeMemory({ ...memory, tier: memory.tier ?? "semantic" }),
+      memory: normalizeMemory({ ...memory, tier: memory.tier ?? "semantic" }, this.owner),
       mutation: {
         sourceMemoryIds: uniqueIds(sourceMemoryIds),
         targetMemoryIds: [memory.id],
@@ -254,6 +266,8 @@ export class EngramTurn {
       traceId: this.traceId,
       sessionId: this.sessionId,
       projectId: this.client.projectId,
+      ...(this.userId ? { userId: this.userId } : {}),
+      ...(this.owner ? { owner: this.owner } : {}),
       startedAt: this.startedAt,
       completedAt,
       input: this.input,
@@ -279,6 +293,8 @@ export class EngramTurn {
       traceId: this.traceId,
       sessionId: this.sessionId,
       projectId: this.client.projectId,
+      ...(this.userId ? { userId: this.userId } : {}),
+      ...(this.owner ? { owner: this.owner } : {}),
       timestamp: new Date().toISOString(),
       sequence,
       operation,
@@ -300,12 +316,13 @@ export function getActiveEngramTurn(): EngramTurn | undefined {
   return activeTurnStorage.getStore();
 }
 
-function normalizeMemory(memory: CaptureMemory): TelemetryMemoryRef {
+function normalizeMemory(memory: CaptureMemory, defaultOwner?: TelemetryMemoryOwner): TelemetryMemoryRef {
   return {
     id: required(memory.id, "Memory id"),
     ...(memory.content !== undefined ? { content: memory.content } : {}),
     tier: memory.tier ?? "episodic",
     scope: memory.scope ?? "user",
+    ...((memory.owner ?? defaultOwner) ? { owner: memory.owner ?? defaultOwner } : {}),
     ...(memory.provider ? { provider: memory.provider } : {}),
     ...(memory.storeId ? { storeId: memory.storeId } : {}),
     ...(memory.metadata ? { metadata: memory.metadata } : {})
