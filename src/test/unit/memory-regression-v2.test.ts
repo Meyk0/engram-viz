@@ -264,6 +264,22 @@ function policyReplay(): MemoryPolicyReplayResult {
       supportsStateInterventions: true,
       supportsRepeatedRuns: false
     },
+    intervention: {
+      format: "engram.memory-intervention",
+      version: 2,
+      id: "prefer-current-location",
+      targetRunId: source.id,
+      label: "Prefer current location",
+      rationale: "Resolve stale current-location memories.",
+      operations: [{
+        id: "prefer-latest",
+        type: "policy_rule",
+        rule: "prefer_latest_active_for_subject",
+        enabled: true,
+        reason: "The latest active correction should win."
+      }],
+      createdAt: source.completedAt
+    },
     source,
     baseline,
     treatment,

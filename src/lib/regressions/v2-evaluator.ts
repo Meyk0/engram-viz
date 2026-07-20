@@ -9,6 +9,7 @@ import {
   parseMemoryRegressionObservationV2,
   type MemoryRegressionArtifactV2,
   type MemoryRegressionObservationV2,
+  type MemoryRegressionPerturbationV2,
   type MemorySelectorV2
 } from "@/lib/regressions/v2-schema";
 
@@ -87,7 +88,7 @@ export function evaluateMemoryRegressionMatrixV2(
   const variantReports = artifact.matrix.variants.map((variant) => {
     const observation = observationByVariant.get(variant.id);
     if (!observation) return missingVariant(variant.id, variant.label);
-    return evaluateVariant(artifact, observation, variant.label);
+    return evaluateVariant(artifact, observation, variant.label, variant.perturbations);
   });
   const allFindings = variantReports.flatMap((variant) => variant.findings);
   const missing = variantReports.filter((variant) => variant.status === "missing").length;
@@ -145,13 +146,15 @@ export function memoryRegressionObservationFromRunV2(
 function evaluateVariant(
   artifact: MemoryRegressionArtifactV2,
   observation: MemoryRegressionObservationV2,
-  label: string
+  label: string,
+  perturbations: readonly MemoryRegressionPerturbationV2[]
 ): MemoryRegressionVariantReportV2 {
   const findings: MemoryRegressionFindingV2[] = [];
   const memoryById = new Map(observation.memories.map((memory) => [memory.id, memory]));
   const selected = observation.selectedMemoryIds.map((id) => memoryById.get(id)!);
   const loaded = observation.loadedMemoryIds.map((id) => memoryById.get(id)!);
-  const lifecycle = artifact.assertions.lifecycle;
+  const assertions = transformAssertions(artifact.assertions, perturbations);
+  const lifecycle = assertions.lifecycle;
 
   lifecycle.mustSelect.forEach((selector, index) => {
     findings.push(lifecycleFinding("mustSelect", selector, selected, index));
@@ -166,7 +169,7 @@ function evaluateVariant(
     findings.push(lifecycleFinding("mustNotLoad", selector, loaded, index));
   });
 
-  artifact.assertions.answer.contains.forEach((phrase, index) => {
+  assertions.answer.contains.forEach((phrase, index) => {
     const pass = containsAffirmedPhrase(observation.answer, phrase);
     findings.push({
       id: `answer.contains:${index}`,
@@ -180,7 +183,7 @@ function evaluateVariant(
         : `Answer does not contain an affirmed match for "${phrase}".`
     });
   });
-  artifact.assertions.answer.notContains.forEach((phrase, index) => {
+  assertions.answer.notContains.forEach((phrase, index) => {
     const pass = !containsPhrase(observation.answer, phrase);
     findings.push({
       id: `answer.notContains:${index}`,
@@ -209,6 +212,32 @@ function evaluateVariant(
       failed: findings.length - passed
     }
   };
+}
+
+function transformAssertions(
+  assertions: MemoryRegressionArtifactV2["assertions"],
+  perturbations: readonly MemoryRegressionPerturbationV2[]
+) {
+  const result = structuredClone(assertions);
+  for (const perturbation of perturbations) {
+    if (perturbation.type !== "entity_substitution") continue;
+    for (const selectors of Object.values(result.lifecycle)) {
+      for (const selector of selectors) {
+        if (selector.subject) selector.subject = replaceText(selector.subject, perturbation.from, perturbation.to);
+        if (selector.valueContains) {
+          selector.valueContains = replaceText(selector.valueContains, perturbation.from, perturbation.to);
+        }
+      }
+    }
+    result.answer.contains = result.answer.contains.map((phrase) => replaceText(phrase, perturbation.from, perturbation.to));
+    result.answer.notContains = result.answer.notContains.map((phrase) => replaceText(phrase, perturbation.from, perturbation.to));
+  }
+  return result;
+}
+
+function replaceText(value: string, from: string, to: string) {
+  const escaped = from.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return value.replace(new RegExp(escaped, "gi"), to);
 }
 
 function lifecycleFinding(
