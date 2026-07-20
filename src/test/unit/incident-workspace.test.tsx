@@ -73,7 +73,7 @@ describe("IncidentWorkspace", () => {
 
     expect(screen.getByRole("heading", { name: "Start with a bad agent answer" })).toBeVisible();
     const workflow = screen.getByLabelText("Memory incident workflow");
-    for (const label of ["Capture", "Diagnose", "Replay", "Test"]) {
+    for (const label of ["Diagnose", "Intervene", "Replay", "Prove"]) {
       expect(workflow).toHaveTextContent(label);
     }
     await user.click(screen.getByRole("button", { name: "Load reference incident" }));
@@ -147,7 +147,7 @@ describe("IncidentWorkspace", () => {
 
     await user.click(screen.getByRole("button", { name: "Review interventions" }));
     expect(screen.getByText("Prefer the current fact")).toBeVisible();
-    expect(screen.queryByRole("button", { name: "Replay this fix" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Run context counterfactual" })).not.toBeInTheDocument();
   });
 
   it("gates each task step on the action that actually completes it", async () => {
@@ -192,7 +192,7 @@ describe("IncidentWorkspace", () => {
     expect(screen.getByRole("heading", { name: "A stale fact remained active" })).toBeVisible();
   });
 
-  it("replays the recommended repair and exports a verified regression", async () => {
+  it("reproduces the baseline before exporting a context regression", async () => {
     const user = userEvent.setup();
     const incident = createSampleMemoryIncidentCase();
     const onSaveRegression = vi.fn();
@@ -218,23 +218,26 @@ describe("IncidentWorkspace", () => {
     await user.click(screen.getByRole("button", { name: "Review interventions" }));
     await user.click(screen.getByRole("button", { name: "Continue with this intervention" }));
     expect(screen.getByRole("tab", { name: /Prove/ })).toBeDisabled();
-    await user.click(screen.getByRole("button", { name: "Replay this fix" }));
+    await user.click(screen.getByRole("button", { name: "Run context counterfactual" }));
 
     await waitFor(() => {
-      expect(screen.getByText("The repair produced the expected behavior")).toBeVisible();
+      expect(screen.getByText("Proof gate passed for this context-only counterfactual")).toBeVisible();
     });
     const request = JSON.parse(String(vi.mocked(globalThis.fetch).mock.calls[0]?.[1]?.body));
     expect(request.branchContextMemories.map((memory: { id: string }) => memory.id)).toEqual([
       "sample-memory-oakland"
     ]);
-    expect(screen.getByText("Verified against the incident expectation")).toBeVisible();
+    expect(screen.getByRole("heading", { name: "Context-only counterfactual" })).toBeVisible();
+    expect(screen.getByLabelText("Context-only replay boundary")).toHaveTextContent("Candidate generationNot rerun");
+    expect(screen.getByLabelText("Context-only replay boundary")).toHaveTextContent("Answer generationReran");
+    expect(screen.getByText("Matches recorded answer")).toBeVisible();
     expect(screen.getByRole("tab", { name: /Replay/ })).toHaveAttribute("data-complete", "true");
     expect(screen.getByRole("tab", { name: /Prove/ })).toBeEnabled();
 
     await user.click(screen.getByRole("button", { name: "Review proof" }));
     expect(screen.getByRole("tab", { name: /Prove/ })).toHaveAttribute("aria-selected", "true");
     expect(screen.getByRole("tab", { name: /Prove/ })).toHaveAttribute("data-complete", "false");
-    await user.click(screen.getByRole("button", { name: "Save verified regression" }));
+    await user.click(screen.getByRole("button", { name: "Save context regression" }));
     expect(onSaveRegression).toHaveBeenCalledOnce();
     expect(screen.getByRole("tab", { name: /Prove/ })).toHaveAttribute("data-complete", "true");
     expect(screen.getByText("Regression saved")).toBeVisible();
@@ -251,6 +254,39 @@ describe("IncidentWorkspace", () => {
         }
       }
     });
+  });
+
+  it("does not unlock proof when the regenerated baseline differs from the recorded answer", async () => {
+    const user = userEvent.setup();
+    const onSaveRegression = vi.fn();
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify(unreproducedReplayResult), {
+        status: 200,
+        headers: { "Content-Type": "application/json" }
+      })
+    );
+
+    render(
+      <IncidentWorkspace
+        incident={createSampleMemoryIncidentCase()}
+        onClose={vi.fn()}
+        onFocus={vi.fn()}
+        onImportTrace={vi.fn()}
+        onLoadSample={vi.fn()}
+        onOpenTool={vi.fn()}
+        onSaveRegression={onSaveRegression}
+      />
+    );
+
+    await user.click(screen.getByRole("button", { name: "Review interventions" }));
+    await user.click(screen.getByRole("button", { name: "Continue with this intervention" }));
+    await user.click(screen.getByRole("button", { name: "Run context counterfactual" }));
+
+    await waitFor(() => expect(screen.getByText("Baseline not reproduced; proof remains locked")).toBeVisible());
+    expect(screen.getByText("Does not match recorded answer")).toBeVisible();
+    expect(screen.getByRole("tab", { name: /Prove/ })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /Proof unavailable/ })).toBeDisabled();
+    expect(onSaveRegression).not.toHaveBeenCalled();
   });
 
   it("announces replay work while keeping the active action area outside the scroller", async () => {
@@ -281,9 +317,9 @@ describe("IncidentWorkspace", () => {
     expect(panel.parentElement).not.toContainElement(actions);
     expect(screen.getAllByRole("tabpanel")).toHaveLength(1);
 
-    await user.click(screen.getByRole("button", { name: "Replay this fix" }));
+    await user.click(screen.getByRole("button", { name: "Run context counterfactual" }));
     expect(panel.parentElement).toHaveAttribute("aria-busy", "true");
-    expect(screen.getByRole("status")).toHaveTextContent("Replaying the original and repaired memory branches");
+    expect(screen.getByRole("status")).toHaveTextContent("Regenerating baseline and counterfactual answers");
 
     resolveReplay?.(replayResult);
     await waitFor(() => expect(panel.parentElement).toHaveAttribute("aria-busy", "false"));
@@ -321,11 +357,12 @@ describe("IncidentWorkspace", () => {
 const replayResult: MemoryBranchReplayResult = {
   version: 1,
   evidence: "replayed",
+  mode: "context-only-counterfactual",
   recordId: "sample-turn-current-city",
   branchId: "branch-incident-current-city",
   baselineMemoryIds: ["sample-memory-san-francisco"],
   branchMemoryIds: ["sample-memory-oakland"],
-  baselineAnswer: "Based on the retrieved memory: User moved to San Francisco in 2022.",
+  baselineAnswer: "You live in San Francisco.",
   branchAnswer: "Based on the retrieved memory: User lives in Oakland now.",
   changed: true,
   comparison: {
@@ -335,8 +372,39 @@ const replayResult: MemoryBranchReplayResult = {
     baselineRuns: 1,
     counterfactualRuns: 1
   },
+  capabilities: {
+    levels: ["context"],
+    deterministic: true,
+    reusesRecordedCandidates: true,
+    rerunsCandidateGeneration: false,
+    rerunsEligibility: false,
+    rerunsRanking: false,
+    rerunsSelection: false,
+    rerunsContextAssembly: true,
+    rerunsGeneration: true,
+    supportsPolicyInterventions: false,
+    supportsStateInterventions: false,
+    supportsRepeatedRuns: false
+  },
+  reproduction: {
+    method: "normalized-exact",
+    reproduced: true,
+    observedAnswer: "You live in San Francisco.",
+    replayedAnswer: "You live in San Francisco."
+  },
   caveat: "Controlled replay does not reproduce hidden model state.",
   provider: { id: "demo" }
+};
+
+const unreproducedReplayResult: MemoryBranchReplayResult = {
+  ...replayResult,
+  baselineAnswer: "Based on the retrieved memory: User moved to San Francisco in 2022.",
+  reproduction: {
+    method: "normalized-exact",
+    reproduced: false,
+    observedAnswer: "You live in San Francisco.",
+    replayedAnswer: "Based on the retrieved memory: User moved to San Francisco in 2022."
+  }
 };
 
 const ablationResult = {

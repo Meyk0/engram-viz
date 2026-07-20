@@ -17,11 +17,25 @@ describe("POST /api/lab/replay", () => {
 
     expect(response.status).toBe(200);
     expect(result.evidence).toBe("replayed");
+    expect(result.mode).toBe("context-only-counterfactual");
     expect(result.baselineMemoryIds).toEqual(["mem-color", "mem-location"]);
     expect(result.branchMemoryIds).toEqual(["mem-location"]);
     expect(result.baselineAnswer).toContain("Based on 2 retrieved memories");
     expect(result.branchAnswer).toContain("Based on the retrieved memory");
     expect(result.changed).toBe(true);
+    expect(result.reproduction).toMatchObject({
+      method: "normalized-exact",
+      reproduced: false,
+      observedAnswer: "Your favorite color is indigo."
+    });
+    expect(result.capabilities).toMatchObject({
+      levels: ["context"],
+      rerunsCandidateGeneration: false,
+      rerunsRanking: false,
+      rerunsSelection: false,
+      rerunsContextAssembly: true,
+      rerunsGeneration: true
+    });
     expect(result.caveat).toContain("does not reproduce hidden model state");
   });
 

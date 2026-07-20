@@ -189,6 +189,7 @@ export const memoryBranchReplayRequestSchema = z.object({
 export const memoryBranchReplayResultSchema = z.object({
   version: z.literal(1),
   evidence: z.literal("replayed"),
+  mode: z.literal("context-only-counterfactual"),
   recordId: z.string().min(1),
   branchId: z.string().min(1),
   baselineMemoryIds: z.array(z.string().min(1)),
@@ -202,6 +203,26 @@ export const memoryBranchReplayResultSchema = z.object({
     answerLengthDelta: z.number().int(),
     baselineRuns: z.literal(1),
     counterfactualRuns: z.literal(1)
+  }),
+  capabilities: z.object({
+    levels: z.array(z.enum(["context", "policy", "provider", "agent", "robustness"])).min(1),
+    deterministic: z.boolean(),
+    reusesRecordedCandidates: z.boolean(),
+    rerunsCandidateGeneration: z.boolean(),
+    rerunsEligibility: z.boolean(),
+    rerunsRanking: z.boolean(),
+    rerunsSelection: z.boolean(),
+    rerunsContextAssembly: z.boolean(),
+    rerunsGeneration: z.boolean(),
+    supportsPolicyInterventions: z.boolean(),
+    supportsStateInterventions: z.boolean(),
+    supportsRepeatedRuns: z.boolean()
+  }),
+  reproduction: z.object({
+    method: z.literal("normalized-exact"),
+    reproduced: z.boolean(),
+    observedAnswer: z.string(),
+    replayedAnswer: z.string()
   }),
   caveat: z.string().min(1),
   provider: z.object({

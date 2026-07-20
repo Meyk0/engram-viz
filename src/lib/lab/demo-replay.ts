@@ -2,9 +2,10 @@ import type {
   MemoryBranchReplayRequest,
   MemoryBranchReplayResult
 } from "@/lib/lab/types";
+import { baselineReproduction, contextReplayCapabilities } from "@/lib/lab/replay";
 
 export const PUBLIC_DEMO_REPLAY_CAVEAT =
-  "Deterministic fixture replay: a fixed browser-safe executor evaluates the recorded input against two explicit memory contexts. No model, retrieval service, hidden state, or API call is involved, so this demonstrates the repair contract rather than model causality.";
+  "Deterministic context-only fixture: a fixed browser-safe executor evaluates the recorded input against two explicit memory contexts. It does not rerun memory state resolution or retrieval. No model, hidden state, or API call is involved, so this demonstrates the bounded counterfactual contract rather than model causality.";
 
 export async function executePublicDemoReplay(
   request: MemoryBranchReplayRequest
@@ -26,13 +27,14 @@ export async function executePublicDemoReplay(
     throw new Error("The controlled branch must include the recorded Oakland correction.");
   }
 
-  const baselineAnswer = request.record.originalAnswer;
-  const branchAnswer = "You live in Oakland.";
+  const baselineAnswer = answerCurrentLocation(request.record.retrievedMemories);
+  const branchAnswer = answerCurrentLocation(request.branchContextMemories);
   const normalizedTextDistance = textDistance(baselineAnswer, branchAnswer);
 
   return {
     version: 1,
     evidence: "replayed",
+    mode: "context-only-counterfactual",
     recordId: request.record.id,
     branchId: request.branch.id,
     baselineMemoryIds: request.record.retrievedMemories.map((memory) => memory.id),
@@ -47,9 +49,16 @@ export async function executePublicDemoReplay(
       baselineRuns: 1,
       counterfactualRuns: 1
     },
+    capabilities: contextReplayCapabilities(true),
+    reproduction: baselineReproduction(request.record.originalAnswer, baselineAnswer),
     caveat: PUBLIC_DEMO_REPLAY_CAVEAT,
     provider: { id: "demo" }
   };
+}
+
+function answerCurrentLocation(memories: MemoryBranchReplayRequest["branchContextMemories"]) {
+  const location = memories.find((memory) => memory.kind === "location")?.entities?.[0];
+  return location ? `You live in ${location}.` : "I do not have a current location in memory.";
 }
 
 function textDistance(left: string, right: string): number {

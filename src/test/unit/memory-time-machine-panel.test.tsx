@@ -169,6 +169,7 @@ const checkpoint: MemoryCheckpoint = {
 const replayResult: MemoryBranchReplayResult = {
   version: 1,
   evidence: "replayed",
+  mode: "context-only-counterfactual",
   recordId: "turn-2",
   branchId: "branch-checkpoint-turn-2",
   baselineMemoryIds: [memory.id],
@@ -182,6 +183,26 @@ const replayResult: MemoryBranchReplayResult = {
     answerLengthDelta: 12,
     baselineRuns: 1,
     counterfactualRuns: 1
+  },
+  capabilities: {
+    levels: ["context"],
+    deterministic: true,
+    reusesRecordedCandidates: true,
+    rerunsCandidateGeneration: false,
+    rerunsEligibility: false,
+    rerunsRanking: false,
+    rerunsSelection: false,
+    rerunsContextAssembly: true,
+    rerunsGeneration: true,
+    supportsPolicyInterventions: false,
+    supportsStateInterventions: false,
+    supportsRepeatedRuns: false
+  },
+  reproduction: {
+    method: "normalized-exact",
+    reproduced: true,
+    observedAnswer: "You love indigo.",
+    replayedAnswer: "You love indigo."
   },
   caveat: "This is a controlled context replay and does not prove deterministic causality.",
   provider: { id: "demo" }

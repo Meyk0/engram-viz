@@ -49,7 +49,7 @@ const incidentTaskSteps: Array<{
 }> = [
   { id: "diagnose", label: "Diagnose", detail: "Find the failing memory decision" },
   { id: "intervene", label: "Intervene", detail: "Choose an isolated repair" },
-  { id: "replay", label: "Replay", detail: "Run the same turn again" },
+  { id: "replay", label: "Replay", detail: "Run a bounded counterfactual" },
   { id: "prove", label: "Prove", detail: "Save the repair as a test" }
 ];
 
@@ -270,10 +270,10 @@ export function IncidentWorkspace({
           </div>
           <ol className="incident-empty-loop" aria-label="Memory incident workflow">
             {[
-              ["Capture", "Reconstruct the recorded memory state"],
               ["Diagnose", "Locate the failing lifecycle stage"],
-              ["Replay", "Test a controlled memory change"],
-              ["Test", "Save the verified repair as a regression"]
+              ["Intervene", "Choose an isolated memory change"],
+              ["Replay", "Run a bounded counterfactual"],
+              ["Prove", "Save evidence-gated behavior as a regression"]
             ].map(([label, detail], index) => (
               <li key={label}><i>{index + 1}</i><span><strong>{label}</strong><small>{detail}</small></span></li>
             ))}
@@ -300,11 +300,13 @@ export function IncidentWorkspace({
   const remediationRecipe = !guidedDemo && selectedIntervention
     ? buildSourceRemediationRecipe(incident, selectedIntervention)
     : undefined;
-  const replayVerified = replayResult
-    ? incident.expectedAnswer
-      ? answerSupportsExpectation(replayResult.branchAnswer, incident.expectedAnswer)
-      : replayResult.changed
-    : false;
+  const baselineReproduced = replayResult?.reproduction.reproduced ?? false;
+  const treatmentMetExpectation = Boolean(
+    replayResult
+    && incident.expectedAnswer
+    && answerSupportsExpectation(replayResult.branchAnswer, incident.expectedAnswer)
+  );
+  const proofEligible = baselineReproduced && treatmentMetExpectation;
 
   const completedSteps: Record<IncidentTaskStep, boolean> = {
     diagnose: diagnosisReviewed,
@@ -316,7 +318,7 @@ export function IncidentWorkspace({
     diagnose: true,
     intervene: diagnosisReviewed,
     replay: interventionConfirmed,
-    prove: Boolean(replayResult)
+    prove: proofEligible
   };
 
   function selectStage(stageId: string) {
@@ -415,13 +417,13 @@ export function IncidentWorkspace({
   }
 
   function saveRegression() {
-    if (!incident || !selectedIntervention || !branch || !materialized || !replayResult || !replayVerified) return;
+    if (!incident || !selectedIntervention || !branch || !materialized || !replayResult || !proofEligible) return;
     const branchIds = new Set(replayResult.branchMemoryIds);
     const removedMemories = incident.record.retrievedMemories.filter((memory) => !branchIds.has(memory.id));
     const artifact = createMemoryRegressionArtifact({
       checkpoint: incident.checkpoint,
       title: `Regression: ${incident.title}`,
-      description: `Preserve the verified repair for “${incident.question}”.`,
+      description: `Preserve the evidence-gated context repair for “${incident.question}”.`,
       memoryFixture: uniqueMemories([...incident.memories, ...materialized.memories]),
       replayResults: replayResultsFromBranchReplay(replayResult),
       assertions: {
@@ -439,7 +441,7 @@ export function IncidentWorkspace({
         incidentId: incident.id,
         diagnosis: incident.diagnosis.kind,
         interventionId: selectedIntervention.id,
-        evidenceBoundary: "controlled-context-replay"
+        evidenceBoundary: "context-only-counterfactual"
       }
     });
     onSaveRegression(artifact);
@@ -503,7 +505,7 @@ export function IncidentWorkspace({
       >
         <div className="incident-activity-status" role="status" aria-live="polite">
           {replayPending
-            ? "Replaying the original and repaired memory branches..."
+            ? "Regenerating baseline and counterfactual answers..."
             : influencePending
               ? "Testing the influence of each loaded memory..."
               : regressionSaved
@@ -673,34 +675,42 @@ export function IncidentWorkspace({
           >
             <SectionHeading
               eyebrow="Step 3 · Replay"
-              title={replayResult
-                ? replayVerified
-                  ? "The repair produced the expected behavior"
-                  : replayResult.changed ? "The answer changed" : "The answer remained stable"
-                : "Replay the original and repaired branches"}
+              title="Context-only counterfactual"
               detail={replayResult
-                ? guidedDemo
-                  ? "A fixed fixture executor evaluated the same recorded turn against both contexts."
-                  : "Both answers used the same recorded turn; only the branch memory context changed."
-                : `Ready to test “${selectedIntervention?.label ?? "the selected intervention"}” without mutating the incident.`}
+                ? proofEligible
+                  ? "The recorded answer was reproduced before the branch met the expected answer."
+                  : baselineReproduced
+                    ? "The recorded answer was reproduced, but the branch did not meet the expected answer."
+                    : "The regenerated baseline did not reproduce the recorded answer, so this branch cannot be promoted as proof."
+                : `Ready to test “${selectedIntervention?.label ?? "the selected intervention"}” by changing only the explicit memory context.`}
               titleId="incident-replay-heading"
             />
             {replayResult ? (
               <>
-                <div className="incident-replay-status" data-verified={replayVerified}>
-                  {replayVerified ? <ShieldCheck size={17} /> : <FlaskConical size={17} />}
-                  <span>{replayVerified ? "Verified against the incident expectation" : "Replay completed, but the result did not meet the expected answer"}</span>
+                <div className="incident-replay-status" data-verified={proofEligible}>
+                  {proofEligible ? <ShieldCheck size={17} /> : <FlaskConical size={17} />}
+                  <span>{proofEligible
+                    ? "Proof gate passed for this context-only counterfactual"
+                    : baselineReproduced
+                      ? "Baseline reproduced; treatment missed the expected answer"
+                      : "Baseline not reproduced; proof remains locked"}</span>
                 </div>
+                <ReplayCapabilityBoundary result={replayResult} />
                 <div className="incident-replay-grid">
                   <article>
-                    <span>Original</span>
+                    <span>Recorded incident</span>
+                    <p>{replayResult.reproduction.observedAnswer}</p>
+                    <small>Observed answer evidence</small>
+                  </article>
+                  <article data-reproduced={baselineReproduced}>
+                    <span>Regenerated baseline</span>
                     <p>{replayResult.baselineAnswer}</p>
-                    <small>{replayResult.baselineMemoryIds.length} context memories</small>
+                    <small>{baselineReproduced ? "Matches recorded answer" : "Does not match recorded answer"}</small>
                   </article>
                   <article data-replay="branch">
-                    <span>Repaired branch</span>
+                    <span>Context counterfactual</span>
                     <p>{replayResult.branchAnswer}</p>
-                    <small>{replayResult.branchMemoryIds.length} context memories</small>
+                    <small>{treatmentMetExpectation ? "Meets expected answer" : "Does not meet expected answer"}</small>
                   </article>
                 </div>
                 <div className="incident-context-diff">
@@ -713,8 +723,8 @@ export function IncidentWorkspace({
               <div className="incident-replay-ready">
                 <FlaskConical size={20} />
                 <div>
-                  <strong>The source incident stays frozen</strong>
-                  <p>Engram will compare the original answer with a branch containing only the selected memory intervention.</p>
+                  <strong>The recorded incident remains unchanged</strong>
+                  <p>Engram regenerates an answer from the recorded memory context, then from the edited context. Retrieval policy is not rerun.</p>
                 </div>
               </div>
             )}
@@ -733,19 +743,19 @@ export function IncidentWorkspace({
               eyebrow="Step 4 · Prove"
               title="Keep the repair from regressing"
               detail={guidedDemo
-                ? "Build a portable test from the frozen memory fixture, replay evidence, and lifecycle assertions."
-                : "Export the frozen memory state, turn input, replay evidence, and lifecycle assertions as a portable test."}
+                ? "Build a portable test from the recorded memory fixture, bounded replay evidence, and lifecycle assertions."
+                : "Export the recorded memory state, turn input, bounded replay evidence, and lifecycle assertions as a portable test."}
               titleId="incident-prove-heading"
             />
             <div className="incident-proof-summary" data-saved={regressionSaved}>
               {regressionSaved ? <ShieldCheck size={20} /> : <Download size={20} />}
               <div>
-                <strong>{regressionSaved ? "Regression saved" : replayVerified ? "Verified replay ready to save" : "Replay needs review"}</strong>
+                <strong>{regressionSaved ? "Regression saved" : proofEligible ? "Evidence gate passed" : "Proof unavailable"}</strong>
                 <p>{regressionSaved
                   ? "The repair is now a portable memory regression artifact."
-                  : replayVerified
-                    ? "The test will preserve both the memory lifecycle and expected answer evidence."
-                    : "The branch did not meet the expected answer, so it cannot be saved as a verified repair."}</p>
+                  : proofEligible
+                    ? "The test will preserve the bounded context behavior and expected answer evidence."
+                    : "The baseline must reproduce the recorded answer and the branch must meet the expected answer before a test can be saved."}</p>
               </div>
             </div>
             <ul>
@@ -776,8 +786,8 @@ export function IncidentWorkspace({
         {activeStep === "replay" && !replayResult ? (
           <button className="incident-primary-action" disabled={replayPending || !selectedIntervention} onClick={() => void replayIntervention()} type="button">
             <Play size={16} /> {replayPending
-              ? "Replaying original and branch..."
-              : guidedDemo ? "Run deterministic repair" : "Replay this fix"}
+              ? "Running context counterfactual..."
+              : guidedDemo ? "Run deterministic counterfactual" : "Run context counterfactual"}
           </button>
         ) : null}
         {activeStep === "replay" && replayResult ? (
@@ -785,14 +795,14 @@ export function IncidentWorkspace({
             <button className="incident-secondary-action" disabled={replayPending} onClick={() => void replayIntervention()} type="button">
               <Play size={15} /> Replay again
             </button>
-            <button className="incident-primary-action" onClick={() => openStep("prove")} type="button">
-              Review proof <ArrowRight size={16} />
+            <button className="incident-primary-action" disabled={!proofEligible} onClick={() => openStep("prove")} type="button">
+              {proofEligible ? "Review proof" : "Proof unavailable"} <ArrowRight size={16} />
             </button>
           </div>
         ) : null}
         {activeStep === "prove" ? (
-          <button className="incident-primary-action" disabled={!replayVerified} onClick={saveRegression} type="button">
-            <Download size={16} /> {regressionSaved ? "Download regression again" : "Save verified regression"}
+          <button className="incident-primary-action" disabled={!proofEligible} onClick={saveRegression} type="button">
+            <Download size={16} /> {regressionSaved ? "Download regression again" : "Save context regression"}
           </button>
         ) : null}
       </footer>
@@ -916,6 +926,38 @@ function SectionHeading({
   titleId?: string;
 }) {
   return <header className="incident-section-heading"><span>{eyebrow}</span><h3 id={titleId}>{title}</h3><p>{detail}</p></header>;
+}
+
+function ReplayCapabilityBoundary({ result }: { result: MemoryBranchReplayResult }) {
+  const stages = [
+    { label: "Memory state", rerun: false },
+    { label: "Candidate generation", rerun: result.capabilities.rerunsCandidateGeneration },
+    { label: "Eligibility", rerun: result.capabilities.rerunsEligibility },
+    { label: "Ranking", rerun: result.capabilities.rerunsRanking },
+    { label: "Selection", rerun: result.capabilities.rerunsSelection },
+    { label: "Context construction", rerun: result.capabilities.rerunsContextAssembly },
+    { label: "Answer generation", rerun: result.capabilities.rerunsGeneration }
+  ];
+
+  return (
+    <section className="incident-replay-boundary" aria-label="Context-only replay boundary">
+      <header>
+        <div>
+          <span>Replay boundary</span>
+          <strong>Recorded candidates reused</strong>
+        </div>
+        <code>{result.capabilities.deterministic ? "deterministic" : "non-deterministic"}</code>
+      </header>
+      <ul>
+        {stages.map((stage) => (
+          <li data-rerun={stage.rerun} key={stage.label}>
+            <span>{stage.label}</span>
+            <strong>{stage.rerun ? "Reran" : "Not rerun"}</strong>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
 }
 
 function EvidenceBadge({ origin }: { origin: MemoryIncident["evidence"][number]["origin"] }) {

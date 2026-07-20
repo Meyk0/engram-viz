@@ -1740,6 +1740,82 @@
   font-size: 12px;
 }
 
+.incident-replay-boundary {
+  margin-top: 12px;
+  padding: 12px;
+  border: 1px solid rgba(0, 212, 255, 0.12);
+  border-radius: 5px;
+  background: rgba(2, 5, 17, 0.62);
+}
+
+.incident-replay-boundary header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.incident-replay-boundary header > div {
+  display: grid;
+  gap: 3px;
+}
+
+.incident-replay-boundary header span,
+.incident-replay-boundary li span {
+  color: rgba(157, 188, 222, 0.6);
+  font-size: 10px;
+}
+
+.incident-replay-boundary header strong {
+  color: rgba(220, 234, 251, 0.88);
+  font-size: 12px;
+}
+
+.incident-replay-boundary header code {
+  color: rgba(105, 218, 255, 0.78);
+  font-size: 10px;
+}
+
+.incident-replay-boundary ul {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+  margin: 10px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.incident-replay-boundary li {
+  display: grid;
+  min-width: 0;
+  gap: 4px;
+  padding: 8px;
+  border-left: 2px solid rgba(245, 158, 11, 0.35);
+  background: rgba(245, 158, 11, 0.04);
+}
+
+.incident-replay-boundary li[data-rerun="true"] {
+  border-left-color: rgba(20, 241, 149, 0.46);
+  background: rgba(20, 241, 149, 0.04);
+}
+
+.incident-replay-boundary li strong {
+  color: rgba(248, 189, 93, 0.78);
+  font-size: 10px;
+}
+
+.incident-replay-boundary li[data-rerun="true"] strong {
+  color: rgba(95, 232, 166, 0.8);
+}
+
+.incident-replay-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.incident-replay-grid article[data-reproduced="false"] {
+  border-color: rgba(245, 158, 11, 0.26);
+}
+
 @media (max-width: 980px) {
   .incident-progress button small {
     display: none;
@@ -1819,6 +1895,10 @@
     grid-template-columns: 1fr;
   }
 
+  .incident-replay-boundary ul {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .incident-causal-spine button {
     min-height: 66px;
   }
@@ -1863,6 +1943,10 @@
 }
 
 @media (max-width: 430px) {
+  .incident-replay-boundary ul {
+    grid-template-columns: 1fr;
+  }
+
   .incident-action-bar .incident-primary-action {
     max-width: 72%;
     padding-inline: 11px;

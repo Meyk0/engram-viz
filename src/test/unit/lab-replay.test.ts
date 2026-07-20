@@ -42,10 +42,18 @@ describe("memory branch replay", () => {
     ]);
     expect(result).toMatchObject({
       evidence: "replayed",
+      mode: "context-only-counterfactual",
       baselineMemoryIds: ["memory-indigo"],
       branchMemoryIds: [],
       changed: true,
-      comparison: { outcome: "changed" }
+      comparison: { outcome: "changed" },
+      reproduction: { reproduced: true },
+      capabilities: {
+        rerunsCandidateGeneration: false,
+        rerunsSelection: false,
+        rerunsContextAssembly: true,
+        rerunsGeneration: true
+      }
     });
     expect(checkpoint).toEqual(originalCheckpoint);
   });

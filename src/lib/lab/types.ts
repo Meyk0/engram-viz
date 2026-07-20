@@ -5,6 +5,10 @@ import type {
   EngramMemory,
   MemoryRetrievalTrace
 } from "@/types";
+import type {
+  MemoryPolicyReplayResult,
+  MemoryReplayCapabilities
+} from "@engramviz/core";
 
 export type EngramProductMode = "learn" | "observe" | "investigate";
 
@@ -97,6 +101,7 @@ export type MemoryBranchReplayRequest = {
 export type MemoryBranchReplayResult = {
   version: 1;
   evidence: "replayed";
+  mode: "context-only-counterfactual";
   recordId: string;
   branchId: string;
   baselineMemoryIds: string[];
@@ -111,6 +116,23 @@ export type MemoryBranchReplayResult = {
     baselineRuns: 1;
     counterfactualRuns: 1;
   };
+  capabilities: MemoryReplayCapabilities;
+  reproduction: {
+    method: "normalized-exact";
+    reproduced: boolean;
+    observedAnswer: string;
+    replayedAnswer: string;
+  };
   caveat: string;
   provider: TurnRecord["provider"];
 };
+
+export type MemoryIncidentReplayEvidence =
+  | {
+      kind: "context-only";
+      result: MemoryBranchReplayResult;
+    }
+  | {
+      kind: "policy";
+      result: MemoryPolicyReplayResult;
+    };

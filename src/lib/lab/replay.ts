@@ -1,6 +1,7 @@
 import { createChatProvider, configuredChatProvider } from "@/lib/chat/providers";
 import type { ChatProviderClient, ChatTurnInput } from "@/lib/chat/providers/types";
 import { compareReplayAnswers } from "@/lib/evidence/ablation";
+import type { MemoryReplayCapabilities } from "@engramviz/core";
 import type {
   MemoryBranchReplayRequest,
   MemoryBranchReplayResult
@@ -9,7 +10,7 @@ import type {
 export const MAX_MEMORY_BRANCH_REPLAY_REQUEST_BYTES = 384_000;
 export const MAX_MEMORY_BRANCH_CONTEXT = 10;
 export const MEMORY_BRANCH_REPLAY_CAVEAT =
-  "This is a controlled context replay of one recorded turn. It does not reproduce hidden model state, rerun retrieval, or prove deterministic causality.";
+  "Context-only counterfactual: Engram reuses the recorded input and retrieved memories, substitutes an explicit branch context, and regenerates both answers. Memory state resolution, candidate generation, eligibility, ranking, and selection are not rerun. This does not reproduce hidden model state or prove causality.";
 
 export class MemoryBranchReplayValidationError extends Error {
   constructor(message: string) {
@@ -52,6 +53,7 @@ export async function runMemoryBranchReplay(
   return {
     version: 1,
     evidence: "replayed",
+    mode: "context-only-counterfactual",
     recordId: request.record.id,
     branchId: request.branch.id,
     baselineMemoryIds: request.record.retrievedMemories.map((memory) => memory.id),
@@ -60,11 +62,39 @@ export async function runMemoryBranchReplay(
     branchAnswer,
     changed: comparison.outcome === "changed",
     comparison,
+    capabilities: contextReplayCapabilities(replayProvider.id === "demo"),
+    reproduction: baselineReproduction(request.record.originalAnswer, baselineAnswer),
     caveat: MEMORY_BRANCH_REPLAY_CAVEAT,
     provider: {
       id: replayProvider.id,
       ...(replayProvider.model ? { model: replayProvider.model } : {})
     }
+  };
+}
+
+export function baselineReproduction(observedAnswer: string, replayedAnswer: string) {
+  return {
+    method: "normalized-exact" as const,
+    reproduced: normalizeAnswer(observedAnswer) === normalizeAnswer(replayedAnswer),
+    observedAnswer,
+    replayedAnswer
+  };
+}
+
+export function contextReplayCapabilities(deterministic: boolean): MemoryReplayCapabilities {
+  return {
+    levels: ["context"],
+    deterministic,
+    reusesRecordedCandidates: true,
+    rerunsCandidateGeneration: false,
+    rerunsEligibility: false,
+    rerunsRanking: false,
+    rerunsSelection: false,
+    rerunsContextAssembly: true,
+    rerunsGeneration: true,
+    supportsPolicyInterventions: false,
+    supportsStateInterventions: false,
+    supportsRepeatedRuns: false
   };
 }
 
@@ -138,4 +168,8 @@ async function replay(provider: ChatProviderClient, input: ChatTurnInput) {
     throw new MemoryBranchReplayProviderError();
   }
   return answer;
+}
+
+function normalizeAnswer(value: string) {
+  return value.trim().toLocaleLowerCase().replace(/\s+/g, " ");
 }

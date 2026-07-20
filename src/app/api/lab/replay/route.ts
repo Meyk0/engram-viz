@@ -8,6 +8,7 @@ import {
   MemoryBranchReplayValidationError,
   runMemoryBranchReplay
 } from "@/lib/lab/replay";
+import { executePublicDemoReplay } from "@/lib/lab/demo-replay";
 import { createRequestDeadline } from "@/lib/request-signal";
 import { checkApiRateLimit } from "@/lib/api-rate-limit";
 
@@ -41,7 +42,10 @@ export async function POST(request: Request) {
 
   const deadline = createRequestDeadline(request.signal, 45_000);
   try {
-    const result = await runMemoryBranchReplay(parsed.data, undefined, deadline.signal);
+    const result = parsed.data.record.sessionId === "sample-memory-incident"
+      && parsed.data.record.provider.id === "demo"
+      ? await executePublicDemoReplay(parsed.data)
+      : await runMemoryBranchReplay(parsed.data, undefined, deadline.signal);
     return Response.json(memoryBranchReplayResultSchema.parse(result));
   } catch (error) {
     if (error instanceof MemoryBranchReplayValidationError) {
