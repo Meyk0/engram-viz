@@ -5,7 +5,17 @@ import { createSampleMemoryIncidentCase } from "@/lib/lab/sample-incident";
 
 export function createStaleLocationPolicyReplay() {
   const incident = createSampleMemoryIncidentCase();
-  const baseline = memoryDecisionRunFromIncident(incident);
+  const reconstructed = memoryDecisionRunFromIncident(incident);
+  const baseline = {
+    ...reconstructed,
+    metadata: {
+      ...(reconstructed.metadata ?? {}),
+      replayExecutor: {
+        id: "engram-fixture-location-agent",
+        version: "1"
+      }
+    }
+  };
   const intervention: MemoryInterventionV2 = {
     format: "engram.memory-intervention",
     version: 2,

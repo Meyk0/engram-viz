@@ -15,7 +15,7 @@ import { buildMemoryDecisionDiff } from "@/lib/reliability/diff";
 import { canonicalJson, fingerprintMemoryDecisionRun } from "@/lib/reliability/fingerprint";
 
 export const POLICY_REPLAY_CAVEAT =
-  "Deterministic policy replay reruns state resolution, eligibility, ranking, selection, context assembly, and the configured fixture answer over the recorded candidate set. It does not rerun provider candidate generation or prove hidden model causality.";
+  "Deterministic policy replay reruns state resolution, eligibility, ranking, selection, context assembly, and the configured fixture answer over the recorded candidate set. It does not rerun provider candidate generation, inject newly upserted memories into that candidate set, or prove hidden model causality.";
 
 export type DeterministicPolicyReplayExecutor = {
   id: string;
@@ -33,6 +33,7 @@ export function runDeterministicPolicyReplay(
   if (intervention.targetRunId !== source.id) {
     throw new Error("The intervention does not target this memory decision run.");
   }
+  assertInterventionAgainstSource(source, intervention);
   assertInterventionPreconditions(source, intervention);
 
   const baseline = replayVariant({
@@ -53,7 +54,12 @@ export function runDeterministicPolicyReplay(
   const diff = buildMemoryDecisionDiff(baseline, treatment);
   const expected = request.expectedAnswerFragments ?? [];
   const matched = expected.filter((fragment) => includesNormalized(treatment.answer.content, fragment));
-  const reproduced = normalize(source.answer.content) === normalize(baseline.answer.content);
+  const baselineDiff = buildMemoryDecisionDiff(source, baseline);
+  const stageEquivalent = baselineDiff.status === "none"
+    && baselineDiff.stages.every((stage) => stage.comparable && !stage.changed);
+  const executorIdentityMatches = replayExecutorMatchesSource(source, executor);
+  const policyIdentityMatches = policyIdentity(source) === policyIdentity(baseline);
+  const reproduced = stageEquivalent && executorIdentityMatches && policyIdentityMatches;
   const assertion = request.answerAssertion ?? (expected.length > 0
     ? { type: "contains_all", values: expected } satisfies MemoryAnswerAssertion
     : undefined);
@@ -98,7 +104,9 @@ export function runDeterministicPolicyReplay(
       passed: reproduced && assertionResult.passed,
       ...(assertion ? { assertion } : {}),
       failures: [
-        ...(reproduced ? [] : ["The replay executor did not reproduce the observed baseline answer."]),
+        ...(stageEquivalent ? [] : ["The replay baseline did not reproduce every comparable memory-decision stage."]),
+        ...(executorIdentityMatches ? [] : ["The replay executor identity does not match the captured answer provider." ]),
+        ...(policyIdentityMatches ? [] : ["The replay policy identity does not match the captured policy snapshot."]),
         ...assertionResult.failures
       ],
       expectedAnswerFragments: [...expected],
@@ -131,6 +139,63 @@ function assertInterventionPreconditions(
     }
     if (expected.content !== undefined && canonicalJson(expected.content) !== canonicalJson(actual.content)) {
       throw new Error(`Intervention precondition for ${expected.memoryId} expected different content.`);
+    }
+  }
+}
+
+function assertInterventionAgainstSource(
+  source: MemoryDecisionRunV3,
+  intervention: MemoryPolicyReplayRequest["intervention"]
+) {
+  const sourceMemories = new Map(source.memoryState.before.map((memory) => [memory.id, memory]));
+  const resultingMemories = new Map(sourceMemories);
+  const candidateIds = new Set(source.retrieval.candidates.map((candidate) => candidate.memoryId));
+
+  for (const operation of intervention.operations) {
+    if (operation.type === "memory_upsert") {
+      const existing = sourceMemories.get(operation.memory.id);
+      if (existing) assertMatchingOwners(existing, operation.memory);
+      assertMemoryPrincipal(source, operation.memory);
+      resultingMemories.set(operation.memory.id, operation.memory);
+      continue;
+    }
+    if (operation.type === "memory_replace") {
+      const target = sourceMemories.get(operation.memoryId);
+      if (!target) throw new Error(`Memory intervention references unknown memory ${operation.memoryId}.`);
+      if (operation.replacement.id !== operation.memoryId && resultingMemories.has(operation.replacement.id)) {
+        throw new Error(`Replacement memory ${operation.replacement.id} collides with an existing memory.`);
+      }
+      if (operation.replacement.id !== operation.memoryId && candidateIds.has(operation.replacement.id)) {
+        throw new Error(`Replacement memory ${operation.replacement.id} collides with a recorded candidate.`);
+      }
+      assertMatchingOwners(target, operation.replacement);
+      assertMemoryPrincipal(source, operation.replacement);
+      resultingMemories.delete(operation.memoryId);
+      resultingMemories.set(operation.replacement.id, operation.replacement);
+      continue;
+    }
+    if (operation.type === "memory_status" || operation.type === "memory_restore") {
+      if (!sourceMemories.has(operation.memoryId)) {
+        throw new Error(`Memory intervention references unknown memory ${operation.memoryId}.`);
+      }
+    }
+  }
+
+  for (const operation of intervention.operations) {
+    if (operation.type === "memory_status" && operation.supersededByMemoryId) {
+      if (!resultingMemories.has(operation.supersededByMemoryId)) {
+        throw new Error(`Superseding memory ${operation.supersededByMemoryId} is unknown.`);
+      }
+      const target = sourceMemories.get(operation.memoryId);
+      const replacement = resultingMemories.get(operation.supersededByMemoryId);
+      if (target && replacement) assertMatchingOwners(target, replacement);
+    }
+    if (operation.type === "context_override") {
+      const replacements = replacementIds(intervention.operations);
+      const effectiveId = replacements.get(operation.memoryId) ?? operation.memoryId;
+      if (!resultingMemories.has(effectiveId)) {
+        throw new Error(`Context intervention references unknown memory ${operation.memoryId}.`);
+      }
     }
   }
 }
@@ -184,6 +249,9 @@ function replayVariant(input: {
     Date.parse(source.completedAt),
     Date.parse(input.replayedAt)
   ) + 1).toISOString();
+  const changesPolicy = operations.some((operation) =>
+    operation.type === "policy_rule" || operation.type === "retrieval_parameter"
+  );
 
   return {
     ...structuredClone(source),
@@ -200,19 +268,21 @@ function replayVariant(input: {
         ...candidate,
         rank: index + 1,
         selected: selectedIds.includes(candidate.memoryId),
-        loaded: loadedIds.includes(candidate.memoryId)
+        loaded: loadedIds.includes(candidate.memoryId),
+        evidence: "simulated"
       })),
       selectedIds,
       policy: {
         ...structuredClone(source.retrieval.policy),
-        id: `${source.retrieval.policy.id}-policy-replay`,
-        configuration: {
-          ...(source.retrieval.policy.configuration ?? {}),
-          limit,
-          scoreThreshold: threshold ?? null,
-          recencyWeight,
-          enabledRules: [...rules]
-        },
+        ...(changesPolicy ? {
+          configuration: {
+            ...(source.retrieval.policy.configuration ?? {}),
+            limit,
+            scoreThreshold: threshold ?? null,
+            recencyWeight,
+            enabledRules: [...rules].sort(compareIds)
+          }
+        } : {}),
         evidence: "simulated"
       }
     },
@@ -286,6 +356,14 @@ function applyStatePolicy(
     }
   }
 
+  for (const operation of operations) {
+    if (operation.type !== "memory_status" || !operation.supersededByMemoryId) continue;
+    const current = result.find((candidate) => candidate.id === operation.supersededByMemoryId);
+    if (!current) throw new Error(`Superseding memory ${operation.supersededByMemoryId} is unavailable at apply time.`);
+    current.supersedes = [...new Set([...(current.supersedes ?? []), operation.memoryId])];
+    current.evidence = "simulated";
+  }
+
   if (rules.has("prefer_latest_active_for_subject")) {
     const groups = new Map<string, MemoryDecisionMemory[]>();
     for (const memory of result) {
@@ -294,7 +372,9 @@ function applyStatePolicy(
     }
     for (const group of groups.values()) {
       if (group.length < 2) continue;
-      const sorted = group.slice().sort((left, right) => timestamp(right) - timestamp(left));
+      const sorted = group.slice().sort((left, right) =>
+        timestamp(right) - timestamp(left) || compareIds(left.id, right.id)
+      );
       const current = sorted[0];
       if (!current) continue;
       for (const stale of sorted.slice(1)) {
@@ -355,7 +435,8 @@ function rerankCandidates(
     .sort((left, right) => {
       if (left.eligible !== right.eligible) return Number(right.eligible) - Number(left.eligible);
       if ((left.score ?? 0) !== (right.score ?? 0)) return (right.score ?? 0) - (left.score ?? 0);
-      return timestamp(memoryById.get(right.memoryId)) - timestamp(memoryById.get(left.memoryId));
+      const recency = timestamp(memoryById.get(right.memoryId)) - timestamp(memoryById.get(left.memoryId));
+      return recency || compareIds(left.memoryId, right.memoryId);
     });
 
   if (rules.has("deduplicate_subjects")) {
@@ -371,7 +452,12 @@ function rerankCandidates(
         selectedSubjects.add(subject);
       }
     }
-    ranked.sort((left, right) => Number(right.eligible) - Number(left.eligible) || (right.score ?? 0) - (left.score ?? 0));
+    ranked.sort((left, right) => {
+      if (left.eligible !== right.eligible) return Number(right.eligible) - Number(left.eligible);
+      if ((left.score ?? 0) !== (right.score ?? 0)) return (right.score ?? 0) - (left.score ?? 0);
+      const recency = timestamp(memoryById.get(right.memoryId)) - timestamp(memoryById.get(left.memoryId));
+      return recency || compareIds(left.memoryId, right.memoryId);
+    });
   }
 
   return ranked.map(({ filterReason, ...candidate }) => filterReason ? { ...candidate, filterReason } : candidate);
@@ -471,5 +557,45 @@ function includesNormalized(value: string, expected: string) {
 }
 
 function normalize(value: string) {
-  return value.trim().toLocaleLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+  return value.trim().toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+}
+
+function replayExecutorMatchesSource(
+  source: MemoryDecisionRunV3,
+  executor: DeterministicPolicyReplayExecutor
+) {
+  const declared = source.metadata?.replayExecutor;
+  if (declared && typeof declared === "object" && !Array.isArray(declared)) {
+    const id = declared.id;
+    const version = declared.version;
+    return id === executor.id && version === executor.version;
+  }
+  return false;
+}
+
+function policyIdentity(run: MemoryDecisionRunV3) {
+  return canonicalJson({
+    id: run.retrieval.policy.id,
+    version: run.retrieval.policy.version,
+    fingerprint: run.retrieval.policy.fingerprint,
+    configuration: run.retrieval.policy.configuration,
+    corpus: run.retrieval.policy.corpus
+  });
+}
+
+function assertMemoryPrincipal(source: MemoryDecisionRunV3, memory: MemoryDecisionMemory) {
+  if (source.userId && memory.owner?.type === "user" && memory.owner.id !== source.userId) {
+    throw new Error(`Memory ${memory.id} belongs to another user.`);
+  }
+}
+
+function assertMatchingOwners(left: MemoryDecisionMemory, right: MemoryDecisionMemory) {
+  if (!left.owner || !right.owner) return;
+  if (left.owner.type !== right.owner.type || left.owner.id !== right.owner.id) {
+    throw new Error(`Memory ${right.id} belongs to a different owner than ${left.id}.`);
+  }
+}
+
+function compareIds(left: string, right: string) {
+  return left < right ? -1 : left > right ? 1 : 0;
 }

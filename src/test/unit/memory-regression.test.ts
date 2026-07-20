@@ -262,6 +262,7 @@ function fixtureBranchReplay(): MemoryBranchReplayResult {
   return {
     version: 1,
     evidence: "replayed",
+    mode: "context-only-counterfactual",
     recordId: "turn-current-city",
     branchId: "branch-current-city",
     baselineMemoryIds: ["memory-san-francisco"],
@@ -275,6 +276,26 @@ function fixtureBranchReplay(): MemoryBranchReplayResult {
       answerLengthDelta: -5,
       baselineRuns: 1,
       counterfactualRuns: 1
+    },
+    capabilities: {
+      levels: ["context"],
+      deterministic: true,
+      reusesRecordedCandidates: true,
+      rerunsCandidateGeneration: false,
+      rerunsEligibility: false,
+      rerunsRanking: false,
+      rerunsSelection: false,
+      rerunsContextAssembly: true,
+      rerunsGeneration: true,
+      supportsPolicyInterventions: false,
+      supportsStateInterventions: false,
+      supportsRepeatedRuns: false
+    },
+    reproduction: {
+      method: "normalized-exact",
+      reproduced: true,
+      observedAnswer: "You live in San Francisco.",
+      replayedAnswer: "You live in San Francisco."
     },
     caveat: "Controlled replay; retrieval was not rerun.",
     provider: { id: "demo", model: "fixture-model" }

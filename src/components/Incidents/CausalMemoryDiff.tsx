@@ -234,8 +234,8 @@ function BaselineReproduction({ result }: { result: MemoryPolicyReplayResult }) 
         <strong>{reproduced ? "Baseline reproduced" : "Baseline not reproduced"}</strong>
         <p>
           {reproduced
-            ? "The replayed baseline matched the observed answer before treatment comparison."
-            : "The replayed baseline did not match the observed answer. Treatment differences cannot be attributed to the policy change alone."}
+            ? "The replayed baseline matched the captured memory-decision stages, policy identity, executor identity, and answer before treatment comparison."
+            : "The replayed baseline did not match the captured decision process or execution identity. Treatment differences cannot be attributed to the policy change alone."}
         </p>
         {!reproduced ? (
           <dl>

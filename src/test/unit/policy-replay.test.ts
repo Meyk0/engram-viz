@@ -1,9 +1,10 @@
-import type { MemoryInterventionV2 } from "@engramviz/core";
+import { createHash } from "node:crypto";
+import type { MemoryDecisionRunV3, MemoryInterventionV2 } from "@engramviz/core";
 import { describe, expect, it } from "vitest";
 import { createSampleMemoryIncidentCase } from "@/lib/lab/sample-incident";
 import { memoryDecisionRunFromIncident } from "@/lib/reliability/from-incident";
 import { buildMemoryDecisionDiff } from "@/lib/reliability/diff";
-import { fingerprintMemoryDecisionRun } from "@/lib/reliability/fingerprint";
+import { canonicalJson, fingerprintMemoryDecisionRun } from "@/lib/reliability/fingerprint";
 import { runDeterministicPolicyReplay } from "@/lib/reliability/policy-replay";
 import {
   answerLocationQuestion,
@@ -12,7 +13,12 @@ import {
 
 describe("deterministic memory policy replay", () => {
   it("reproduces the observed baseline before verifying a treatment", () => {
-    const result = createStaleLocationPolicyReplay();
+    const baseline = replayableBaseline();
+    const result = runDeterministicPolicyReplay({
+      baseline,
+      intervention: currentFactIntervention(baseline.id, baseline.completedAt),
+      expectedAnswerFragments: ["Oakland"]
+    }, fixtureExecutor);
 
     expect(result.reproduction).toEqual({
       reproduced: true,
@@ -20,6 +26,25 @@ describe("deterministic memory policy replay", () => {
       replayedAnswer: "You live in San Francisco."
     });
     expect(result.verification.passed).toBe(true);
+  });
+
+  it("does not claim reproduction when the captured executor identity is different", () => {
+    const baseline = replayableBaseline();
+    baseline.metadata = {
+      ...(baseline.metadata ?? {}),
+      replayExecutor: { id: "another-executor", version: "1" }
+    };
+    const result = runDeterministicPolicyReplay({
+      baseline,
+      intervention: currentFactIntervention(baseline.id, baseline.completedAt),
+      expectedAnswerFragments: ["Oakland"]
+    }, fixtureExecutor);
+
+    expect(result.reproduction.reproduced).toBe(false);
+    expect(result.verification.passed).toBe(false);
+    expect(result.verification.failures).toContain(
+      "The replay executor identity does not match the captured answer provider."
+    );
   });
 
   it("reruns state, retrieval policy, selection, context, and answer", () => {
@@ -61,6 +86,7 @@ describe("deterministic memory policy replay", () => {
     baseline.context.loadedIds = [stale.id];
     baseline.context.orderedIds = [stale.id];
     baseline.answer.content = "You live in Chicago.";
+    declareFixtureExecutor(baseline);
     const intervention = currentFactIntervention(baseline.id, baseline.completedAt);
 
     const result = runDeterministicPolicyReplay(
@@ -75,6 +101,7 @@ describe("deterministic memory policy replay", () => {
 
   it("does not mutate the captured source run", () => {
     const baseline = memoryDecisionRunFromIncident(createSampleMemoryIncidentCase());
+    declareFixtureExecutor(baseline);
     const before = structuredClone(baseline);
 
     runDeterministicPolicyReplay(
@@ -128,6 +155,7 @@ describe("deterministic memory policy replay", () => {
 
   it("maps a replacement memory through retrieval and context by explicit operation", () => {
     const baseline = memoryDecisionRunFromIncident(createSampleMemoryIncidentCase());
+    declareFixtureExecutor(baseline);
     const stale = baseline.memoryState.before[0]!;
     const replacement = {
       ...structuredClone(stale),
@@ -187,6 +215,169 @@ describe("deterministic memory policy replay", () => {
     expect(diff.firstIncomparableStage).toBe("retrieval");
     expect(diff.earliestDivergence).toBeUndefined();
   });
+
+  it("does not treat the same answer with a different selection as reproduction", () => {
+    const baseline = replayableBaseline();
+    const currentId = baseline.retrieval.candidates[1]!.memoryId;
+    baseline.retrieval.selectedIds = [currentId];
+    baseline.context.loadedIds = [currentId];
+    baseline.context.orderedIds = [currentId];
+    for (const candidate of baseline.retrieval.candidates) {
+      candidate.selected = candidate.memoryId === currentId;
+      candidate.loaded = candidate.memoryId === currentId;
+    }
+    baseline.answer.content = "Same answer.";
+    const constantExecutor = {
+      ...fixtureExecutor,
+      generateAnswer: () => "Same answer."
+    };
+
+    const result = runDeterministicPolicyReplay({
+      baseline,
+      intervention: {
+        format: "engram.memory-intervention",
+        version: 2,
+        id: "no-effective-policy-change",
+        targetRunId: baseline.id,
+        label: "Exercise baseline comparison",
+        rationale: "The replay must compare decisions, not only words.",
+        operations: [{
+          id: "keep-expired",
+          type: "policy_rule",
+          rule: "exclude_expired",
+          enabled: false,
+          reason: "No source memory is expired."
+        }],
+        createdAt: baseline.completedAt
+      }
+    }, constantExecutor);
+
+    expect(result.reproduction.replayedAnswer).toBe(result.reproduction.observedAnswer);
+    expect(result.reproduction.reproduced).toBe(false);
+    expect(result.verification.failures).toContain(
+      "The replay baseline did not reproduce every comparable memory-decision stage."
+    );
+  });
+
+  it("keeps a later answer change indeterminate when retrieval evidence is missing first", () => {
+    const baseline = replayableBaseline();
+    const treatment = structuredClone(baseline);
+    treatment.id = "later-answer-change";
+    baseline.evidenceCoverage.retrieval = "unavailable";
+    treatment.evidenceCoverage.retrieval = "unavailable";
+    treatment.answer.content = "A different answer.";
+
+    const diff = buildMemoryDecisionDiff(baseline, treatment);
+
+    expect(diff.status).toBe("indeterminate");
+    expect(diff.firstIncomparableStage).toBe("retrieval");
+    expect(diff.earliestDivergence).toBeUndefined();
+    expect(diff.answerChanged).toBe(true);
+  });
+
+  it("rejects diffs between different turns or starting states", () => {
+    const baseline = replayableBaseline();
+    const anotherTurn = structuredClone(baseline);
+    anotherTurn.id = "another-turn";
+    anotherTurn.turnId = "turn-2";
+
+    expect(() => buildMemoryDecisionDiff(baseline, anotherTurn)).toThrow(/different turnId/i);
+
+    const anotherState = structuredClone(baseline);
+    anotherState.id = "another-state";
+    anotherState.memoryState.before[0]!.status = "quarantined";
+    expect(() => buildMemoryDecisionDiff(baseline, anotherState)).toThrow(/different starting memory states/i);
+  });
+
+  it("canonicalizes set-like collections before comparing runs", () => {
+    const baseline = replayableBaseline();
+    const treatment = structuredClone(baseline);
+    treatment.id = "reordered-evidence";
+    treatment.memoryState.before.reverse();
+    treatment.memoryState.after.reverse();
+    treatment.retrieval.candidates.reverse();
+
+    const diff = buildMemoryDecisionDiff(baseline, treatment);
+
+    expect(diff.status).toBe("none");
+    expect(diff.stages.every((stage) => !stage.changed)).toBe(true);
+  });
+
+  it("fingerprints canonical UTF-8 bytes with versioned SHA-256", () => {
+    const run = replayableBaseline();
+    run.metadata = { unicode: "München 🧠", nested: { z: 1, a: 2 } };
+    const expected = createHash("sha256").update(canonicalJson(run), "utf8").digest("hex");
+
+    expect(fingerprintMemoryDecisionRun(run)).toBe(`sha256-v1:${expected}`);
+    expect(canonicalJson({ z: 1, a: 2 })).toBe(canonicalJson({ a: 2, z: 1 }));
+  });
+
+  it("uses memory ID as the final deterministic ranking tie-break", () => {
+    const baseline = replayableBaseline();
+    const [first, second] = baseline.retrieval.candidates;
+    first!.score = 0.8;
+    second!.score = 0.8;
+    first!.memory!.createdAt = baseline.startedAt;
+    second!.memory!.createdAt = baseline.startedAt;
+    baseline.memoryState.before[0]!.createdAt = baseline.startedAt;
+    baseline.memoryState.before[1]!.createdAt = baseline.startedAt;
+    baseline.memoryState.after = structuredClone(baseline.memoryState.before);
+
+    const result = runDeterministicPolicyReplay({
+      baseline,
+      intervention: {
+        format: "engram.memory-intervention",
+        version: 2,
+        id: "tie-break",
+        targetRunId: baseline.id,
+        label: "Tie break",
+        rationale: "Ranking must be portable.",
+        operations: [{
+          id: "disable-expiry",
+          type: "policy_rule",
+          rule: "exclude_expired",
+          enabled: false,
+          reason: "Keep all candidates eligible."
+        }],
+        createdAt: baseline.completedAt
+      }
+    }, fixtureExecutor);
+
+    expect(result.treatment.retrieval.selectedIds).toEqual([
+      [first!.memoryId, second!.memoryId].sort()[0]
+    ]);
+  });
+
+  it("rejects unknown and cross-owner state references", () => {
+    const baseline = replayableBaseline();
+    baseline.userId = "user-1";
+    for (const memory of baseline.memoryState.before) memory.owner = { type: "user", id: "user-1" };
+    baseline.memoryState.after = structuredClone(baseline.memoryState.before);
+
+    const unknown = currentFactIntervention(baseline.id, baseline.completedAt);
+    unknown.operations = [{
+      id: "unknown",
+      type: "memory_restore",
+      memoryId: "missing",
+      reason: "Invalid reference."
+    }];
+    expect(() => runDeterministicPolicyReplay({ baseline, intervention: unknown }, fixtureExecutor))
+      .toThrow(/unknown memory missing/i);
+
+    const replacement = structuredClone(baseline.memoryState.before[0]!);
+    replacement.id = "foreign-replacement";
+    replacement.owner = { type: "user", id: "user-2" };
+    const foreign = currentFactIntervention(baseline.id, baseline.completedAt);
+    foreign.operations = [{
+      id: "foreign",
+      type: "memory_replace",
+      memoryId: baseline.memoryState.before[0]!.id,
+      replacement,
+      reason: "Invalid owner."
+    }];
+    expect(() => runDeterministicPolicyReplay({ baseline, intervention: foreign }, fixtureExecutor))
+      .toThrow(/different owner|another user/i);
+  });
 });
 
 function currentFactIntervention(targetRunId: string, createdAt: string): MemoryInterventionV2 {
@@ -223,3 +414,16 @@ const fixtureExecutor = {
   deterministic: true as const,
   generateAnswer: answerLocationQuestion
 };
+
+function replayableBaseline(): MemoryDecisionRunV3 {
+  const baseline = memoryDecisionRunFromIncident(createSampleMemoryIncidentCase());
+  declareFixtureExecutor(baseline);
+  return baseline;
+}
+
+function declareFixtureExecutor(baseline: MemoryDecisionRunV3) {
+  baseline.metadata = {
+    ...(baseline.metadata ?? {}),
+    replayExecutor: { id: fixtureExecutor.id, version: fixtureExecutor.version }
+  };
+}

@@ -18,12 +18,22 @@ export function buildMemoryDecisionDiff(
   baseline: MemoryDecisionRunV3,
   treatment: MemoryDecisionRunV3
 ): MemoryDecisionDiff {
+  assertComparableRunIdentity(baseline, treatment);
   const stages = stageOrder.map((stage) => compareStage(stage, baseline, treatment));
-  const earliestDivergence = stages.find((stage) => stage.comparable && stage.changed)?.stage;
-  const firstIncomparableStage = stages.find((stage) => !stage.comparable)?.stage;
-  const status = earliestDivergence
-    ? "found"
-    : firstIncomparableStage ? "indeterminate" : "none";
+  const firstChangedIndex = stages.findIndex((stage) => stage.comparable && stage.changed);
+  const firstIncomparableIndex = stages.findIndex((stage) => !stage.comparable);
+  const changedAfterEvidenceGap = firstChangedIndex >= 0
+    && firstIncomparableIndex >= 0
+    && firstIncomparableIndex < firstChangedIndex;
+  const indeterminate = firstIncomparableIndex >= 0
+    && (firstChangedIndex < 0 || changedAfterEvidenceGap);
+  const earliestDivergence = firstChangedIndex >= 0 && !indeterminate
+    ? stages[firstChangedIndex]?.stage
+    : undefined;
+  const firstIncomparableStage = indeterminate
+    ? stages[firstIncomparableIndex]?.stage
+    : undefined;
+  const status = indeterminate ? "indeterminate" : earliestDivergence ? "found" : "none";
   return {
     format: "engram.memory-decision-diff",
     version: 1,
@@ -61,8 +71,8 @@ function compareStage(
       return stageDiff(stage, true, changed, changed
         ? `Memory status changed: ${describeStatusChanges(baseline, treatment)}.`
         : "Memory state remained unchanged.",
-      baseline.memoryState.after.map((memory) => memory.id),
-      treatment.memoryState.after.map((memory) => memory.id));
+      sortedUnique(baseline.memoryState.after.map((memory) => memory.id)),
+      sortedUnique(treatment.memoryState.after.map((memory) => memory.id)));
     }
     case "retrieval": {
       const before = candidateSignature(baseline);
@@ -74,25 +84,27 @@ function compareStage(
       eligibleIds(baseline), eligibleIds(treatment));
     }
     case "selection": {
-      const changed = signature(baseline.retrieval.selectedIds) !== signature(treatment.retrieval.selectedIds);
+      const baselineIds = sortedUnique(baseline.retrieval.selectedIds);
+      const treatmentIds = sortedUnique(treatment.retrieval.selectedIds);
+      const changed = signature(baselineIds) !== signature(treatmentIds);
       return stageDiff(stage, true, changed, changed
-        ? `Selection changed from ${list(baseline.retrieval.selectedIds)} to ${list(treatment.retrieval.selectedIds)}.`
+        ? `Selection changed from ${list(baselineIds)} to ${list(treatmentIds)}.`
         : "The same memories were selected.",
-      baseline.retrieval.selectedIds, treatment.retrieval.selectedIds);
+      baselineIds, treatmentIds);
     }
     case "active_context": {
-      const changed = signature(baseline.context.orderedIds) !== signature(treatment.context.orderedIds);
+      const changed = activeContextSignature(baseline) !== activeContextSignature(treatment);
       return stageDiff(stage, true, changed, changed
         ? `Active context changed from ${list(baseline.context.orderedIds)} to ${list(treatment.context.orderedIds)}.`
         : "The same memories reached active context.",
-      baseline.context.loadedIds, treatment.context.loadedIds);
+      sortedUnique(baseline.context.loadedIds), sortedUnique(treatment.context.loadedIds));
     }
     case "answer": {
       const changed = baseline.answer.content !== treatment.answer.content;
       return stageDiff(stage, true, changed, changed
         ? "The answer changed after the memory-policy intervention."
         : "The answer remained unchanged.",
-      baseline.context.loadedIds, treatment.context.loadedIds);
+      sortedUnique(baseline.context.loadedIds), sortedUnique(treatment.context.loadedIds));
     }
   }
 }
@@ -115,29 +127,43 @@ function memoryStateSignature(memories: MemoryDecisionRunV3["memoryState"]["afte
     value: memory.value,
     subject: memory.subject,
     status: memory.status,
+    tier: memory.tier,
+    scope: memory.scope,
+    provider: memory.provider,
+    storeId: memory.storeId,
+    createdAt: memory.createdAt,
+    updatedAt: memory.updatedAt,
     validFrom: memory.validFrom,
     validTo: memory.validTo,
-    supersedes: memory.supersedes,
-    supersededBy: memory.supersededBy
-  })));
+    supersedes: memory.supersedes ? sortedUnique(memory.supersedes) : undefined,
+    supersededBy: memory.supersededBy,
+    owner: memory.owner,
+    namespace: memory.namespace,
+    metadata: memory.metadata
+  })).sort((left, right) => compareIds(left.id, right.id)));
 }
 
 function candidateSignature(run: MemoryDecisionRunV3) {
   return canonicalJson({
-    policy: run.retrieval.policy,
+    policy: {
+      id: run.retrieval.policy.id,
+      version: run.retrieval.policy.version,
+      fingerprint: run.retrieval.policy.fingerprint,
+      configuration: run.retrieval.policy.configuration,
+      corpus: run.retrieval.policy.corpus
+    },
     candidates: run.retrieval.candidates.map((candidate) => ({
       memoryId: candidate.memoryId,
       eligible: candidate.eligible,
       rank: candidate.rank,
       score: candidate.score,
-      scoreComponents: candidate.scoreComponents,
-      filterReason: candidate.filterReason
-    }))
+      scoreComponents: candidate.scoreComponents
+    })).sort((left, right) => compareIds(left.memoryId, right.memoryId))
   });
 }
 
 function eligibleIds(run: MemoryDecisionRunV3) {
-  return run.retrieval.candidates.filter((candidate) => candidate.eligible).map((candidate) => candidate.memoryId);
+  return sortedUnique(run.retrieval.candidates.filter((candidate) => candidate.eligible).map((candidate) => candidate.memoryId));
 }
 
 function describeStatusChanges(baseline: MemoryDecisionRunV3, treatment: MemoryDecisionRunV3) {
@@ -163,12 +189,50 @@ function stageComparable(
 }
 
 function stageMemoryIds(stage: MemoryDecisionStageKind, run: MemoryDecisionRunV3) {
-  if (stage === "memory_state") return run.memoryState.after.map((memory) => memory.id);
-  if (stage === "retrieval") return run.retrieval.candidates.map((candidate) => candidate.memoryId);
-  if (stage === "selection") return run.retrieval.selectedIds;
-  return run.context.loadedIds;
+  if (stage === "memory_state") return sortedUnique(run.memoryState.after.map((memory) => memory.id));
+  if (stage === "retrieval") return sortedUnique(run.retrieval.candidates.map((candidate) => candidate.memoryId));
+  if (stage === "selection") return sortedUnique(run.retrieval.selectedIds);
+  return stage === "active_context" ? [...run.context.orderedIds] : sortedUnique(run.context.loadedIds);
 }
 
 function list(values: string[]) {
   return values.length ? values.join(", ") : "none";
+}
+
+function activeContextSignature(run: MemoryDecisionRunV3) {
+  return canonicalJson({
+    loadedIds: sortedUnique(run.context.loadedIds),
+    orderedIds: run.context.orderedIds,
+    truncatedIds: sortedUnique(run.context.truncatedIds),
+    forcedIds: sortedUnique(run.context.forcedIds)
+  });
+}
+
+function assertComparableRunIdentity(
+  baseline: MemoryDecisionRunV3,
+  treatment: MemoryDecisionRunV3
+) {
+  const identityFields = ["traceId", "turnId", "sessionId", "projectId", "userId", "startedAt", "input"] as const;
+  for (const field of identityFields) {
+    if (baseline[field] !== treatment[field]) {
+      throw new Error(`Cannot compare memory decision runs with different ${field}.`);
+    }
+  }
+  if (baseline.retrieval.query !== treatment.retrieval.query) {
+    throw new Error("Cannot compare memory decision runs with different retrieval queries.");
+  }
+  if (canonicalJson(baseline.retrieval.policy.corpus ?? null) !== canonicalJson(treatment.retrieval.policy.corpus ?? null)) {
+    throw new Error("Cannot compare memory decision runs from different memory corpora.");
+  }
+  if (memoryStateSignature(baseline.memoryState.before) !== memoryStateSignature(treatment.memoryState.before)) {
+    throw new Error("Cannot compare memory decision runs from different starting memory states.");
+  }
+}
+
+function sortedUnique(values: readonly string[]) {
+  return [...new Set(values)].sort(compareIds);
+}
+
+function compareIds(left: string, right: string) {
+  return left < right ? -1 : left > right ? 1 : 0;
 }
