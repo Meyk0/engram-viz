@@ -86,15 +86,15 @@ test("repairs the five-step fixture incident without calling an Engram API", asy
   await next.click();
   await expect(page.locator(".public-demo")).toHaveAttribute("data-step", "repair");
   await expect(next).toBeDisabled();
-  await page.getByRole("button", { name: "Run deterministic repair" }).click();
-  await expect(page.getByText("Verified against the incident expectation")).toBeVisible();
+  await page.getByRole("button", { name: "Run policy replay" }).click();
+  await expect(page.getByText("Baseline reproduced; treatment passed")).toBeVisible();
   await expect(page.getByText("You live in Oakland.", { exact: true })).toBeVisible();
   await expect(next).toBeEnabled();
   await next.click();
   await expect(page.locator(".public-demo")).toHaveAttribute("data-step", "test");
   const regressionDownload = page.waitForEvent("download");
-  await page.getByRole("button", { name: "Download regression JSON" }).click();
-  expect((await regressionDownload).suggestedFilename()).toBe("engram-stale-location.engram-test.json");
+  await page.getByRole("button", { name: "Download executable regression" }).click();
+  expect((await regressionDownload).suggestedFilename()).toBe("engram-stale-location-v2.engram-test.json");
 
   await page.getByRole("button", { name: "Copy local demo command" }).click();
   await expect(page.getByRole("button", { name: "Copied" })).toBeVisible();

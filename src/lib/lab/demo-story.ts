@@ -92,8 +92,8 @@ export function createPublicDemoStory(): PublicDemoStory {
     {
       name: "Correct",
       eyebrow: "New evidence",
-      title: "Record the Oakland correction",
-      description: "A newer Oakland fact sits beside the original; history stays visible.",
+      title: "Record the correction, but keep stale state",
+      description: "Oakland is stored, but the older San Francisco memory incorrectly remains active.",
       provenance: "Recorded fixture history",
       evidence: currentMemory.sourceText ?? currentMemory.text,
       regionLabel: "Hippocampus / update analogy",
