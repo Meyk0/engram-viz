@@ -36,10 +36,22 @@ cannot support incident replay.
 
 ## Replay boundary
 
-Replay capabilities are explicit. The reference policy replay reuses the recorded candidate set, then reruns
-state resolution, eligibility, ranking, selection, context assembly, and a deterministic fixture answer. It
-does not regenerate provider candidates or establish hidden model causality. An integration may claim a
-stronger replay only when its executor actually controls and reports those stages.
+Replay capabilities are explicit. Incidents without a compatible executor use
+the reference context-only fallback: it changes the branch-local context and
+renders a deterministic fixture answer without claiming to have rerun the
+agent.
+
+A compatible project executor can provide real agent replay. Engram first forks
+the captured checkpoint into isolated baseline and treatment runtimes. Both
+runs execute the project graph, retrieval, context assembly, and generation
+stages declared by the executor manifest. Engram accepts the comparison only
+when the untreated baseline reproduces the recorded answer, then reports the
+earliest comparable divergence.
+
+For LangGraph, `defineLangGraphExecutor` enforces declarations for isolated
+checkpoint state, isolated Store state, and side-effect handling before it
+invokes the graph. The application still owns the implementation of those
+isolated resources inside custom nodes.
 
 ## Regression boundary
 

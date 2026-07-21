@@ -13,7 +13,7 @@ npm install --save-dev @engramviz/cli
 | Command | Description |
 | --- | --- |
 | `engram init [--project name]` | Create local project identity and capture credentials |
-| `engram dev [--port 3100]` | Start the packaged Engram Studio |
+| `engram dev [--port 3100] [--executor module]` | Start Studio and optionally attach a real replay executor |
 | `engram demo stale-location` | Start Studio and record the flagship stale-memory incident |
 | `engram env [--format shell\|json]` | Print agent-safe capture environment values |
 | `engram run [--port 3100] -- <command>` | Run a child process with capture configured |
@@ -55,6 +55,27 @@ Starts Studio at `http://localhost:3100/?mode=incidents` by default:
 npx --yes @engramviz/cli dev
 npx --yes @engramviz/cli dev --port 3200
 ```
+
+Attach a project-owned replay executor when incidents should rerun the actual
+agent pipeline instead of using the built-in context-only fallback:
+
+```bash
+npx --yes @engramviz/cli dev \
+  --executor ./engram.executor.mjs \
+  --executor-port 3101
+```
+
+The CLI loads the module's default `MemoryReplayExecutor` export, starts an
+authenticated loopback server, and passes its URL and bearer token to Studio as
+server-only environment variables. The browser never receives the token or
+imports the executor module.
+
+<Warning>
+An executor must construct isolated checkpoint and memory-store runtimes. Never
+connect a replay executor directly to a mutable production Store or allow live
+side effects unless its manifest and implementation explicitly support that
+mode.
+</Warning>
 
 ## `engram env`
 

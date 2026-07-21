@@ -1,20 +1,26 @@
 ---
-title: "LangGraph memory"
-description: "Run a real StateGraph with an instrumented long-term Store."
+title: "LangGraph checkpoint replay"
+description: "Capture a stale-memory failure, fork its checkpoint, and replay a repair through a real StateGraph."
 icon: "workflow"
 ---
 
-The repository includes a deterministic LangGraph example at
-`examples/langgraph-memory`. It uses a real `StateGraph` and `InMemoryStore`
-without a live model or paid API.
+The repository includes a deterministic incident at
+`examples/langgraph-memory`. It uses a real `StateGraph`, `MemorySaver`, and
+`InMemoryStore` without a live model or paid API.
 
-The first turn writes `User lives in Oakland.` to LangGraph Store. The second
-turn searches that Store and explicitly reports the result copied into active
-context. Studio therefore shows three distinct facts:
+The user first says they live in San Francisco, then corrects the city to
+Oakland. The captured failing turn intentionally retrieves the superseded San
+Francisco memory. Its checkpoint records the graph state immediately before
+retrieval.
 
-1. LangGraph persisted a durable Store item.
-2. A later turn retrieved that item as a candidate.
-3. The graph node loaded that item into the answer context.
+The executor forks that checkpoint twice:
+
+1. The baseline reruns retrieval and generation with the original policy and
+   must reproduce San Francisco.
+2. The treatment applies the proposed memory-status intervention, reruns the
+   same nodes, and selects Oakland.
+3. Engram compares the observed stages and reports selection as the earliest
+   divergence.
 
 ## Run it
 
@@ -23,7 +29,8 @@ From the Engram repository:
 ```bash
 npm install
 npm run engram -- init --project langgraph-example
-npm run engram -- dev
+npm run engram -- dev \
+  --executor examples/langgraph-memory/engram.executor.mjs
 ```
 
 In another terminal:
@@ -33,17 +40,28 @@ eval "$(npx --yes @engramviz/cli env --format shell)"
 node examples/langgraph-memory/demo.mjs
 ```
 
-Open `http://localhost:3100/?mode=incidents` and inspect the two captured turns.
+Open `http://localhost:3100/?mode=incidents`, select the failing city answer,
+enter `Oakland` as expected evidence, and run the proposed repair. The Replay
+step should say **Real agent replay**, show `selection` as the earliest
+divergence, and pass the answer check.
 
-## What the example does not claim
+Run the complete executor contract without Studio:
 
-The example does not use a checkpointer and does not visualize graph snapshots
-as user memory. LangGraph checkpoints represent thread execution state;
-LangGraph Store is the durable cross-thread boundary instrumented here.
+```bash
+npm run test:example-langgraph
+```
 
-The answer is deterministic so the normal test suite remains free of live LLM
-calls. Replace the node's answer logic with the application's real model call
-when integrating Engram into an agent.
+## Isolation boundary
+
+Each replay variant receives a fresh `MemorySaver`, `InMemoryStore`, and thread
+ID. The executor supports only `blocked` side effects. A production integration
+must create equivalent replay-safe copies of its checkpointer and Store and
+must prevent arbitrary graph nodes from writing to production systems.
+
+The graph answer is deterministic so normal tests remain free of paid calls.
+Replace that node with the application's real model boundary only after model
+identity, sampling, tools, and side effects are captured or controlled well
+enough for the replay claim you want to make.
 
 <Card title="Read the adapter guide" icon="book-open" href="/instrument/langgraph">
   Configure selection, update classification, custom content mapping, and explicit context loading.

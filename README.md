@@ -24,8 +24,9 @@ The included reference incident models a common production failure:
 4. The agent answers with the stale city.
 5. Engram reconstructs the memory state, candidates, selected memory, loaded context, and answer.
 6. The engineer branches from the original checkpoint and prefers the current memory.
-7. Engram replays the frozen turn and verifies that the answer and retrieval behavior now pass.
-8. The repair is saved as `*.engram-test.json` and run against future agent versions.
+7. A project-owned executor forks that checkpoint and reruns the real agent pipeline for both the untreated baseline and the repair.
+8. Engram verifies that the baseline reproduced, finds the earliest observable divergence, and checks that the answer and retrieval behavior now pass.
+9. The repair is saved as `*.engram-test.json` and run against future agent versions.
 
 That workflow is intentionally narrower than general LLM observability. Engram complements tracing and memory platforms by specializing in memory-dependent failures and turning a diagnosis into an executable reliability check.
 
@@ -71,7 +72,7 @@ The repository contains six distributable workspace packages:
 - `@engramviz/core`: provider-neutral telemetry and turn contracts.
 - `@engramviz/sdk`: local capture client and turn lifecycle.
 - `@engramviz/adapter-mem0`: evidence-preserving Mem0 wrapper.
-- `@engramviz/adapter-langgraph`: evidence-preserving LangGraph Store wrapper.
+- `@engramviz/adapter-langgraph`: evidence-preserving Store wrapper and isolated checkpoint replay helper.
 - `@engramviz/studio`: prebuilt standalone local workbench and visual assets.
 - `@engramviz/cli`: local Studio, import, diagnostics, and regression commands.
 
@@ -149,6 +150,20 @@ must call `turn.load(...)` for the memories actually copied into model context.
 See the [LangGraph adapter guide](docs/instrument/langgraph.mdx) and
 [runnable example](examples/langgraph-memory).
 
+To replay a LangGraph incident through the graph itself, start Studio with a
+project-owned executor:
+
+```bash
+npx --yes @engramviz/cli dev \
+  --executor ./engram.executor.mjs
+```
+
+The executor creates fresh baseline and treatment runtimes, restores the
+captured graph state at an explicit node boundary, applies the intervention to
+the treatment state, and invokes the downstream graph nodes. Studio receives
+only the validated manifest and replay result; the local bearer token remains
+server-side.
+
 The opt-in [`examples/mem0-openai`](examples/mem0-openai) example exercises the real Mem0 OSS client and OpenAI Responses API with developer-owned credentials. Normal tests never make those paid calls.
 
 ## Product Surfaces
@@ -210,7 +225,9 @@ Local append-only capture store
 Normalized trace -> checkpoint -> incident
         |
         +--> branch-local intervention
-        +--> controlled replay
+        +--> authenticated local executor
+        +--> isolated baseline + treatment graph runs
+        +--> earliest observable divergence
         +--> portable .engram-test.json
 ```
 
@@ -234,7 +251,10 @@ npm run verify:public
 npm run smoke
 ```
 
-CI runs the same checks, including sharded Chromium smoke tests. The checked-in regression harness validates repository behavior; production equivalence exists only when a project supplies an executor that calls its real agent stack.
+CI runs the same checks, including sharded Chromium smoke tests. The checked-in
+LangGraph example executes a real `StateGraph` from an isolated checkpoint.
+Production equivalence still exists only when a project supplies an executor
+that reconstructs its own agent, memory Store, tools, and side-effect boundary.
 
 ## License and Credit
 

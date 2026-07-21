@@ -1,6 +1,6 @@
 ---
 title: "LangGraph Store"
-description: "Capture LangGraph long-term memory operations without confusing them with checkpoint state."
+description: "Capture LangGraph memory evidence and replay incidents from isolated graph checkpoints."
 icon: "workflow"
 ---
 
@@ -101,6 +101,88 @@ It intentionally does not turn every checkpoint value into a memory event.
 Doing so would make transient execution state look like a durable user fact.
 Instrument an explicit application boundary separately if checkpoint state is
 part of the memory behavior being investigated.
+
+## Capture a replay boundary
+
+For an incident to rerun the actual graph, capture state at an explicit node
+boundary and attach it to the Engram turn metadata:
+
+```ts
+import {
+  captureLangGraphReplayCheckpoint,
+  langGraphReplayMetadata
+} from "@engramviz/adapter-langgraph";
+
+const config = { configurable: { thread_id: turnId } };
+const seeded = await graph.updateState(config, initialState, "entry");
+const checkpoint = await captureLangGraphReplayCheckpoint(
+  graph,
+  seeded,
+  { asNode: "entry" }
+);
+
+await engram.withTurn({
+  input: question,
+  metadata: langGraphReplayMetadata(checkpoint)
+}, () => graph.invoke(null, seeded));
+```
+
+`asNode` is required because replay must resume from a known graph boundary.
+Engram stores JSON-compatible state values, not the checkpointer implementation
+or arbitrary closures.
+
+## Define the real replay executor
+
+Export a provider-neutral executor from a local module:
+
+```ts
+import { defineLangGraphExecutor } from "@engramviz/adapter-langgraph";
+
+export default defineLangGraphExecutor({
+  id: "support-agent",
+  version: "1.0.0",
+  supportedSideEffectModes: ["blocked"],
+
+  async createRuntime({ variant, sideEffectMode }) {
+    const store = await cloneReplayStore();
+    return {
+      graph: buildGraph({ store, tools: replaySafeTools }),
+      config: { configurable: { thread_id: `replay-${variant}` } },
+      isolation: {
+        checkpoint: "isolated",
+        memoryStore: "isolated",
+        sideEffects: sideEffectMode
+      }
+    };
+  },
+
+  applyIntervention({ checkpoint, intervention }) {
+    return applyMemoryPolicy(checkpoint.values, intervention);
+  },
+
+  observe({ finalState, source, variant }) {
+    return mapGraphStateToDecisionRun(finalState, source, variant);
+  }
+});
+```
+
+Start Studio with the module:
+
+```bash
+npx --yes @engramviz/cli dev --executor ./engram.executor.mjs
+```
+
+Engram runs an untreated baseline first and rejects a causal comparison when it
+cannot reproduce the captured answer. It then applies the intervention only to
+the treatment fork, reruns the graph, and compares memory state, retrieval,
+selection, active context, and answer.
+
+<Warning>
+The executor checks the isolation declarations, but your application must make
+them true. Clone or reconstruct checkpoint and Store state for each variant.
+Block, record, or safely sandbox tool and network effects. Never replay against
+a mutable production Store.
+</Warning>
 
 <CardGroup cols={2}>
   <Card title="Run the LangGraph example" icon="play" href="/examples/langgraph-memory">

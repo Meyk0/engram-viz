@@ -1,25 +1,32 @@
-# LangGraph long-term memory example
+# LangGraph checkpoint replay example
 
-This deterministic example runs a real LangGraph `StateGraph` with an
-instrumented `InMemoryStore`. It stores a durable city memory on one turn,
-retrieves it on the next turn, and explicitly reports which result was copied
-into active model context.
+This deterministic example captures Engram's flagship stale-memory incident
+through a real LangGraph `StateGraph`, `MemorySaver`, and `InMemoryStore`. Its
+executor forks the captured checkpoint into isolated baseline and treatment
+runs, reruns retrieval plus answer generation, and proves that selecting the
+current memory changes the answer from San Francisco to Oakland.
+
+Start Studio with the project executor:
 
 ```bash
 npm install
 npm run engram -- init --project langgraph-example
-npm run engram -- dev
+npm run engram -- dev --executor examples/langgraph-memory/engram.executor.mjs
 ```
 
-In another terminal, load the generated environment and run:
+In another terminal, capture the incident:
 
 ```bash
-eval "$(npx engram env --format shell)"
-node examples/langgraph-memory/demo.mjs
+npm run engram -- run -- node examples/langgraph-memory/demo.mjs
 ```
 
-Open `http://localhost:3100/?mode=incidents` to inspect the two turns.
+Open `http://localhost:3100`, select the captured question, enter `Oakland` as
+the expected answer, then follow **Diagnose -> Intervene -> Replay -> Prove**.
+The Replay step should say **Real agent replay**, report selection as the
+earliest divergence, and export a v2 regression artifact.
 
-The adapter instruments LangGraph's cross-thread `Store` interface. It does not
-translate checkpointer snapshots into durable memories because checkpoints are
-thread execution state, not evidence that the agent stored a user memory.
+The checkpoint, Store, and side effects are isolated for each replay. The
+adapter refuses runtimes that do not declare those boundaries. In a production
+integration, replace `InMemoryStore` and `MemorySaver` with replay-safe copies
+of the stores your graph uses; never point the executor at a mutable production
+Store.

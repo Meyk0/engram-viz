@@ -34,9 +34,10 @@ and `npm run build:public`.
 - **Traces** plays recorded or live agent traces. Only explicit memory events
   animate the brain; ordinary model, tool, handoff, and guardrail spans remain
   visible as execution evidence.
-- **Incidents** works from immutable checkpoints. A user can branch from a
-  checkpoint, quarantine or replace memories, replay the affected answer, and
-  compare the resulting context and output.
+- **Incidents** is the default engineering workspace. It presents the recorded
+  run, earliest supported divergence, evidence, intervention, replay, and
+  regression in one sequence. The synchronized brain is an optional evidence
+  rail rather than the primary control surface.
 
 The modes share one canonical trace and checkpoint model. They are different
 views over the same evidence, not separate simulations.
@@ -98,6 +99,18 @@ valid only when that baseline reproduces the recorded behavior. The causal diff
 then reports the earliest comparable divergence across memory state, retrieval,
 selection, active context, and answer. A missing or incomparable stage is shown
 as indeterminate, not silently promoted into a cause.
+
+The local executor protocol is provider-neutral. A manifest declares the
+framework, replay levels, rerun stages, determinism, intervention support, and
+side-effect modes. `engram dev --executor ./engram.executor.mjs` serves that
+executor on an authenticated loopback endpoint. Studio proxies replay requests
+server-side so executor code and credentials never enter the browser.
+
+The LangGraph helper restores captured state with `updateState(..., asNode)`,
+then calls the downstream graph for separate baseline and treatment runs. Each
+runtime must declare isolated checkpoint and Store state. Tool, network, and
+other side-effect isolation remains application-owned because Engram cannot
+safely infer what arbitrary graph nodes do.
 
 ### Regression
 
