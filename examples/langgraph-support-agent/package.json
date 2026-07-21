@@ -1,0 +1,20 @@
+{
+  "name": "engram-langgraph-support-agent-example",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node run.mjs",
+    "verify": "ENGRAM_EXAMPLE_OFFLINE=true node verify.mjs"
+  },
+  "dependencies": {
+    "@engramviz/adapter-langgraph": "file:../../packages/adapter-langgraph",
+    "@engramviz/core": "file:../../packages/core",
+    "@engramviz/sdk": "file:../../packages/sdk",
+    "@langchain/langgraph": "^1.4.8",
+    "openai": "^6.47.0"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
