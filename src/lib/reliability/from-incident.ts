@@ -1,10 +1,12 @@
 import type {
   MemoryDecisionEvidenceLevel,
   MemoryDecisionMemory,
-  MemoryDecisionRunV3
+  MemoryDecisionRunV3,
+  MemoryInterventionV2,
+  MemoryPolicyReplayRequest
 } from "@engramviz/core";
 import { parseMemoryDecisionRunV3 } from "@engramviz/core";
-import type { MemoryIncident } from "@/lib/incidents/types";
+import type { MemoryIncident, MemoryIncidentIntervention } from "@/lib/incidents/types";
 import type { EngramEvent, EngramMemory } from "@/types";
 
 export function memoryDecisionRunFromIncident(incident: MemoryIncident): MemoryDecisionRunV3 {
@@ -102,10 +104,80 @@ export function memoryDecisionRunFromIncident(incident: MemoryIncident): MemoryD
     },
     evidenceCoverage: coverage,
     metadata: {
+      ...(incident.replayMetadata ?? {}),
       incidentId: incident.id,
       diagnosis: incident.diagnosis.kind
     }
   });
+}
+
+export function memoryPolicyReplayRequestFromIncident(
+  incident: MemoryIncident,
+  intervention: MemoryIncidentIntervention
+): MemoryPolicyReplayRequest {
+  const baseline = memoryDecisionRunFromIncident(incident);
+  const operations: MemoryInterventionV2["operations"] = intervention.mutations.map((mutation) => {
+    if (mutation.type === "quarantine") {
+      return {
+        id: mutation.id,
+        type: "memory_status" as const,
+        memoryId: mutation.memoryId,
+        status: "quarantined" as const,
+        reason: mutation.reason
+      };
+    }
+    if (mutation.type === "restore") {
+      return {
+        id: mutation.id,
+        type: "memory_restore" as const,
+        memoryId: mutation.memoryId,
+        reason: mutation.reason
+      };
+    }
+    if (mutation.type === "include") {
+      return {
+        id: mutation.id,
+        type: "context_override" as const,
+        action: "include" as const,
+        memoryId: mutation.memoryId,
+        reason: mutation.reason
+      };
+    }
+    if (mutation.type === "supersede") {
+      return {
+        id: mutation.id,
+        type: "memory_status" as const,
+        memoryId: mutation.memoryId,
+        status: "superseded" as const,
+        supersededByMemoryId: mutation.supersededByMemoryId,
+        reason: mutation.reason
+      };
+    }
+    return {
+      id: mutation.id,
+      type: "memory_replace" as const,
+      memoryId: mutation.memoryId,
+      replacement: toDecisionMemory(mutation.replacement, "mapped"),
+      reason: mutation.reason
+    };
+  });
+  const policyIntervention: MemoryInterventionV2 = {
+    format: "engram.memory-intervention",
+    version: 2,
+    id: intervention.id,
+    targetRunId: baseline.id,
+    label: intervention.label,
+    rationale: intervention.reason,
+    operations,
+    createdAt: incident.occurredAt
+  };
+  return {
+    baseline,
+    intervention: policyIntervention,
+    ...(incident.expectedAnswer ? {
+      answerAssertion: { type: "contains_all", values: [incident.expectedAnswer] }
+    } : {})
+  };
 }
 
 function toDecisionMemory(

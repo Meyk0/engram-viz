@@ -459,7 +459,7 @@ export const memoryDecisionDiffSchema = z.object({
 export const memoryPolicyReplayResultSchema = z.object({
   format: z.literal("engram.memory-policy-replay"),
   version: z.literal(1),
-  level: z.literal("policy"),
+  level: z.enum(["context", "policy", "provider", "agent", "robustness"]),
   executor: z.object({
     id: z.string().min(1),
     version: z.string().min(1),

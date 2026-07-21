@@ -7,6 +7,7 @@ import type {
 } from "@/lib/lab/types";
 import type { MemoryRegressionArtifact } from "@/lib/regressions";
 import type { BrainRegion, EngramMemory } from "@/types";
+import type { JsonValue } from "@engramviz/core";
 
 export type IncidentEvidenceOrigin =
   | "observed"
@@ -86,6 +87,7 @@ export type MemoryIncident = {
   stages: MemoryIncidentStage[];
   evidence: MemoryIncidentEvidence[];
   diagnosis: MemoryIncidentDiagnosis;
+  replayMetadata?: Record<string, JsonValue>;
 };
 
 export type MemoryIncidentIntervention = {

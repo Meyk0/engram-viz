@@ -254,10 +254,44 @@ export type MemoryPolicyReplayRequest = {
   expectedAnswerFragments?: string[];
 };
 
+export type MemoryReplaySideEffectMode = "blocked" | "recorded" | "execute";
+
+export type MemoryExecutorManifest = {
+  format: "engram.memory-executor";
+  version: 1;
+  id: string;
+  name: string;
+  executorVersion: string;
+  framework: {
+    id: string;
+    version?: string;
+  };
+  capabilities: MemoryReplayCapabilities;
+  sideEffects: {
+    defaultMode: MemoryReplaySideEffectMode;
+    supportedModes: MemoryReplaySideEffectMode[];
+  };
+};
+
+export type MemoryExecutorReplayRequest = {
+  format: "engram.memory-executor-replay";
+  version: 1;
+  request: MemoryPolicyReplayRequest;
+  sideEffectMode: MemoryReplaySideEffectMode;
+};
+
+export type MemoryReplayExecutor = {
+  manifest: MemoryExecutorManifest;
+  replay: (
+    request: MemoryPolicyReplayRequest,
+    options?: { sideEffectMode?: MemoryReplaySideEffectMode; signal?: AbortSignal }
+  ) => Promise<MemoryPolicyReplayResult>;
+};
+
 export type MemoryPolicyReplayResult = {
   format: "engram.memory-policy-replay";
   version: 1;
-  level: "policy";
+  level: MemoryReplayExecutionLevel;
   executor: {
     id: string;
     version: string;

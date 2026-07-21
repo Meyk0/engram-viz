@@ -20,6 +20,7 @@ import {
   formatRegressionReport,
   runRegressionFile
 } from "../../../packages/cli/src/regression";
+import { startMemoryExecutorServer } from "../../../packages/cli/src/executor";
 import {
   inspectEngramProject,
   projectNextSteps,
@@ -29,6 +30,7 @@ import {
   parseAgentTurnEnvelope,
   parseMemoryTelemetryEvent
 } from "../../../packages/core/src/schema";
+import { createStaleLocationPolicyReplay } from "@/lib/reliability/stale-location";
 
 const directories: string[] = [];
 const execFile = promisify(execFileCallback);
@@ -160,6 +162,64 @@ describe("@engramviz/cli", () => {
     ], { cwd: root });
 
     expect(stdout).toBe("http://localhost:3198|run-agent|true");
+  });
+
+  it("serves an authenticated loopback replay executor for Studio", async () => {
+    const fixture = createStaleLocationPolicyReplay();
+    const server = await startMemoryExecutorServer({
+      port: 0,
+      token: "executor-secret",
+      executor: {
+        manifest: {
+          format: "engram.memory-executor",
+          version: 1,
+          id: "fixture-agent",
+          name: "Fixture agent",
+          executorVersion: "1.0.0",
+          framework: { id: "langgraph", version: "1.4.8" },
+          capabilities: fixture.capabilities,
+          sideEffects: { defaultMode: "blocked", supportedModes: ["blocked"] }
+        },
+        replay: vi.fn(async () => ({
+          ...fixture,
+          executor: { id: "fixture-agent", version: "1.0.0", deterministic: true },
+          baseline: {
+            ...fixture.baseline,
+            answer: { ...fixture.baseline.answer, provider: { id: "fixture-agent", model: "1.0.0" } }
+          }
+        }))
+      }
+    });
+
+    try {
+      expect((await fetch(`${server.url}/v1/manifest`)).status).toBe(401);
+      const manifest = await fetch(`${server.url}/v1/manifest`, {
+        headers: { Authorization: "Bearer executor-secret" }
+      });
+      expect(await manifest.json()).toMatchObject({ id: "fixture-agent", framework: { id: "langgraph" } });
+
+      const replay = await fetch(`${server.url}/v1/replay`, {
+        method: "POST",
+        headers: {
+          Authorization: "Bearer executor-secret",
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          format: "engram.memory-executor-replay",
+          version: 1,
+          request: {
+            baseline: fixture.source,
+            intervention: fixture.intervention,
+            answerAssertion: fixture.verification.assertion
+          },
+          sideEffectMode: "blocked"
+        })
+      });
+      expect(replay.status).toBe(200);
+      expect(await replay.json()).toMatchObject({ format: "engram.memory-policy-replay" });
+    } finally {
+      await server.close();
+    }
   });
 
   it("imports validated telemetry before its associated turn", async () => {

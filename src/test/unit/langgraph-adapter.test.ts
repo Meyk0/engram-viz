@@ -1,10 +1,17 @@
-import { Annotation, END, InMemoryStore, START, StateGraph } from "@langchain/langgraph";
+import { Annotation, END, InMemoryStore, MemorySaver, START, StateGraph } from "@langchain/langgraph";
 import {
+  defineLangGraphExecutor,
   instrumentLangGraphStore,
   langGraphMemoryId,
   langGraphMemoryIds,
+  langGraphReplayMetadata,
   langGraphStoreItems
 } from "@engramviz/adapter-langgraph";
+import {
+  parseMemoryDecisionRunV3,
+  type MemoryDecisionRunV3,
+  type MemoryInterventionV2
+} from "@engramviz/core";
 import { EngramClient, getActiveEngramTurn } from "@engramviz/sdk";
 import { describe, expect, it, vi } from "vitest";
 
@@ -115,7 +122,209 @@ describe("@engramviz/adapter-langgraph", () => {
       updatedAt: "2026-01-02T00:00:00.000Z"
     });
   });
+
+  it("forks a real LangGraph checkpoint and reruns retrieval through answer generation", async () => {
+    const source = staleLocationRun();
+    const intervention: MemoryInterventionV2 = {
+      format: "engram.memory-intervention",
+      version: 2,
+      id: "prefer-current-city",
+      targetRunId: source.id,
+      label: "Prefer current city",
+      rationale: "Exclude the superseded city memory.",
+      createdAt: "2026-07-21T10:01:00.000Z",
+      operations: [{
+        id: "exclude-superseded",
+        type: "policy_rule",
+        rule: "exclude_superseded",
+        enabled: true,
+        reason: "Current facts should win."
+      }]
+    };
+    const invoked: string[] = [];
+    const executor = defineLangGraphExecutor({
+      id: "stale-location-agent",
+      name: "Stale location agent",
+      version: "1.0.0",
+      deterministic: true,
+      createRuntime({ variant, sideEffectMode }) {
+        const State = Annotation.Root({
+          question: Annotation<string>(),
+          excludeSuperseded: Annotation<boolean>(),
+          candidates: Annotation<Array<{ id: string; text: string; status: string; score: number }>>(),
+          selectedIds: Annotation<string[]>(),
+          loadedIds: Annotation<string[]>(),
+          answer: Annotation<string>()
+        });
+        const memories = [
+          { id: "city-sf", text: "User lives in San Francisco.", status: "superseded", score: 0.97 },
+          { id: "city-oakland", text: "User lives in Oakland.", status: "active", score: 0.91 }
+        ];
+        const graph = new StateGraph(State)
+          .addNode("entry", (state) => state)
+          .addNode("retrieve", (state) => {
+            invoked.push(`${variant}:retrieve`);
+            const candidates = state.excludeSuperseded
+              ? memories.filter((memory) => memory.status === "active")
+              : memories;
+            return { candidates, selectedIds: [candidates[0]!.id], loadedIds: [candidates[0]!.id] };
+          })
+          .addNode("generate", (state) => {
+            invoked.push(`${variant}:answer`);
+            const selected = state.candidates.find((memory) => memory.id === state.selectedIds[0]);
+            return { answer: selected?.text ?? "I do not know." };
+          })
+          .addEdge(START, "entry")
+          .addEdge("entry", "retrieve")
+          .addEdge("retrieve", "generate")
+          .addEdge("generate", END)
+          .compile({ checkpointer: new MemorySaver() });
+        return {
+          graph,
+          config: { configurable: { thread_id: `replay-${variant}` } },
+          isolation: {
+            checkpoint: "isolated" as const,
+            memoryStore: "isolated" as const,
+            sideEffects: sideEffectMode
+          }
+        };
+      },
+      applyIntervention({ checkpoint }) {
+        return { ...checkpoint.values, excludeSuperseded: true };
+      },
+      observe({ finalState, source: observedSource, variant }) {
+        const state = finalState.values as {
+          candidates: Array<{ id: string; text: string; status: "active" | "superseded"; score: number }>;
+          selectedIds: string[];
+          loadedIds: string[];
+          answer: string;
+        };
+        const selected = new Set(state.selectedIds);
+        const loaded = new Set(state.loadedIds);
+        return parseMemoryDecisionRunV3({
+          ...structuredClone(observedSource),
+          id: `${observedSource.id}-${variant}`,
+          completedAt: variant === "baseline" ? "2026-07-21T10:00:01.000Z" : "2026-07-21T10:00:02.000Z",
+          retrieval: {
+            ...structuredClone(observedSource.retrieval),
+            candidates: state.candidates.map((memory, index) => ({
+              memoryId: memory.id,
+              memory: observedSource.memoryState.before.find((candidate) => candidate.id === memory.id),
+              rank: index + 1,
+              score: memory.score,
+              eligible: true,
+              selected: selected.has(memory.id),
+              loaded: loaded.has(memory.id),
+              evidence: "observed"
+            })),
+            selectedIds: state.selectedIds,
+            policy: {
+              ...structuredClone(observedSource.retrieval.policy),
+              configuration: { excludeSuperseded: variant === "treatment" },
+              evidence: "observed"
+            }
+          },
+          context: {
+            loadedIds: state.loadedIds,
+            orderedIds: state.loadedIds,
+            truncatedIds: [],
+            forcedIds: [],
+            evidence: "observed"
+          },
+          answer: {
+            content: state.answer,
+            provider: { id: "stale-location-agent", model: "1.0.0" },
+            evidence: "observed"
+          },
+          evidenceCoverage: {
+            memory_state: "observed",
+            retrieval: "observed",
+            selection: "observed",
+            active_context: "observed",
+            answer: "observed"
+          }
+        });
+      }
+    });
+
+    const result = await executor.replay({
+      baseline: source,
+      intervention,
+      answerAssertion: { type: "contains_all", values: ["Oakland"], forbidden: ["San Francisco"] }
+    });
+
+    expect(invoked).toEqual(["baseline:retrieve", "baseline:answer", "treatment:retrieve", "treatment:answer"]);
+    expect(result.reproduction.reproduced).toBe(true);
+    expect(result.level).toBe("agent");
+    expect(result.diff.earliestDivergence).toBe("retrieval");
+    expect(result.baseline.answer.content).toContain("San Francisco");
+    expect(result.treatment.answer.content).toContain("Oakland");
+    expect(result.verification).toMatchObject({ passed: true, failures: [] });
+    expect(result.capabilities).toMatchObject({
+      rerunsCandidateGeneration: true,
+      rerunsSelection: true,
+      rerunsGeneration: true
+    });
+  });
 });
+
+function staleLocationRun(): MemoryDecisionRunV3 {
+  const stale = {
+    id: "city-sf",
+    content: "User lives in San Francisco.",
+    subject: "current_city",
+    value: "San Francisco",
+    status: "superseded" as const,
+    tier: "semantic" as const,
+    scope: "user" as const,
+    evidence: "observed" as const
+  };
+  const current = {
+    id: "city-oakland",
+    content: "User lives in Oakland.",
+    subject: "current_city",
+    value: "Oakland",
+    status: "active" as const,
+    tier: "semantic" as const,
+    scope: "user" as const,
+    evidence: "observed" as const
+  };
+  return parseMemoryDecisionRunV3({
+    format: "engram.memory-decision-run",
+    version: 3,
+    id: "run-stale-location",
+    traceId: "trace-stale-location",
+    turnId: "turn-stale-location",
+    sessionId: "session-1",
+    startedAt: "2026-07-21T10:00:00.000Z",
+    completedAt: "2026-07-21T10:00:00.500Z",
+    input: "Where do I live?",
+    memoryState: { before: [stale, current], after: [stale, current] },
+    retrieval: {
+      query: "Where do I live?",
+      limit: 1,
+      candidates: [
+        { memoryId: stale.id, memory: stale, rank: 1, score: 0.97, eligible: true, selected: true, loaded: true, evidence: "observed" },
+        { memoryId: current.id, memory: current, rank: 2, score: 0.91, eligible: true, selected: false, loaded: false, evidence: "observed" }
+      ],
+      selectedIds: [stale.id],
+      policy: { id: "location-policy", configuration: { excludeSuperseded: false }, evidence: "observed" }
+    },
+    context: { loadedIds: [stale.id], orderedIds: [stale.id], truncatedIds: [], forcedIds: [], evidence: "observed" },
+    answer: { content: stale.content, provider: { id: "stale-location-agent", model: "1.0.0" }, evidence: "observed" },
+    evidenceCoverage: {
+      memory_state: "observed",
+      retrieval: "observed",
+      selection: "observed",
+      active_context: "observed",
+      answer: "observed"
+    },
+    metadata: langGraphReplayMetadata({
+      values: { question: "Where do I live?", excludeSuperseded: false },
+      asNode: "entry"
+    })
+  });
+}
 
 function telemetryEvents(requests: Array<{ url: string; body: unknown }>) {
   return requests

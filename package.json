@@ -34,7 +34,7 @@
     "eval:memory": "vitest run src/test/unit/memory-evals.test.ts --reporter=verbose",
     "test:regressions": "vitest run src/test/unit/checked-memory-regressions.test.ts --reporter=verbose",
     "test:example-real": "node --check examples/mem0-openai/demo.mjs",
-    "test:example-langgraph": "node --check examples/langgraph-memory/demo.mjs",
+    "test:example-langgraph": "npm run build:packages && node examples/langgraph-memory/verify.mjs",
     "test:example-regression": "npm run engram -- test regressions/current-city.engram-test.json --executor examples/mem0-stale-correction/regression-executor.mjs --format github",
     "release:check-public": "node scripts/check-public-release.mjs",
     "docs:check": "node scripts/check-docs.mjs",

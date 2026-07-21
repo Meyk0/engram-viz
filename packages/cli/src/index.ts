@@ -17,6 +17,7 @@ import {
 } from "./config.js";
 import { seedStaleLocationDemo, STALE_LOCATION_DEMO, waitForStudio } from "./demo.js";
 import { formatShellEnvironment } from "./environment.js";
+import { loadMemoryReplayExecutor, startMemoryExecutorServer } from "./executor.js";
 import {
   formatRegressionReport,
   runRegressionFile,
@@ -30,6 +31,7 @@ export {
   readEngramConfig
 } from "./config.js";
 export { formatShellEnvironment } from "./environment.js";
+export { loadMemoryReplayExecutor, startMemoryExecutorServer } from "./executor.js";
 export { createStaleLocationCapture, seedStaleLocationDemo } from "./demo.js";
 export { importCaptureBundle } from "./import.js";
 export { inspectEngramProject, projectNextSteps, projectSetupLines } from "./project.js";
@@ -51,7 +53,7 @@ export async function runCli(args: string[]) {
     return;
   }
   if (command === "dev") {
-    await dev(cwd, numberFlag(args, "--port", 3100));
+    await dev(cwd, args, numberFlag(args, "--port", 3100));
     return;
   }
   if (command === "env") {
@@ -140,31 +142,49 @@ async function printProjectSetup(cwd: string) {
   projectNextSteps(inspection).forEach((step, index) => process.stdout.write(`${index + 1}. ${step}\n`));
 }
 
-async function dev(cwd: string, port: number) {
+async function dev(cwd: string, args: string[], port: number) {
   const { config } = await initializeEngramProject(cwd);
-  const environment = localStudioEnvironment(config, cwd, port);
+  const environment: Record<string, string> = localStudioEnvironment(config, cwd, port);
+  const executorFile = stringFlag(args, "--executor");
+  const executorPort = numberFlag(args, "--executor-port", port + 1);
+  const executorServer = executorFile
+    ? await startMemoryExecutorServer({
+        executor: await loadMemoryReplayExecutor(executorFile, cwd),
+        token: config.token,
+        port: executorPort
+      })
+    : undefined;
+  if (executorServer) {
+    environment.ENGRAM_EXECUTOR_URL = executorServer.url;
+    environment.ENGRAM_EXECUTOR_TOKEN = config.token;
+    process.stdout.write(`Replay executor: ${executorServer.url}\n`);
+  }
   process.stdout.write(`Engram Studio: http://localhost:${port}/?mode=incidents\n`);
   process.stdout.write(`SDK: ENGRAM_URL=${environment.ENGRAM_URL} ENGRAM_PROJECT_ID=${config.projectId}\n`);
-  if (await isStudioRuntimeReady()) {
-    await startStudio({ port, environment });
-    return;
-  }
+  try {
+    if (await isStudioRuntimeReady()) {
+      await startStudio({ port, environment });
+      return;
+    }
 
-  const repositoryRoot = path.resolve(fileURLToPath(new URL("../../..", import.meta.url)));
-  await access(path.join(repositoryRoot, "next.config.mjs"));
-  process.stdout.write("Studio runtime is not packed; using the source development server.\n");
-  await new Promise<void>((resolve, reject) => {
-    const child = spawn("npm", ["run", "dev", "--", "--port", String(port)], {
-      cwd: repositoryRoot,
-      env: { ...process.env, ...environment },
-      stdio: "inherit"
+    const repositoryRoot = path.resolve(fileURLToPath(new URL("../../..", import.meta.url)));
+    await access(path.join(repositoryRoot, "next.config.mjs"));
+    process.stdout.write("Studio runtime is not packed; using the source development server.\n");
+    await new Promise<void>((resolve, reject) => {
+      const child = spawn("npm", ["run", "dev", "--", "--port", String(port)], {
+        cwd: repositoryRoot,
+        env: { ...process.env, ...environment },
+        stdio: "inherit"
+      });
+      child.once("error", reject);
+      child.once("exit", (code, signal) => {
+        if (code === 0 || signal === "SIGINT" || signal === "SIGTERM") resolve();
+        else reject(new Error(`Studio exited with code ${code ?? signal}.`));
+      });
     });
-    child.once("error", reject);
-    child.once("exit", (code, signal) => {
-      if (code === 0 || signal === "SIGINT" || signal === "SIGTERM") resolve();
-      else reject(new Error(`Studio exited with code ${code ?? signal}.`));
-    });
-  });
+  } finally {
+    await executorServer?.close();
+  }
 }
 
 async function runAgentCommand(cwd: string, args: string[], port: number) {
@@ -290,5 +310,5 @@ function regressionFormat(value: string | undefined): CliRegressionFormat {
 }
 
 function helpText() {
-  return `Engram — local memory reliability for AI agents\n\nCommands:\n  engram init [--project name]       Initialize local capture\n  engram dev [--port 3100]           Start Engram Studio\n  engram demo stale-location        Run the flagship incident end to end\n  engram env [--format shell|json]   Print agent capture environment\n  engram run -- <command> [args...]  Run an agent with capture configured\n  engram doctor [--port 3100]        Check local setup\n  engram import <capture.json>        Import an engram.capture bundle\n  engram test <artifact> --executor <module>\n                                       Run a memory regression against an agent\n  engram test <artifact> --observation <json>\n                                       Check a captured agent observation\n\nRegression options:\n  --format pretty|json|github        Select human or CI output\n  --output <report.json>             Save the structured execution report\n`;
+  return `Engram — local memory reliability for AI agents\n\nCommands:\n  engram init [--project name]       Initialize local capture\n  engram dev [--port 3100] [--executor module]\n                                       Start Studio with an optional real replay executor\n  engram demo stale-location        Run the flagship incident end to end\n  engram env [--format shell|json]   Print agent capture environment\n  engram run -- <command> [args...]  Run an agent with capture configured\n  engram doctor [--port 3100]        Check local setup\n  engram import <capture.json>        Import an engram.capture bundle\n  engram test <artifact> --executor <module>\n                                       Run a memory regression against an agent\n  engram test <artifact> --observation <json>\n                                       Check a captured agent observation\n\nRegression options:\n  --format pretty|json|github        Select human or CI output\n  --output <report.json>             Save the structured execution report\n`;
 }

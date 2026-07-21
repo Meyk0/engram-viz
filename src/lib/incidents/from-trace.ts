@@ -91,13 +91,17 @@ export function buildMemoryIncidentFromTrace(
   };
   const evidenceOrigins = traceEvidenceOrigins(trace.steps.slice(0, answerStepIndex + 1));
 
-  return buildMemoryIncident({
+  const incident = buildMemoryIncident({
     checkpoint,
     expectedAnswer,
     evidenceOrigins,
     title: options.title?.trim() || `Unexpected answer in ${trace.trace.name}`,
     id: `incident-${trace.trace.id}-${answerStep.id}`
   });
+  return {
+    ...incident,
+    ...(trace.trace.metadata ? { replayMetadata: structuredClone(trace.trace.metadata) } : {})
+  };
 }
 
 function findAnswerStepIndex(steps: NormalizedTraceStep[]): number {
