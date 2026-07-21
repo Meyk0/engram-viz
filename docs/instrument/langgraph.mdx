@@ -105,31 +105,27 @@ part of the memory behavior being investigated.
 ## Capture a replay boundary
 
 For an incident to rerun the actual graph, capture state at an explicit node
-boundary and attach it to the Engram turn metadata:
+boundary while an Engram turn is active:
 
 ```ts
 import {
-  captureLangGraphReplayCheckpoint,
-  langGraphReplayMetadata
+  captureLangGraphReplayCheckpoint
 } from "@engramviz/adapter-langgraph";
 
 const config = { configurable: { thread_id: turnId } };
-const seeded = await graph.updateState(config, initialState, "entry");
-const checkpoint = await captureLangGraphReplayCheckpoint(
-  graph,
-  seeded,
-  { asNode: "entry" }
-);
-
-await engram.withTurn({
-  input: question,
-  metadata: langGraphReplayMetadata(checkpoint)
-}, () => graph.invoke(null, seeded));
+await engram.withTurn({ input: question }, async () => {
+  const seeded = await graph.updateState(config, initialState, "entry");
+  await captureLangGraphReplayCheckpoint(graph, seeded, { asNode: "entry" });
+  return graph.invoke(null, seeded);
+});
 ```
 
-`asNode` is required because replay must resume from a known graph boundary.
-Engram stores JSON-compatible state values, not the checkpointer implementation
-or arbitrary closures.
+The helper automatically attaches the checkpoint to the active Engram turn.
+Pass `{ attachToActiveTurn: false }` only when storing the returned checkpoint
+yourself, or pass an explicit `turn` for applications that cannot use async
+context. `asNode` is required because replay must resume from a known graph
+boundary. Engram stores JSON-compatible state values, not the checkpointer
+implementation or arbitrary closures.
 
 ## Define the real replay executor
 
@@ -166,11 +162,16 @@ export default defineLangGraphExecutor({
 });
 ```
 
-Start Studio with the module:
+Scaffold the module and shared project configuration once:
 
 ```bash
-npx --yes @engramviz/cli dev --executor ./engram.executor.mjs
+npx --yes @engramviz/cli init --project support-agent --framework langgraph
+npx --yes @engramviz/cli dev
 ```
+
+Studio and `engram test` both discover `engram.executor.mjs` through
+`engram.config.json`. This prevents a passing CI test from silently using a
+different replay implementation than the engineer used during diagnosis.
 
 Engram runs an untreated baseline first and rejects a causal comparison when it
 cannot reproduce the captured answer. It then applies the intervention only to
@@ -187,6 +188,9 @@ a mutable production Store.
 <CardGroup cols={2}>
   <Card title="Run the LangGraph example" icon="play" href="/examples/langgraph-memory">
     Exercise a real StateGraph and InMemoryStore with deterministic capture.
+  </Card>
+  <Card title="Run the support-agent quickstart" icon="headset" href="/examples/langgraph-support-agent">
+    Exercise the model-backed production-shaped workflow and shared executor.
   </Card>
   <Card title="Understand the evidence model" icon="badge-check" href="/concepts/evidence-model">
     See what observed, mapped, derived, and unavailable evidence mean.

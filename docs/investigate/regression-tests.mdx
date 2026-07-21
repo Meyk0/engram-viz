@@ -6,9 +6,21 @@ icon: "badge-check"
 
 A verified incident exports an `engram.memory-regression` artifact. Version 2 declares semantic lifecycle and answer assertions plus a controlled perturbation matrix, without claiming access to hidden model reasoning.
 
-## Run with an executor
+## Run with the Studio executor
 
-Your project owns the executor boundary:
+Your project owns the executor boundary. The recommended LangGraph setup puts
+that module in `engram.config.json`, so Studio and CI import the same code:
+
+```json
+{
+  "version": 1,
+  "framework": "langgraph",
+  "executor": "engram.executor.mjs",
+  "regressions": ["regressions"]
+}
+```
+
+For custom integrations, an executor can also be a legacy function:
 
 ```js
 export default async function run({ source, variant }) {
@@ -36,6 +48,12 @@ npx --yes @engramviz/cli test incident.engram-test.json \
   --format pretty
 ```
 
+With project configuration, omit both paths and run the entire suite:
+
+```bash
+npx engram test
+```
+
 The command invokes the executor once per matrix variant and exits nonzero when
 any required selection, exclusion, context load, or answer assertion fails.
 Failed findings identify the variant and show expected and observed values.
@@ -55,8 +73,7 @@ npx --yes @engramviz/cli test incident.engram-test.json \
 ```yaml
 - run: npm ci
 - run: >-
-    npx --yes @engramviz/cli test regressions/current-city.engram-test.json
-    --executor ./test/engram-executor.mjs
+    npx engram test
     --format github
     --output engram-regression-report.json
 - if: always()

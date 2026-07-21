@@ -12,14 +12,14 @@ npm install --save-dev @engramviz/cli
 
 | Command | Description |
 | --- | --- |
-| `engram init [--project name]` | Create local project identity and capture credentials |
-| `engram dev [--port 3100] [--executor module]` | Start Studio and optionally attach a real replay executor |
+| `engram init [--project name] [--framework langgraph]` | Create local capture; optionally scaffold replay and CI |
+| `engram dev [--port 3100] [--executor module]` | Start Studio with the configured replay executor |
 | `engram demo stale-location` | Start Studio and record the flagship stale-memory incident |
 | `engram env [--format shell\|json]` | Print agent-safe capture environment values |
-| `engram run [--port 3100] -- <command>` | Run a child process with capture configured |
-| `engram doctor [--port 3100]` | Check Node, project configuration, and Studio availability |
+| `engram run [--expected text] [--port 3100] -- <command>` | Capture a process and print its direct incident link |
+| `engram doctor [--port 3100]` | Check capture, executor, isolation, checkpoint, and Studio |
 | `engram import <capture.json>` | Import an `engram.capture` bundle |
-| `engram test <artifact> --executor <module>` | Execute a regression through project-owned code |
+| `engram test [artifact] [--executor module]` | Run one or all configured regressions through project-owned code |
 | `engram test <artifact> --observation <json>` | Validate an existing observation |
 
 ## `engram init`
@@ -28,9 +28,14 @@ Creates `.engram/config.json` and adds `.engram/config.json` plus `.engram/data/
 
 ```bash
 npx --yes @engramviz/cli init --project support-agent
+npx --yes @engramviz/cli init --project support-agent --framework langgraph
 ```
 
 Running `init` again preserves the existing token and project identity.
+
+With `--framework langgraph`, Engram also creates `engram.config.json`, a
+preserved `engram.executor.mjs` skeleton, `regressions/`, and a package-manager
+specific GitHub Actions workflow. Existing files are never overwritten.
 
 The setup scan detects npm, pnpm, yarn, or bun; checks whether the SDK and a
 matching Mem0 or LangGraph adapter are installed; reports OpenAI Agents when
@@ -56,8 +61,8 @@ npx --yes @engramviz/cli dev
 npx --yes @engramviz/cli dev --port 3200
 ```
 
-Attach a project-owned replay executor when incidents should rerun the actual
-agent pipeline instead of using the built-in context-only fallback:
+When `engram.config.json` declares an executor, `dev` loads it automatically.
+`--executor` remains available as an explicit override:
 
 ```bash
 npx --yes @engramviz/cli dev \
@@ -94,10 +99,21 @@ Everything after `--` is executed as the agent command:
 
 ```bash
 npx --yes @engramviz/cli run -- npm run dev:agent
-npx --yes @engramviz/cli run -- node scripts/reproduce-incident.mjs
+npx --yes @engramviz/cli run --expected Oakland -- node scripts/reproduce-incident.mjs
 ```
 
-The child process inherits its normal environment plus the Engram capture values.
+The child process inherits its normal environment plus the Engram capture
+values. After it exits, the CLI finds the newly captured trace and prints a
+direct Studio URL. `--expected` also prefills expected answer evidence and opens
+the incident automatically when Studio loads the URL.
+
+## `engram doctor`
+
+In a scaffolded project, doctor validates the configured framework and executor
+manifest, rejects an executor whose default side-effect mode is `execute`,
+checks replay capabilities and captured checkpoint metadata, and probes both
+Studio and its local executor bridge. A generated executor still containing the
+scaffold marker is reported as unfinished.
 
 ## Regression output
 
@@ -108,6 +124,13 @@ npx --yes @engramviz/cli test incident.engram-test.json \
   --executor ./engram-regression.mjs \
   --format github \
   --output engram-regression-report.json
+```
+
+Omit the artifact and executor to run every `*.engram-test.json` under the paths
+declared in `engram.config.json` through that project's configured executor:
+
+```bash
+npx engram test --format github --output engram-regression-report.json
 ```
 
 Failed findings include the expected value and the observed retrieval IDs,

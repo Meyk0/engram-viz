@@ -1,15 +1,16 @@
 ---
-title: "Quickstart"
-description: "Capture a memory-dependent agent turn and inspect it in Engram Studio."
+title: "LangGraph quickstart"
+description: "Capture, replay, and preserve a LangGraph memory incident in one local workflow."
 icon: "rocket"
 ---
 
-This guide adds local Engram capture to a Node.js agent. It does not require an Engram account, database, or hosted collector.
+This guide adds local Engram capture and real checkpoint replay to a LangGraph
+agent. It does not require an Engram account, database, or hosted collector.
 
 ## Requirements
 
 - Node.js 20 or newer
-- A Node.js agent or script that calls a memory system
+- A JavaScript or TypeScript LangGraph agent
 - macOS, Linux, or Windows
 
 ## Try the complete workflow first
@@ -24,105 +25,107 @@ The command initializes local capture, starts Studio, records a deterministic
 three-turn stale-memory failure, and opens the Incidents workspace. No API key
 or memory-provider account is required.
 
-## 1. Install Engram
+## 1. Install and scaffold Engram
 
 From your agent repository:
 
 ```bash
 npm install --save-dev @engramviz/cli
-npm install @engramviz/sdk
+npm install @engramviz/sdk @engramviz/adapter-langgraph
+npx engram init --project support-agent --framework langgraph
 ```
 
-If the agent uses Mem0, also install the adapter:
+This creates:
 
-```bash
-npm install @engramviz/adapter-mem0
-```
+- `.engram/config.json`: private local capture credentials.
+- `engram.config.json`: checked-in framework, executor, and regression paths.
+- `engram.executor.mjs`: one replay module shared by Studio and CI.
+- `regressions/`: portable `*.engram-test.json` artifacts.
+- `.github/workflows/engram-memory-regressions.yml`: a ready CI job.
 
-If the agent uses LangGraph long-term memory, install its Store adapter instead:
+Initialization is idempotent and preserves existing files.
 
-```bash
-npm install @engramviz/adapter-langgraph
-```
+## 2. Instrument memory and one replay boundary
 
-## 2. Initialize local capture
-
-```bash
-npx --yes @engramviz/cli init --project my-agent
-```
-
-Engram creates `.engram/config.json` with a local project ID and ingest token.
-The CLI adds the config and local capture data to `.gitignore`, scans the local
-project, and prints package-manager-specific commands for any missing SDK or
-provider adapter.
-
-Start Studio in one terminal:
-
-```bash
-npx --yes @engramviz/cli dev
-```
-
-Studio is available at `http://localhost:3100/?mode=incidents`.
-
-## 3. Instrument one turn
-
-Wrap the application boundary that retrieves memory, constructs model context, and returns the answer:
+Wrap LangGraph's cross-thread Store before compiling the graph:
 
 ```ts
+import { InMemoryStore } from "@langchain/langgraph";
 import { EngramClient } from "@engramviz/sdk";
+import { instrumentLangGraphStore } from "@engramviz/adapter-langgraph";
 
-const engram = new EngramClient({
-  adapter: "my-memory-layer",
-  onError: console.error
-});
-
-const answer = await engram.withTurn(
-  {
-    input: "What city do I live in now?",
-    provider: { id: "openai", model: process.env.OPENAI_MODEL }
-  },
-  async (turn) => {
-    const candidates = await retrieveMemories("What city do I live in now?");
-
-    await turn.retrieve({
-      query: "What city do I live in now?",
-      candidates,
-      selectedIds: candidates
-        .filter((candidate) => candidate.selected)
-        .map((candidate) => candidate.memoryId)
-    });
-
-    const loadedIds = buildPrompt(candidates);
-    await turn.load(loadedIds);
-
-    return generateAnswer();
-  }
-);
+const engram = new EngramClient({ adapter: "langgraph" });
+const store = instrumentLangGraphStore(new InMemoryStore(), engram);
+const graph = workflow.compile({ store, checkpointer });
 ```
+
+At the application-owned node boundary from which a replay is safe, capture the
+graph state inside the active turn:
+
+```ts
+import { captureLangGraphReplayCheckpoint } from "@engramviz/adapter-langgraph";
+
+await engram.withTurn({ input: question }, async () => {
+  const seeded = await graph.updateState(config, initialState, "retrieve");
+  await captureLangGraphReplayCheckpoint(graph, seeded, { asNode: "retrieve" });
+  return graph.invoke(null, seeded);
+});
+```
+
+The helper automatically annotates the active Engram turn. The explicit
+`asNode` remains required: Engram will not guess where your graph can safely
+resume.
 
 <Warning>
-Call `turn.load` only after the application actually places those memories into model input. Retrieval candidates and active context are different evidence.
+Call `turn.load(...)` only after the application actually places memories into
+model input. A Store search result is retrieval evidence, not proof of active
+context.
 </Warning>
 
-Capture memory mutations where they occur with `turn.store`, `turn.update`, `turn.supersede`, `turn.delete`, or `turn.summarize`.
+## 3. Wire the generated executor
 
-## 4. Run the agent with capture
+Open `engram.executor.mjs` and implement its three marked functions:
 
-In another terminal:
+1. `createRuntime`: construct a fresh graph, checkpointer, Store, and blocked or sandboxed tools for each baseline/treatment variant.
+2. `applyIntervention`: apply the proposed memory correction to that isolated state.
+3. `observe`: map the completed graph state to the selected memories, loaded context, and answer.
+
+The reference implementation is in the
+[`langgraph-support-agent`](https://github.com/Meyk0/engram-viz/tree/main/examples/langgraph-support-agent)
+example. This is the only application-specific seam: Studio and CI both import
+the same module.
+
+## 4. Start Studio and check the integration
+
+In one terminal:
 
 ```bash
-npx --yes @engramviz/cli run -- npm run my-agent
+npx engram dev
 ```
 
-`engram run` injects only the agent-side values `ENGRAM_URL`, `ENGRAM_TOKEN`, and `ENGRAM_PROJECT_ID`. It does not expose Studio's server-only key map or local data path.
-
-Verify the setup at any time:
+The configured executor is discovered automatically. In another terminal:
 
 ```bash
-npx --yes @engramviz/cli doctor
+npx engram doctor
 ```
 
-## 5. Inspect the turn
+Doctor checks capture credentials, framework/executor agreement, the executor
+manifest, replay capabilities, side-effect defaults, a captured LangGraph
+checkpoint, and Studio's authenticated executor bridge.
+
+## 5. Capture and open the incident
+
+Run the real reproduction command through Engram:
+
+```bash
+npx engram run --expected Oakland -- npm run reproduce:incident
+```
+
+The CLI prints a direct URL with the trace and expected answer preselected.
+Engram injects only `ENGRAM_URL`, `ENGRAM_TOKEN`, and `ENGRAM_PROJECT_ID` into
+the child process; replay credentials stay server-side.
+
+## 6. Diagnose, replay, and prove
 
 Open the **Incidents** workspace and select the captured answer. Engram separates:
 
@@ -131,14 +134,23 @@ Open the **Incidents** workspace and select the captured answer. Engram separate
 3. Memories loaded into active context
 4. The recorded answer
 
-From there, provide expected answer evidence, test a branch-local repair, replay the frozen turn, and export the verified behavior as a regression.
+Apply a branch-local repair and replay. Engram first reruns the untreated
+baseline and refuses a causal comparison if it cannot reproduce the captured
+answer. It then executes the treatment, reports the earliest observable
+divergence, and exports the verified behavior into `regressions/`.
+
+Run every configured regression through the same executor:
+
+```bash
+npx engram test
+```
+
+The workflow created during initialization runs that command on pull requests
+and uploads the structured report.
 
 <CardGroup cols={2}>
-  <Card title="Instrument the SDK" icon="code-xml" href="/instrument/typescript-sdk">
-    Review every capture method and the fail-open delivery model.
-  </Card>
-  <Card title="Run the reference incident" icon="flask-conical" href="/examples/stale-location">
-    See the complete incident-to-regression workflow without live credentials.
+  <Card title="Run the support-agent example" icon="headset" href="/examples/langgraph-support-agent">
+    See the complete graph, model, executor, and regression path.
   </Card>
   <Card title="Instrument LangGraph" icon="workflow" href="/instrument/langgraph">
     Capture durable Store operations while keeping checkpoint state distinct.

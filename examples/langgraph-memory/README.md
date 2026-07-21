@@ -10,7 +10,7 @@ Start Studio with the project executor:
 
 ```bash
 npm install
-npm run engram -- init --project langgraph-example
+npm run engram -- init --project langgraph-example --framework langgraph
 npm run engram -- dev --executor examples/langgraph-memory/engram.executor.mjs
 ```
 
@@ -19,6 +19,9 @@ In another terminal, capture the incident:
 ```bash
 npm run engram -- run -- node examples/langgraph-memory/demo.mjs
 ```
+
+`captureLangGraphReplayCheckpoint` automatically attaches the explicit graph
+checkpoint to the active turn; the demo does not manually copy metadata.
 
 Open `http://localhost:3100`, select the captured question, enter `Oakland` as
 the expected answer, then follow **Diagnose -> Intervene -> Replay -> Prove**.

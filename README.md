@@ -30,40 +30,41 @@ The included reference incident models a common production failure:
 
 That workflow is intentionally narrower than general LLM observability. Engram complements tracing and memory platforms by specializing in memory-dependent failures and turning a diagnosis into an executable reliability check.
 
-## Local Quickstart
+## Ten-minute LangGraph path
 
 Requirements: Node.js 20 or newer.
 
 ```bash
-git clone https://github.com/Meyk0/engram-viz.git
-cd engram-viz
-npm install
-npm run engram -- demo stale-location
+npm install --save-dev @engramviz/cli
+npm install @engramviz/sdk @engramviz/adapter-langgraph
+npx engram init --project support-agent --framework langgraph
 ```
 
-That single command initializes local capture, starts Studio, records the
-deterministic three-turn failure, and opens
-[http://localhost:3100/?mode=incidents](http://localhost:3100/?mode=incidents).
-Select `What city do I live in now?`, enter `Oakland` as expected answer
-evidence, diagnose it, apply the proposed branch repair, and replay.
+Initialization creates one checked-in `engram.config.json`, a replay executor
+skeleton, a regressions directory, and a GitHub Actions workflow. Wire the three
+marked executor boundaries to construct an isolated agent runtime, apply a
+memory intervention, and map the completed run back to observable evidence.
+Engram cannot infer those application-specific boundaries safely.
 
-The underlying instrumented fixture remains directly runnable when developing
-the adapter:
+Start Studio, then capture a reproduction in another terminal:
 
 ```bash
-npm run engram -- dev
-npm run engram -- run -- node examples/mem0-stale-correction/demo.mjs
+npx engram dev
+npx engram run --expected Oakland -- npm run reproduce:incident
 ```
 
-Then run the checked-in version of that reliability contract:
+The second command prints a direct incident URL. Diagnose the trace, replay the
+real agent through the configured executor, and export the verified repair into
+`regressions/`. The same executor and artifacts run locally and in CI:
 
 ```bash
-npm run engram -- test \
-  regressions/current-city.engram-test.json \
-  --executor examples/mem0-stale-correction/regression-executor.mjs
+npx engram doctor
+npx engram test
 ```
 
-The executor is the replaceable boundary. Point it at the retrieval and generation stack you want to validate in CI. Engram also accepts a captured observation JSON with `--observation`.
+See the [complete quickstart](docs/quickstart.mdx) and the
+[model-backed support-agent example](examples/langgraph-support-agent). To tour
+Engram without integrating an agent, run `npx engram demo stale-location`.
 
 ## Instrument an Agent
 
@@ -76,7 +77,7 @@ The repository contains six distributable workspace packages:
 - `@engramviz/studio`: prebuilt standalone local workbench and visual assets.
 - `@engramviz/cli`: local Studio, import, diagnostics, and regression commands.
 
-The six packages share the [`@engramviz`](https://www.npmjs.com/org/engramviz) npm scope and are tested in a clean external project by `npm run test:distribution`. The clean-project flow is:
+The six packages share the [`@engramviz`](https://www.npmjs.com/org/engramviz) npm scope and are tested in a clean external project by `npm run test:distribution`. The generic SDK flow is:
 
 ```bash
 npm install --save-dev @engramviz/cli
@@ -150,12 +151,12 @@ must call `turn.load(...)` for the memories actually copied into model context.
 See the [LangGraph adapter guide](docs/instrument/langgraph.mdx) and
 [runnable example](examples/langgraph-memory).
 
-To replay a LangGraph incident through the graph itself, start Studio with a
-project-owned executor:
+To replay a LangGraph incident through the graph itself, initialize the
+project-owned executor and start Studio:
 
 ```bash
-npx --yes @engramviz/cli dev \
-  --executor ./engram.executor.mjs
+npx --yes @engramviz/cli init --project support-agent --framework langgraph
+npx --yes @engramviz/cli dev
 ```
 
 The executor creates fresh baseline and treatment runtimes, restores the

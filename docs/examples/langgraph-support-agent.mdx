@@ -1,0 +1,64 @@
+---
+title: "LangGraph support agent"
+description: "A production-shaped stale shipping-memory incident with real graph replay and optional model generation."
+icon: "headset"
+---
+
+This example answers a replacement-order request using customer memory. An old
+San Francisco address outranks an active Oakland correction, so the untreated
+agent proposes the wrong shipping city. The repair excludes superseded memory
+and prefers the current fact.
+
+It demonstrates the complete adopter contract:
+
+- A real LangGraph `StateGraph`, `InMemoryStore`, and `MemorySaver`.
+- Automatic replay-checkpoint attachment at an explicit graph boundary.
+- Isolated baseline and treatment runtimes.
+- One executor module used by Studio and regression execution.
+- OpenAI Responses generation when developer credentials are present.
+- A deterministic offline generator for CI and local verification.
+
+## Run locally
+
+From `examples/langgraph-support-agent` in a clone of the Engram repository:
+
+```bash
+npm install
+npx @engramviz/cli init --project support-agent --framework langgraph
+npx @engramviz/cli dev
+```
+
+In another terminal:
+
+```bash
+npx @engramviz/cli run --expected Oakland -- node run.mjs
+```
+
+Open the direct incident URL printed by the CLI. The executor first reproduces
+the stale San Francisco answer, then reruns the isolated treatment and verifies
+the Oakland answer.
+
+## Use a real model
+
+```bash
+export OPENAI_API_KEY=...
+export OPENAI_MODEL=...
+```
+
+The key stays in the developer's process. Engram does not proxy or host model
+credentials.
+
+## Verify without paid calls
+
+```bash
+ENGRAM_EXAMPLE_OFFLINE=true node verify.mjs
+```
+
+This still runs the actual graph and retrieval policy. Only answer wording uses
+the deterministic generator.
+
+<Warning>
+The example reconstructs fresh in-memory state for every variant. Production
+executors must provide equivalent isolation for their real checkpointer, Store,
+tools, and network side effects. Never point replay at mutable production state.
+</Warning>
