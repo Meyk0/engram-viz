@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowLeft,
   ArrowRight,
@@ -106,6 +106,7 @@ export function IncidentWorkspace({
   brainOpen = false,
   onToggleBrain
 }: IncidentWorkspaceProps) {
+  const directLink = useMemo(() => readDirectIncidentLink(), []);
   const guidedDemo = presentationMode === "guided-demo";
   const interventions = useMemo(
     () => incident ? buildIncidentInterventions(incident) : [],
@@ -140,8 +141,9 @@ export function IncidentWorkspace({
   const [selectedCheckpointId, setSelectedCheckpointId] = useState<string | undefined>(
     () => replayableCheckpoints.at(-1)?.id
   );
-  const [expectedAnswer, setExpectedAnswer] = useState("");
-  const [selectedTraceId, setSelectedTraceId] = useState<string | undefined>();
+  const [expectedAnswer, setExpectedAnswer] = useState(directLink.expectedAnswer ?? "");
+  const [selectedTraceId, setSelectedTraceId] = useState<string | undefined>(directLink.traceId);
+  const directIncidentOpened = useRef(false);
   const [recipeCopied, setRecipeCopied] = useState(false);
   const [activeStep, setActiveStep] = useState<IncidentTaskStep>("diagnose");
   const [diagnosisReviewed, setDiagnosisReviewed] = useState(false);
@@ -182,6 +184,20 @@ export function IncidentWorkspace({
       active = false;
     };
   }, [executorEligible, incident]);
+
+  useEffect(() => {
+    if (
+      incident
+      || directIncidentOpened.current
+      || !directLink.traceId
+      || !directLink.expectedAnswer
+      || !onCreateTraceIncident
+    ) return;
+    const trace = localTraces.find((candidate) => candidate.trace.id === directLink.traceId);
+    if (!trace) return;
+    directIncidentOpened.current = true;
+    onCreateTraceIncident(trace, directLink.expectedAnswer);
+  }, [directLink, incident, localTraces, onCreateTraceIncident]);
 
   if (!incident) {
     return (
@@ -1161,4 +1177,15 @@ function hasLangGraphReplayCheckpoint(incident: MemoryIncident) {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function readDirectIncidentLink() {
+  if (typeof window === "undefined") return {};
+  const search = new URLSearchParams(window.location.search);
+  const traceId = search.get("trace")?.trim();
+  const expectedAnswer = search.get("expected")?.trim();
+  return {
+    ...(traceId ? { traceId } : {}),
+    ...(expectedAnswer ? { expectedAnswer } : {})
+  };
 }

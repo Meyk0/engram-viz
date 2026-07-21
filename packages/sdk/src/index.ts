@@ -183,7 +183,7 @@ export class EngramTurn {
   readonly startedAt = new Date().toISOString();
   readonly input: string;
   readonly provider: EngramTurnOptions["provider"];
-  readonly metadata?: Record<string, JsonValue>;
+  private metadataValue?: Record<string, JsonValue>;
 
   private readonly client: EngramClient;
   private readonly eventIds: string[] = [];
@@ -211,7 +211,7 @@ export class EngramTurn {
     } : undefined);
     this.input = required(options.input, "Turn input");
     this.provider = options.provider;
-    this.metadata = options.metadata;
+    this.metadataValue = options.metadata ? structuredClone(options.metadata) : undefined;
   }
 
   store(memory: CaptureMemory, evidence?: CaptureEvidence) {
@@ -276,6 +276,18 @@ export class EngramTurn {
     this.output = required(output, "Turn output");
   }
 
+  /** Adds provider or framework evidence to the turn envelope before completion. */
+  annotate(metadata: Record<string, JsonValue>) {
+    this.metadataValue = {
+      ...(this.metadataValue ?? {}),
+      ...structuredClone(metadata)
+    };
+  }
+
+  get metadata(): Readonly<Record<string, JsonValue>> | undefined {
+    return this.metadataValue;
+  }
+
   envelope(status: AgentTurnEnvelope["status"], error?: unknown): AgentTurnEnvelope {
     const completedAt = new Date().toISOString();
     return {
@@ -296,7 +308,7 @@ export class EngramTurn {
       provider: this.provider,
       telemetryEventIds: [...this.eventIds],
       ...(status === "error" ? { error: normalizeError(error) } : {}),
-      ...(this.metadata ? { metadata: this.metadata } : {})
+      ...(this.metadataValue ? { metadata: structuredClone(this.metadataValue) } : {})
     };
   }
 

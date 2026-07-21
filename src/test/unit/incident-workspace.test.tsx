@@ -12,6 +12,7 @@ import { createStaleLocationPolicyReplay } from "@/lib/reliability/stale-locatio
 
 afterEach(() => {
   vi.restoreAllMocks();
+  window.history.replaceState({}, "", "/");
 });
 
 describe("IncidentWorkspace", () => {
@@ -54,6 +55,44 @@ describe("IncidentWorkspace", () => {
     await user.type(screen.getByLabelText("Expected answer evidence"), "You live in Oakland.");
     await user.click(screen.getByRole("button", { name: "Diagnose captured turn" }));
     expect(onCreateTraceIncident).toHaveBeenCalledWith(trace, "You live in Oakland.");
+  });
+
+  it("opens a CLI-linked captured turn directly when expected evidence is provided", async () => {
+    const onCreateTraceIncident = vi.fn();
+    const trace = {
+      schemaVersion: 1 as const,
+      trace: {
+        id: "trace-direct",
+        name: "Where should the replacement ship?",
+        source: { provider: "langgraph", format: "engram.telemetry.v2" }
+      },
+      steps: [{
+        id: "answer",
+        index: 0,
+        kind: "model" as const,
+        name: "support-agent",
+        status: "completed" as const,
+        output: { role: "assistant", content: "Ship it to San Francisco." },
+        memoryMappings: []
+      }]
+    };
+    window.history.replaceState({}, "", "/?mode=incidents&trace=trace-direct&expected=Oakland");
+
+    render(
+      <IncidentWorkspace
+        localTraceStatus="ready"
+        localTraces={[trace]}
+        onClose={vi.fn()}
+        onCreateTraceIncident={onCreateTraceIncident}
+        onFocus={vi.fn()}
+        onImportTrace={vi.fn()}
+        onLoadSample={vi.fn()}
+        onOpenTool={vi.fn()}
+        onSaveRegression={vi.fn()}
+      />
+    );
+
+    await waitFor(() => expect(onCreateTraceIncident).toHaveBeenCalledWith(trace, "Oakland"));
   });
 
   it("presents one clear entry path while preserving trace import", async () => {

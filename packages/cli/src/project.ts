@@ -1,5 +1,10 @@
 import { access, readFile } from "node:fs/promises";
 import path from "node:path";
+import {
+  readEngramProjectConfig,
+  resolveConfiguredExecutor,
+  type EngramFramework
+} from "./project-config.js";
 
 export type EngramPackageManager = "npm" | "pnpm" | "yarn" | "bun";
 
@@ -17,6 +22,10 @@ export type EngramProjectInspection = {
   langGraphDetected: boolean;
   langGraphAdapterInstalled: boolean;
   captureIgnored: boolean;
+  projectConfigPresent: boolean;
+  configuredFramework?: EngramFramework;
+  executorConfigured: boolean;
+  executorExists: boolean;
 };
 
 export async function inspectEngramProject(directory: string): Promise<EngramProjectInspection> {
@@ -25,6 +34,8 @@ export async function inspectEngramProject(directory: string): Promise<EngramPro
   const dependencies = dependencyNames(packageJson);
   const gitignore = await optionalText(path.join(root, ".gitignore"));
   const nodeVersion = process.versions.node;
+  const engramConfig = await readEngramProjectConfig(root);
+  const executor = resolveConfiguredExecutor(root, engramConfig);
 
   return {
     root,
@@ -39,7 +50,11 @@ export async function inspectEngramProject(directory: string): Promise<EngramPro
     openAiAgentsDetected: dependencies.has("@openai/agents"),
     langGraphDetected: dependencies.has("@langchain/langgraph"),
     langGraphAdapterInstalled: dependencies.has("@engramviz/adapter-langgraph"),
-    captureIgnored: ignoresLocalCapture(gitignore)
+    captureIgnored: ignoresLocalCapture(gitignore),
+    projectConfigPresent: Boolean(engramConfig),
+    ...(engramConfig ? { configuredFramework: engramConfig.framework } : {}),
+    executorConfigured: Boolean(executor),
+    executorExists: executor ? await exists(executor) : false
   };
 }
 
@@ -58,6 +73,10 @@ export function projectSetupLines(inspection: EngramProjectInspection): string[]
   if (inspection.langGraphDetected) {
     lines.push(`${inspection.langGraphAdapterInstalled ? "PASS" : "WARN"}  LangGraph detected${inspection.langGraphAdapterInstalled ? " with the Engram adapter" : "; adapter not installed"}`);
   }
+  if (inspection.projectConfigPresent) {
+    lines.push(`PASS  engram.config.json (${inspection.configuredFramework})`);
+    lines.push(`${inspection.executorExists ? "PASS" : "FAIL"}  replay executor${inspection.executorExists ? " found" : " is missing"}`);
+  }
   return lines;
 }
 
@@ -71,6 +90,9 @@ export function projectNextSteps(inspection: EngramProjectInspection): string[] 
   ];
   if (packages.length > 0) steps.push(packageManagerCommand(inspection.packageManager, "add", packages));
   if (inspection.sdkInstalled) steps.push("Instrument one agent turn and report retrieve() and load() separately.");
+  if (inspection.langGraphDetected && !inspection.projectConfigPresent) {
+    steps.push("npx --yes @engramviz/cli init --framework langgraph");
+  }
   steps.push("npx --yes @engramviz/cli doctor");
   steps.push("npx --yes @engramviz/cli dev");
   return steps;

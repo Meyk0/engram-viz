@@ -1,5 +1,6 @@
 import { Annotation, END, InMemoryStore, MemorySaver, START, StateGraph } from "@langchain/langgraph";
 import {
+  captureLangGraphReplayCheckpoint,
   defineLangGraphExecutor,
   instrumentLangGraphStore,
   langGraphMemoryId,
@@ -120,6 +121,41 @@ describe("@engramviz/adapter-langgraph", () => {
       score: 0.92,
       createdAt: "2026-01-01T00:00:00.000Z",
       updatedAt: "2026-01-02T00:00:00.000Z"
+    });
+  });
+
+  it("attaches an explicit replay checkpoint to the active Engram turn", async () => {
+    const requests: Array<{ url: string; body: unknown }> = [];
+    const engram = client(requests);
+    await engram.withTurn({
+      input: "Where should the replacement ship?",
+      provider: { id: "langgraph" },
+      metadata: { environment: "test" }
+    }, async (turn) => {
+      await captureLangGraphReplayCheckpoint({
+        getState: vi.fn(async () => ({
+          values: { question: "Where should the replacement ship?", selectedIds: [] },
+          config: { configurable: { thread_id: "support-thread", checkpoint_id: "checkpoint-1" } },
+          next: ["retrieve"]
+        }))
+      }, { configurable: { thread_id: "support-thread" } }, { asNode: "entry", turn });
+      return "The graph will answer next.";
+    });
+
+    const envelope = requests.find((request) => request.url.endsWith("/api/turns/v1"))?.body as {
+      metadata?: Record<string, unknown>;
+    };
+    expect(envelope.metadata).toMatchObject({
+      environment: "test",
+      langgraph: {
+        replayCheckpoint: {
+          values: { question: "Where should the replacement ship?", selectedIds: [] },
+          asNode: "entry",
+          threadId: "support-thread",
+          checkpointId: "checkpoint-1",
+          next: ["retrieve"]
+        }
+      }
     });
   });
 

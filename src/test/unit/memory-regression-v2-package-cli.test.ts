@@ -1,7 +1,8 @@
 import { execFile as execFileCallback } from "node:child_process";
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import { pathToFileURL } from "node:url";
 import { promisify } from "node:util";
 import type { MemoryDecisionMemory } from "@engramviz/core";
 import {
@@ -176,6 +177,56 @@ describe("portable Memory Regression v2", () => {
       { artifactId: artifact.id, variantId: "paraphrase", perturbations: 1, query: "Where is home?" },
       { artifactId: artifact.id, variantId: "entity-lisbon", perturbations: 1, query: "What city do I live in now?" }
     ]);
+  });
+
+  it("runs configured regressions through the same MemoryReplayExecutor used by Studio", async () => {
+    const root = await temporaryDirectory();
+    const artifact = regressionArtifact();
+    const regressions = path.join(root, "regressions");
+    await mkdir(regressions, { recursive: true });
+    await writeFile(path.join(regressions, "location.engram-test.json"), JSON.stringify(artifact), "utf8");
+    await writeFile(path.join(root, "engram.config.json"), JSON.stringify({
+      version: 1,
+      framework: "custom",
+      executor: "engram.executor.mjs",
+      regressions: ["regressions"]
+    }), "utf8");
+    const core = pathToFileURL(path.join(process.cwd(), "packages", "core", "dist", "index.js")).href;
+    const capabilities = JSON.stringify(artifact.sourceReplay.result.capabilities);
+    const recordedTreatment = JSON.stringify(artifact.sourceReplay.result.treatment);
+    await writeFile(path.join(root, "engram.executor.mjs"), `
+      import { buildMemoryPolicyReplayResult } from ${JSON.stringify(core)};
+      const manifest = {
+        format: "engram.memory-executor",
+        version: 1,
+        id: "engram-fixture-location-agent",
+        name: "Configured fixture executor",
+        executorVersion: "1",
+        framework: { id: "custom" },
+        capabilities: ${capabilities},
+        sideEffects: { defaultMode: "blocked", supportedModes: ["blocked"] }
+      };
+      export default {
+        manifest,
+        async replay(request) {
+          const baseline = structuredClone(request.baseline);
+          const treatment = structuredClone(${recordedTreatment});
+          treatment.id += "-treatment";
+          return buildMemoryPolicyReplayResult({
+            manifest,
+            request,
+            baseline,
+            treatment,
+            caveat: "Test executor with blocked side effects."
+          });
+        }
+      };
+    `, "utf8");
+
+    const cli = path.join(process.cwd(), "packages", "cli", "bin", "engram.mjs");
+    const { stdout } = await execFile(process.execPath, [cli, "test"], { cwd: root });
+
+    expect(stdout).toContain("PASS  Prefer current location (Memory Regression v2)");
   });
 
   it("accepts observation matrices and formats failed and missing variants honestly", async () => {

@@ -67,7 +67,14 @@ try {
   await execute(process.execPath, ["langgraph-adapter.mjs"], consumer);
 
   const cli = path.join(consumer, "node_modules", ".bin", process.platform === "win32" ? "engram.cmd" : "engram");
-  await execute(cli, ["init", "--project", "clean-room-agent"], consumer);
+  await execute(cli, ["init", "--project", "clean-room-agent", "--framework", "langgraph"], consumer);
+  for (const relative of [
+    "engram.config.json",
+    "engram.executor.mjs",
+    path.join(".github", "workflows", "engram-memory-regressions.yml")
+  ]) {
+    await readFile(path.join(consumer, relative), "utf8");
+  }
   const environmentResult = await execute(cli, ["env", "--format", "json"], consumer);
   const agentEnvironment = JSON.parse(environmentResult.stdout);
   if (agentEnvironment.ENGRAM_PROJECT_ID !== "clean-room-agent") {
@@ -93,21 +100,49 @@ try {
   }
 
   await writeFile(path.join(consumer, "agent.mjs"), `
+    import { captureLangGraphReplayCheckpoint } from "@engramviz/adapter-langgraph";
     import { EngramClient } from "@engramviz/sdk";
     const engram = new EngramClient({ adapter: "clean-room" });
     await engram.withTurn({ input: "Where do I live?", provider: { id: "fixture-agent" } }, async (turn) => {
       await turn.store({ id: "memory-oakland", content: "User lives in Oakland.", tier: "episodic", scope: "user" });
       await turn.retrieve({ query: "Where do I live?", selectedIds: ["memory-oakland"] });
       await turn.load(["memory-oakland"]);
+      await captureLangGraphReplayCheckpoint({
+        getState: async () => ({
+          values: { question: "Where do I live?", selectedIds: [] },
+          config: { configurable: { thread_id: "clean-room", checkpoint_id: "checkpoint-clean-room" } },
+          next: ["retrieve"]
+        })
+      }, { configurable: { thread_id: "clean-room" } }, { asNode: "entry", turn });
       return "You live in Oakland.";
     });
   `);
-  await execute(cli, ["run", "--port", String(port), "--", process.execPath, "agent.mjs"], consumer);
+  const captured = await execute(cli, [
+    "run",
+    "--port",
+    String(port),
+    "--expected",
+    "Oakland",
+    "--",
+    process.execPath,
+    "agent.mjs"
+  ], consumer);
+  if (!captured.stdout.includes("Open captured incident:") || !captured.stdout.includes("expected=Oakland")) {
+    throw new Error(`Packed CLI did not print a direct incident link.\n${captured.stdout}`);
+  }
 
   const tracesResponse = await fetch(`http://127.0.0.1:${port}/api/local/traces`);
   const traces = await tracesResponse.json();
   if (!tracesResponse.ok || !Array.isArray(traces.traces) || traces.traces.length !== 1) {
     throw new Error(`Packed SDK capture was not visible in Studio: ${JSON.stringify(traces)}`);
+  }
+  if (!traces.traces[0]?.trace?.metadata?.langgraph?.replayCheckpoint) {
+    throw new Error("Packed LangGraph helper did not attach replay metadata to the captured turn.");
+  }
+  const doctor = await execute(cli, ["doctor", "--port", String(port)], consumer);
+  if (!doctor.stdout.includes("captured LangGraph replay checkpoint found")
+    || !doctor.stdout.includes("Studio executor bridge is connected")) {
+    throw new Error(`Packed doctor did not verify the replay path.\n${doctor.stdout}`);
   }
 
   const demo = await execute(cli, [
@@ -164,6 +199,7 @@ try {
   process.stdout.write("PASS  standalone Studio serves application and brain assets\n");
   process.stdout.write("PASS  SDK captures a turn through the packed CLI environment\n");
   process.stdout.write("PASS  LangGraph Store adapter works from its packed public contract\n");
+  process.stdout.write("PASS  LangGraph scaffold, checkpoint capture, doctor, and direct incident link work cleanly\n");
   process.stdout.write("PASS  one-command demo seeds the flagship stale-memory incident\n");
   process.stdout.write("PASS  portable regression runs from the installed package\n");
 } finally {

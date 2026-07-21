@@ -22,6 +22,11 @@ import {
 } from "../../../packages/cli/src/regression";
 import { startMemoryExecutorServer } from "../../../packages/cli/src/executor";
 import {
+  discoverRegressionArtifacts,
+  readEngramProjectConfig
+} from "../../../packages/cli/src/project-config";
+import { scaffoldLangGraphProject } from "../../../packages/cli/src/scaffold";
+import {
   inspectEngramProject,
   projectNextSteps,
   projectSetupLines
@@ -125,9 +130,62 @@ describe("@engramviz/cli", () => {
     expect(projectSetupLines(inspection)).toContain("WARN  LangGraph detected; adapter not installed");
     expect(projectNextSteps(inspection)).toEqual([
       "npm install @engramviz/sdk @engramviz/adapter-langgraph",
+      "npx --yes @engramviz/cli init --framework langgraph",
       "npx --yes @engramviz/cli doctor",
       "npx --yes @engramviz/cli dev"
     ]);
+  });
+
+  it("scaffolds an idempotent LangGraph replay project and CI workflow", async () => {
+    const root = await temporaryDirectory();
+    await writeFile(path.join(root, "package.json"), JSON.stringify({
+      packageManager: "npm@11.0.0",
+      dependencies: { "@langchain/langgraph": "^1.4.8" }
+    }), "utf8");
+    const first = await scaffoldLangGraphProject(root, {
+      packageManager: "npm",
+      projectId: "support-agent"
+    });
+    const second = await scaffoldLangGraphProject(root, {
+      packageManager: "npm",
+      projectId: "support-agent"
+    });
+
+    expect(first.created).toEqual([
+      "engram.config.json",
+      "engram.executor.mjs",
+      path.join(".github", "workflows", "engram-memory-regressions.yml")
+    ]);
+    expect(second.preserved).toEqual(first.created);
+    expect(await readEngramProjectConfig(root)).toEqual({
+      version: 1,
+      framework: "langgraph",
+      executor: "engram.executor.mjs",
+      regressions: ["regressions"]
+    });
+    expect(await readFile(path.join(root, "engram.executor.mjs"), "utf8"))
+      .toContain("ENGRAM_SCAFFOLD_PENDING = true");
+    expect(await readFile(path.join(root, ".github", "workflows", "engram-memory-regressions.yml"), "utf8"))
+      .toContain("npx engram test --format github");
+  });
+
+  it("discovers configured regression artifacts recursively without leaving the project", async () => {
+    const root = await temporaryDirectory();
+    await writeFile(path.join(root, "one.engram-test.json"), "{}", "utf8");
+    await writeFile(path.join(root, "ignored.json"), "{}", "utf8");
+    await writeFile(path.join(root, "two.engram-test.json"), "{}", "utf8");
+
+    await expect(discoverRegressionArtifacts(root, ["."])).resolves.toEqual([
+      path.join(root, "one.engram-test.json"),
+      path.join(root, "two.engram-test.json")
+    ]);
+    await writeFile(path.join(root, "engram.config.json"), JSON.stringify({
+      version: 1,
+      framework: "langgraph",
+      executor: "../outside.mjs",
+      regressions: ["regressions"]
+    }), "utf8");
+    await expect(readEngramProjectConfig(root)).rejects.toThrow("must stay inside the project");
   });
 
   it("prints an actionable setup scan after initialization", async () => {

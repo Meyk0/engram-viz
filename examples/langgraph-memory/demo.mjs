@@ -2,8 +2,7 @@ import { InMemoryStore } from "@langchain/langgraph";
 import {
   captureLangGraphReplayCheckpoint,
   instrumentLangGraphStore,
-  langGraphMemoryId,
-  langGraphReplayMetadata
+  langGraphMemoryId
 } from "@engramviz/adapter-langgraph";
 import { EngramClient } from "@engramviz/sdk";
 import { createLocationGraph, memories, namespace } from "./workflow.mjs";
@@ -49,13 +48,11 @@ const seeded = await graph.updateState(config, {
   loadedIds: [],
   answer: ""
 }, "entry");
-const checkpoint = await captureLangGraphReplayCheckpoint(graph, seeded, { asNode: "entry" });
-
 const output = await engram.withTurn({
   input: "What city do I live in now?",
-  provider: { id: "langgraph-location-agent", model: "1.0.0" },
-  metadata: langGraphReplayMetadata(checkpoint)
-}, async () => {
+  provider: { id: "langgraph-location-agent", model: "1.0.0" }
+}, async (turn) => {
+  await captureLangGraphReplayCheckpoint(graph, seeded, { asNode: "entry", turn });
   const result = await graph.invoke(null, seeded);
   return result.answer;
 });

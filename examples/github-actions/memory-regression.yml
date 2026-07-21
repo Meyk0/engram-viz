@@ -21,8 +21,6 @@ jobs:
       - name: Run Engram regression
         run: >-
           npx engram test
-          regressions/current-city.engram-test.json
-          --executor examples/mem0-stale-correction/regression-executor.mjs
           --format github
           --output engram-regression-report.json
       - if: always()

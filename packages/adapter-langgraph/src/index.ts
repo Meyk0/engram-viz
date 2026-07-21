@@ -1,4 +1,10 @@
-import type { CaptureMemory, CaptureRetrieval, EngramClient, EngramTurn } from "@engramviz/sdk";
+import {
+  getActiveEngramTurn,
+  type CaptureMemory,
+  type CaptureRetrieval,
+  type EngramClient,
+  type EngramTurn
+} from "@engramviz/sdk";
 import {
   buildMemoryPolicyReplayResult,
   parseMemoryExecutorManifest,
@@ -200,20 +206,28 @@ export function defineLangGraphExecutor(options: DefineLangGraphExecutorOptions)
 export async function captureLangGraphReplayCheckpoint(
   graph: Pick<LangGraphExecutable, "getState">,
   config: LangGraphRunnableConfig,
-  options: { asNode: string }
+  options: {
+    asNode: string;
+    /** Defaults to the active Engram turn. Set false to return metadata without attaching it. */
+    attachToActiveTurn?: boolean;
+    turn?: Pick<EngramTurn, "annotate">;
+  }
 ): Promise<LangGraphReplayCheckpoint> {
   const snapshot = await graph.getState(config);
   const values = jsonRecord(snapshot.values, "LangGraph checkpoint values");
   const configurable = snapshot.config?.configurable ?? config.configurable;
   const checkpointId = stringValue(configurable?.checkpoint_id);
   const threadId = stringValue(configurable?.thread_id);
-  return {
+  const checkpoint = {
     values,
     asNode: requiredString(options.asNode, "asNode"),
     ...(checkpointId ? { checkpointId } : {}),
     ...(threadId ? { threadId } : {}),
     ...(snapshot.next ? { next: [...snapshot.next] } : {})
   };
+  const turn = options.turn ?? (options.attachToActiveTurn === false ? undefined : getActiveEngramTurn());
+  turn?.annotate(langGraphReplayMetadata(checkpoint));
+  return checkpoint;
 }
 
 export function langGraphReplayMetadata(checkpoint: LangGraphReplayCheckpoint) {

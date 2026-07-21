@@ -4,13 +4,19 @@ import { pathToFileURL } from "node:url";
 import {
   applyMemoryRegressionPerturbationsV2,
   evaluateMemoryRegressionMatrixV2,
+  memoryRegressionObservationFromRunV2,
+  parseMemoryExecutorReplayResult,
   parseMemoryRegressionArtifactV2,
   parseMemoryRegressionMatrixObservationsV2,
   parseMemoryRegressionObservationV2,
   type MemoryRegressionArtifactV2,
   type MemoryRegressionMatrixReportV2,
   type MemoryRegressionObservationV2,
-  type MemoryDecisionRunV3
+  type MemoryAnswerAssertion,
+  type MemoryDecisionRunV3,
+  type MemoryInterventionV2,
+  type MemoryReplayExecutor,
+  type MemoryRegressionPerturbationV2
 } from "@engramviz/core";
 
 type RegressionArtifact = {
@@ -205,9 +211,12 @@ async function executeMatrixModule(
   artifact: MemoryRegressionArtifactV2
 ): Promise<readonly MemoryRegressionObservationV2[]> {
   const imported = await import(/* @vite-ignore */ pathToFileURL(file).href);
-  const executor = imported.default ?? imported.run;
+  const executor = imported.executor ?? imported.default ?? imported.run;
+  if (isMemoryReplayExecutor(executor)) {
+    return executeReplayMatrix(executor, artifact);
+  }
   if (typeof executor !== "function") {
-    throw new Error("Regression executor must export a default function or a function named run.");
+    throw new Error("Regression executor must export a MemoryReplayExecutor or a default/run function.");
   }
 
   const observations: MemoryRegressionObservationV2[] = [];
@@ -245,6 +254,81 @@ async function executeMatrixModule(
     observations.push(observation);
   }
   return observations;
+}
+
+async function executeReplayMatrix(
+  executor: MemoryReplayExecutor,
+  artifact: MemoryRegressionArtifactV2
+) {
+  const sourceReplay = artifact.sourceReplay.result;
+  if (executor.manifest.id !== sourceReplay.executor.id
+    || executor.manifest.executorVersion !== sourceReplay.executor.version) {
+    throw new Error(
+      `Regression executor ${executor.manifest.id}@${executor.manifest.executorVersion} does not match `
+      + `${sourceReplay.executor.id}@${sourceReplay.executor.version}.`
+    );
+  }
+  const observations: MemoryRegressionObservationV2[] = [];
+  for (const variant of artifact.matrix.variants) {
+    const source = applyMemoryRegressionPerturbationsV2(
+      sourceReplay.source as MemoryDecisionRunV3,
+      variant.id,
+      variant.perturbations
+    );
+    const sourceIntervention = sourceReplay.intervention as MemoryInterventionV2;
+    const intervention: MemoryInterventionV2 = {
+      ...structuredClone(sourceIntervention),
+      id: `${sourceReplay.intervention.id}-${variant.id}`,
+      targetRunId: source.id,
+      createdAt: source.completedAt
+    };
+    const replay = parseMemoryExecutorReplayResult(await executor.replay({
+      baseline: source,
+      intervention,
+      ...(sourceReplay.verification.assertion ? {
+        answerAssertion: transformAnswerAssertion(
+          sourceReplay.verification.assertion,
+          variant.perturbations
+        )
+      } : {})
+    }, { sideEffectMode: executor.manifest.sideEffects.defaultMode }));
+    if (!replay.reproduction.reproduced) {
+      throw new Error(
+        `Memory Regression v2 executor did not reproduce variant "${variant.id}": `
+        + replay.verification.failures.join(" ")
+      );
+    }
+    observations.push(memoryRegressionObservationFromRunV2(variant.id, replay.treatment));
+  }
+  return observations;
+}
+
+function transformAnswerAssertion(
+  assertion: MemoryAnswerAssertion,
+  perturbations: readonly MemoryRegressionPerturbationV2[]
+): MemoryAnswerAssertion {
+  const result = structuredClone(assertion);
+  for (const perturbation of perturbations) {
+    if (perturbation.type !== "entity_substitution") continue;
+    if (result.type === "exact") {
+      result.value = replaceText(result.value, perturbation.from, perturbation.to);
+    } else {
+      result.values = result.values.map((value) => replaceText(value, perturbation.from, perturbation.to));
+      result.forbidden = result.forbidden?.map((value) => replaceText(value, perturbation.from, perturbation.to));
+    }
+  }
+  return result;
+}
+
+function replaceText(value: string, from: string, to: string) {
+  const escaped = from.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return value.replace(new RegExp(escaped, "gi"), to);
+}
+
+function isMemoryReplayExecutor(value: unknown): value is MemoryReplayExecutor {
+  return isRecord(value)
+    && isRecord(value.manifest)
+    && typeof value.replay === "function";
 }
 
 function evaluate(artifact: RegressionArtifact, observation: CliRegressionObservation) {
