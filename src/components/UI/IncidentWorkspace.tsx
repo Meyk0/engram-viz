@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   ArrowLeft,
   ArrowRight,
@@ -16,6 +16,13 @@ import {
   X
 } from "lucide-react";
 import { causalAblationResultSchema, memoryBranchReplayResultSchema } from "@/lib/events/schema";
+import {
+  memoryExecutorManifestSchema,
+  parseMemoryExecutorReplayResult,
+  type MemoryExecutorManifest,
+  type MemoryPolicyReplayResult
+} from "@engramviz/core";
+import { CausalMemoryDiff } from "@/components/Incidents/CausalMemoryDiff";
 import type { LocalIncidentTraceStatus } from "@/hooks/useLocalIncidentTraces";
 import { buildIncidentInterventions } from "@/lib/incidents/interventions";
 import { answerSupportsExpectation, expectedAnswerFragments } from "@/lib/incidents/expectations";
@@ -37,6 +44,9 @@ import {
   replayResultsFromBranchReplay,
   type MemoryRegressionArtifact
 } from "@/lib/regressions";
+import { compileMemoryRegressionV2 } from "@/lib/regressions/v2-compiler";
+import type { MemoryRegressionArtifactV2 } from "@/lib/regressions/v2-schema";
+import { memoryPolicyReplayRequestFromIncident } from "@/lib/reliability/from-incident";
 import type { BrainRegion } from "@/types";
 import "./incident-workspace.css";
 
@@ -67,10 +77,12 @@ type IncidentWorkspaceProps = {
   onLoadSample: () => void;
   onOpenTool: (tool: "timeMachine" | "integrity" | "retrieval" | "trace") => void;
   onReplayComplete?: (result: MemoryBranchReplayResult) => void;
-  onSaveRegression: (artifact: MemoryRegressionArtifact) => void;
+  onSaveRegression: (artifact: MemoryRegressionArtifact | MemoryRegressionArtifactV2) => void;
   presentationMode?: "standard" | "guided-demo";
   presentationPhase?: "hidden" | "fail" | "repair" | "test";
   replayExecutor?: (request: MemoryBranchReplayRequest) => Promise<MemoryBranchReplayResult>;
+  brainOpen?: boolean;
+  onToggleBrain?: () => void;
 };
 
 export function IncidentWorkspace({
@@ -90,7 +102,9 @@ export function IncidentWorkspace({
   onSaveRegression,
   presentationMode = "standard",
   presentationPhase,
-  replayExecutor
+  replayExecutor,
+  brainOpen = false,
+  onToggleBrain
 }: IncidentWorkspaceProps) {
   const guidedDemo = presentationMode === "guided-demo";
   const interventions = useMemo(
@@ -109,6 +123,12 @@ export function IncidentWorkspace({
   const [replayPending, setReplayPending] = useState(false);
   const [replayError, setReplayError] = useState<string>();
   const [replayResult, setReplayResult] = useState<MemoryBranchReplayResult>();
+  const [policyReplayResult, setPolicyReplayResult] = useState<MemoryPolicyReplayResult>();
+  const [executorLookup, setExecutorLookup] = useState<{
+    incidentId: string;
+    status: "available" | "unavailable";
+    manifest?: MemoryExecutorManifest;
+  }>();
   const [influencePending, setInfluencePending] = useState(false);
   const [influenceError, setInfluenceError] = useState<string>();
   const [influenceResults, setInfluenceResults] = useState<MemoryInfluenceResult[]>([]);
@@ -127,10 +147,46 @@ export function IncidentWorkspace({
   const [diagnosisReviewed, setDiagnosisReviewed] = useState(false);
   const [interventionConfirmed, setInterventionConfirmed] = useState(false);
 
+  const executorEligible = Boolean(!guidedDemo && incident && hasLangGraphReplayCheckpoint(incident));
+  const currentExecutorLookup = executorLookup?.incidentId === incident?.id
+    ? executorLookup
+    : undefined;
+  const executorStatus = !executorEligible
+    ? "unavailable"
+    : currentExecutorLookup
+      ? currentExecutorLookup.status
+      : "checking";
+  const executorManifest = currentExecutorLookup?.manifest;
+
+  useEffect(() => {
+    if (!incident || !executorEligible) return;
+    let active = true;
+    const incidentId = incident.id;
+    void fetch("/api/local/executor", { cache: "no-store" })
+      .then(async (response) => {
+        const payload = await response.json() as unknown;
+        if (!active || !response.ok || !isRecord(payload) || payload.available !== true) {
+          if (active) setExecutorLookup({ incidentId, status: "unavailable" });
+          return;
+        }
+        setExecutorLookup({
+          incidentId,
+          status: "available",
+          manifest: memoryExecutorManifestSchema.parse(payload.manifest)
+        });
+      })
+      .catch(() => {
+        if (active) setExecutorLookup({ incidentId, status: "unavailable" });
+      });
+    return () => {
+      active = false;
+    };
+  }, [executorEligible, incident]);
+
   if (!incident) {
     return (
       <aside className="incident-workspace" aria-label="Memory Incident Workspace">
-        <WorkspaceHeader onClose={onClose} />
+        <WorkspaceHeader brainOpen={brainOpen} onClose={onClose} onToggleBrain={onToggleBrain} />
         <div className="incident-empty">
           <div className="incident-empty-mark"><FileSearch size={24} /></div>
           <span>Memory incident workspace</span>
@@ -300,18 +356,29 @@ export function IncidentWorkspace({
   const remediationRecipe = !guidedDemo && selectedIntervention
     ? buildSourceRemediationRecipe(incident, selectedIntervention)
     : undefined;
-  const baselineReproduced = replayResult?.reproduction.reproduced ?? false;
+  const realExecutorReady = executorStatus === "available"
+    && Boolean(executorManifest)
+    && hasLangGraphReplayCheckpoint(incident);
+  const completedReplay = policyReplayResult ?? replayResult;
+  const baselineReproduced = policyReplayResult?.reproduction.reproduced
+    ?? replayResult?.reproduction.reproduced
+    ?? false;
   const treatmentMetExpectation = Boolean(
-    replayResult
+    (policyReplayResult || replayResult)
     && incident.expectedAnswer
-    && answerSupportsExpectation(replayResult.branchAnswer, incident.expectedAnswer)
+    && answerSupportsExpectation(
+      policyReplayResult?.treatment.answer.content ?? replayResult?.branchAnswer ?? "",
+      incident.expectedAnswer
+    )
   );
-  const proofEligible = baselineReproduced && treatmentMetExpectation;
+  const proofEligible = policyReplayResult
+    ? policyReplayResult.verification.passed
+    : baselineReproduced && treatmentMetExpectation;
 
   const completedSteps: Record<IncidentTaskStep, boolean> = {
     diagnose: diagnosisReviewed,
     intervene: interventionConfirmed,
-    replay: Boolean(replayResult),
+    replay: Boolean(completedReplay),
     prove: regressionSaved
   };
   const availableSteps: Record<IncidentTaskStep, boolean> = {
@@ -332,20 +399,48 @@ export function IncidentWorkspace({
     setSelectedInterventionId(intervention.id);
     setInterventionConfirmed(false);
     setReplayResult(undefined);
+    setPolicyReplayResult(undefined);
     setReplayError(undefined);
     setRegressionSaved(false);
     onFocus(intervention.affectedMemoryIds, intervention.focusedRegions);
   }
 
   async function replayIntervention() {
-    if (!selectedIntervention || !branch || !materialized || !incident) return;
+    if (
+      !selectedIntervention
+      || !branch
+      || !materialized
+      || !incident
+      || replayPending
+      || (executorEligible && executorStatus === "checking")
+    ) return;
     setReplayPending(true);
     setReplayError(undefined);
     setReplayResult(undefined);
+    setPolicyReplayResult(undefined);
     setRegressionSaved(false);
     onFocus(selectedIntervention.affectedMemoryIds, selectedIntervention.focusedRegions);
 
     try {
+      if (realExecutorReady) {
+        const policyRequest = memoryPolicyReplayRequestFromIncident(incident, selectedIntervention);
+        const response = await fetch("/api/local/executor/replay", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            format: "engram.memory-executor-replay",
+            version: 1,
+            request: policyRequest,
+            sideEffectMode: executorManifest?.sideEffects.defaultMode ?? "blocked"
+          })
+        });
+        const payload = await response.json() as unknown;
+        if (!response.ok) throw new Error(readError(payload) ?? "The agent replay could not be completed.");
+        setPolicyReplayResult(parseMemoryExecutorReplayResult(payload));
+        setActiveStep("replay");
+        return;
+      }
+
       const request: MemoryBranchReplayRequest = {
         record: incident.record,
         branch,
@@ -417,7 +512,19 @@ export function IncidentWorkspace({
   }
 
   function saveRegression() {
-    if (!incident || !selectedIntervention || !branch || !materialized || !replayResult || !proofEligible) return;
+    if (!incident || !selectedIntervention || !proofEligible) return;
+    if (policyReplayResult) {
+      onSaveRegression(compileMemoryRegressionV2({
+        replay: policyReplayResult,
+        id: `regression-${incident.id}`,
+        title: `Regression: ${incident.title}`,
+        description: `Preserve the real agent replay repair for “${incident.question}”.`,
+        createdAt: policyReplayResult.treatment.completedAt
+      }));
+      setRegressionSaved(true);
+      return;
+    }
+    if (!branch || !materialized || !replayResult) return;
     const branchIds = new Set(replayResult.branchMemoryIds);
     const removedMemories = incident.record.retrievedMemories.filter((memory) => !branchIds.has(memory.id));
     const artifact = createMemoryRegressionArtifact({
@@ -488,7 +595,7 @@ export function IncidentWorkspace({
       data-presentation={presentationMode}
       data-presentation-phase={presentationPhase}
     >
-      {guidedDemo ? null : <WorkspaceHeader onClose={onClose} />}
+      {guidedDemo ? null : <WorkspaceHeader brainOpen={brainOpen} onClose={onClose} onToggleBrain={onToggleBrain} />}
       <IncidentSummary incident={incident} />
       {guidedDemo ? null : (
         <WorkflowProgress
@@ -505,7 +612,9 @@ export function IncidentWorkspace({
       >
         <div className="incident-activity-status" role="status" aria-live="polite">
           {replayPending
-            ? "Regenerating baseline and counterfactual answers..."
+            ? realExecutorReady
+              ? "Forking the checkpoint and rerunning the agent pipeline..."
+              : "Regenerating baseline and counterfactual answers..."
             : influencePending
               ? "Testing the influence of each loaded memory..."
               : regressionSaved
@@ -675,17 +784,36 @@ export function IncidentWorkspace({
           >
             <SectionHeading
               eyebrow="Step 3 · Replay"
-              title="Context-only counterfactual"
-              detail={replayResult
+              title={realExecutorReady ? "Real agent replay" : "Context-only counterfactual"}
+              detail={completedReplay
                 ? proofEligible
-                  ? "The recorded answer was reproduced before the branch met the expected answer."
+                  ? realExecutorReady
+                    ? "The graph reproduced the incident, then the isolated branch met the expected answer."
+                    : "The recorded answer was reproduced before the branch met the expected answer."
                   : baselineReproduced
                     ? "The recorded answer was reproduced, but the branch did not meet the expected answer."
                     : "The regenerated baseline did not reproduce the recorded answer, so this branch cannot be promoted as proof."
-                : `Ready to test “${selectedIntervention?.label ?? "the selected intervention"}” by changing only the explicit memory context.`}
+                : realExecutorReady
+                  ? `Ready to fork the recorded LangGraph checkpoint and rerun “${selectedIntervention?.label ?? "the selected intervention"}”.`
+                  : `Ready to test “${selectedIntervention?.label ?? "the selected intervention"}” using the recorded context fallback.`}
               titleId="incident-replay-heading"
             />
-            {replayResult ? (
+            {policyReplayResult ? (
+              <>
+                <div className="incident-replay-status" data-verified={proofEligible}>
+                  {proofEligible ? <ShieldCheck size={17} /> : <FlaskConical size={17} />}
+                  <span>{proofEligible
+                    ? "Real pipeline proof gate passed"
+                    : baselineReproduced
+                      ? "The graph reproduced the baseline, but the treatment failed its assertion"
+                      : "The graph did not reproduce the recorded incident"}</span>
+                </div>
+                <CausalMemoryDiff
+                  result={policyReplayResult}
+                  onFocusMemoryIds={(memoryIds) => onFocus(memoryIds, ["prefrontal"])}
+                />
+              </>
+            ) : replayResult ? (
               <>
                 <div className="incident-replay-status" data-verified={proofEligible}>
                   {proofEligible ? <ShieldCheck size={17} /> : <FlaskConical size={17} />}
@@ -721,10 +849,14 @@ export function IncidentWorkspace({
               </>
             ) : (
               <div className="incident-replay-ready">
-                <FlaskConical size={20} />
+                {realExecutorReady ? <GitBranch size={20} /> : <FlaskConical size={20} />}
                 <div>
                   <strong>The recorded incident remains unchanged</strong>
-                  <p>Engram regenerates an answer from the recorded memory context, then from the edited context. Retrieval policy is not rerun.</p>
+                  <p>{realExecutorReady
+                    ? `${executorManifest?.name ?? "The attached executor"} will run twice from isolated checkpoint and memory-store forks. Side effects are ${executorManifest?.sideEffects.defaultMode ?? "blocked"}.`
+                    : executorStatus === "checking"
+                      ? "Checking for a project replay executor..."
+                      : "No compatible checkpoint executor is attached. Engram will regenerate from recorded context; retrieval policy will not be rerun."}</p>
                 </div>
               </div>
             )}
@@ -732,7 +864,7 @@ export function IncidentWorkspace({
           </section>
         ) : null}
 
-        {activeStep === "prove" && replayResult ? (
+        {activeStep === "prove" && completedReplay ? (
           <section
             aria-labelledby={guidedDemo ? "incident-prove-heading" : "incident-tab-prove"}
             className="incident-task-panel incident-prove"
@@ -754,7 +886,9 @@ export function IncidentWorkspace({
                 <p>{regressionSaved
                   ? "The repair is now a portable memory regression artifact."
                   : proofEligible
-                    ? "The test will preserve the bounded context behavior and expected answer evidence."
+                    ? policyReplayResult
+                      ? "The test will rerun the agent executor and preserve lifecycle plus answer assertions."
+                      : "The test will preserve the bounded context behavior and expected answer evidence."
                     : "The baseline must reproduce the recorded answer and the branch must meet the expected answer before a test can be saved."}</p>
               </div>
             </div>
@@ -783,14 +917,20 @@ export function IncidentWorkspace({
             Continue with this intervention <ArrowRight size={16} />
           </button>
         ) : null}
-        {activeStep === "replay" && !replayResult ? (
-          <button className="incident-primary-action" disabled={replayPending || !selectedIntervention} onClick={() => void replayIntervention()} type="button">
+        {activeStep === "replay" && !completedReplay ? (
+          <button
+            className="incident-primary-action"
+            disabled={replayPending || !selectedIntervention || (executorEligible && executorStatus === "checking")}
+            onClick={() => void replayIntervention()}
+            type="button"
+          >
             <Play size={16} /> {replayPending
-              ? "Running context counterfactual..."
-              : guidedDemo ? "Run deterministic counterfactual" : "Run context counterfactual"}
+              ? realExecutorReady ? "Rerunning agent..." : "Running context counterfactual..."
+              : executorEligible && executorStatus === "checking" ? "Checking executor..."
+              : realExecutorReady ? "Run agent replay" : guidedDemo ? "Run deterministic counterfactual" : "Run context counterfactual"}
           </button>
         ) : null}
-        {activeStep === "replay" && replayResult ? (
+        {activeStep === "replay" && completedReplay ? (
           <div className="incident-action-group">
             <button className="incident-secondary-action" disabled={replayPending} onClick={() => void replayIntervention()} type="button">
               <Play size={15} /> Replay again
@@ -802,7 +942,9 @@ export function IncidentWorkspace({
         ) : null}
         {activeStep === "prove" ? (
           <button className="incident-primary-action" disabled={!proofEligible} onClick={saveRegression} type="button">
-            <Download size={16} /> {regressionSaved ? "Download regression again" : "Save context regression"}
+            <Download size={16} /> {regressionSaved
+              ? "Download regression again"
+              : policyReplayResult ? "Save agent regression" : "Save context regression"}
           </button>
         ) : null}
       </footer>
@@ -810,11 +952,26 @@ export function IncidentWorkspace({
   );
 }
 
-function WorkspaceHeader({ onClose }: { onClose: () => void }) {
+function WorkspaceHeader({
+  brainOpen,
+  onClose,
+  onToggleBrain
+}: {
+  brainOpen: boolean;
+  onClose: () => void;
+  onToggleBrain?: () => void;
+}) {
   return (
     <header className="incident-workspace-header">
       <div><FileSearch size={13} /><span>Engram / Memory incident</span><small>Recorded evidence · isolated branches</small></div>
-      <button type="button" onClick={onClose} aria-label="Close incident workspace"><X size={15} /></button>
+      <div className="incident-workspace-header-actions">
+        {onToggleBrain ? (
+          <button className="incident-brain-toggle" type="button" onClick={onToggleBrain} aria-pressed={brainOpen}>
+            <Radar size={14} /> {brainOpen ? "Hide brain" : "Show brain"}
+          </button>
+        ) : null}
+        <button type="button" onClick={onClose} aria-label="Close incident workspace"><X size={15} /></button>
+      </div>
     </header>
   );
 }
@@ -995,4 +1152,13 @@ function uniqueMemories<T extends { id: string }>(memories: T[]) {
 function readError(value: unknown) {
   if (!value || typeof value !== "object" || !("error" in value)) return undefined;
   return typeof value.error === "string" ? value.error : undefined;
+}
+
+function hasLangGraphReplayCheckpoint(incident: MemoryIncident) {
+  const langgraph = incident.replayMetadata?.langgraph;
+  return isRecord(langgraph) && isRecord(langgraph.replayCheckpoint);
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }

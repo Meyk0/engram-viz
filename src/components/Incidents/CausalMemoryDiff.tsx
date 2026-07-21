@@ -94,7 +94,7 @@ export function CausalMemoryDiff({
         <div>
           <p className="causal-memory-diff__eyebrow">
             <FlaskConical aria-hidden="true" size={15} />
-            Policy replay evidence
+            {replayEvidenceLabel(result.level)}
           </p>
           <h2 id={`${componentId}-title`}>Memory decision diff</h2>
         </div>
@@ -223,6 +223,17 @@ export function CausalMemoryDiff({
       </details>
     </article>
   );
+}
+
+function replayEvidenceLabel(level: MemoryPolicyReplayResult["level"]) {
+  const labels: Record<MemoryPolicyReplayResult["level"], string> = {
+    context: "Context replay evidence",
+    policy: "Policy replay evidence",
+    provider: "Provider replay evidence",
+    agent: "Agent replay evidence",
+    robustness: "Robustness replay evidence"
+  };
+  return labels[level];
 }
 
 function BaselineReproduction({ result }: { result: MemoryPolicyReplayResult }) {

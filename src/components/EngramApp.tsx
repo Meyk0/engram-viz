@@ -68,6 +68,7 @@ import {
   serializeMemoryRegressionArtifact,
   type MemoryRegressionArtifact
 } from "@/lib/regressions";
+import type { MemoryRegressionArtifactV2 } from "@/lib/regressions/v2-schema";
 import { buildMemoryLineage } from "@/lib/lineage/build";
 import { scanMemoryIntegrity } from "@/lib/integrity/scan";
 import { buildAgentTopology } from "@/lib/topology/build";
@@ -95,7 +96,7 @@ export function EngramApp({ recordingMode = false }: EngramAppProps) {
   const liveRecorderAvailable = process.env.NODE_ENV !== "production";
   const [message, setMessage] = useState("");
   const [draftTurn, setDraftTurn] = useState<{ user: string; assistant: string } | null>(null);
-  const [activePanel, setActivePanel] = useState<SecondaryPanel | null>(null);
+  const [activePanel, setActivePanel] = useState<SecondaryPanel | null>(recordingMode ? null : "incident");
   const [cleanDemoMode, setCleanDemoMode] = useState(recordingMode);
   const [provenancePulseKey, setProvenancePulseKey] = useState(0);
   const [selectedMemoryId, setSelectedMemoryId] = useState<string | undefined>(undefined);
@@ -107,7 +108,7 @@ export function EngramApp({ recordingMode = false }: EngramAppProps) {
   const [timelineEntries, setTimelineEntries] = useState<MemoryTimelineEntry[]>([]);
   const [focusedTimelineId, setFocusedTimelineId] = useState<string | undefined>(undefined);
   const [viewMode, setViewMode] = useState<EngramViewMode>("anatomical");
-  const [productMode, setProductMode] = useState<EngramProductMode>("learn");
+  const [productMode, setProductMode] = useState<EngramProductMode>(recordingMode ? "learn" : "investigate");
   const [turnRecordsByTimelineId, setTurnRecordsByTimelineId] = useState<Record<string, TurnRecord>>({});
   const [causalMemoryId, setCausalMemoryId] = useState<string | undefined>(undefined);
   const [lineageMemoryId, setLineageMemoryId] = useState<string | undefined>(undefined);
@@ -123,6 +124,7 @@ export function EngramApp({ recordingMode = false }: EngramAppProps) {
   const [incidentFocusMemoryIds, setIncidentFocusMemoryIds] = useState<string[]>([]);
   const [incidentFocusRegions, setIncidentFocusRegions] = useState<BrainRegion[]>([]);
   const [incidentFocusPulseKey, setIncidentFocusPulseKey] = useState(0);
+  const [incidentBrainOpen, setIncidentBrainOpen] = useState(false);
   const [traceExportCopied, setTraceExportCopied] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const activeTimelineEntryId = useRef<string | undefined>(undefined);
@@ -915,8 +917,11 @@ export function EngramApp({ recordingMode = false }: EngramAppProps) {
     window.setTimeout(() => setTraceExportCopied(false), 1600);
   }, [importedTrace]);
 
-  const saveMemoryRegression = useCallback((artifact: MemoryRegressionArtifact) => {
-    const blob = new Blob([serializeMemoryRegressionArtifact(artifact)], {
+  const saveMemoryRegression = useCallback((artifact: MemoryRegressionArtifact | MemoryRegressionArtifactV2) => {
+    const serialized = artifact.version === 2
+      ? `${JSON.stringify(artifact, null, 2)}\n`
+      : serializeMemoryRegressionArtifact(artifact);
+    const blob = new Blob([serialized], {
       type: "application/json"
     });
     const url = URL.createObjectURL(blob);
@@ -1002,6 +1007,7 @@ export function EngramApp({ recordingMode = false }: EngramAppProps) {
       data-workbench-open={Boolean(activePanel)}
       data-workbench-wide={activePanel === "timeMachine" || activePanel === "integrity" || activePanel === "topology"}
       data-incident-open={activePanel === "incident"}
+      data-incident-brain-open={activePanel === "incident" && incidentBrainOpen}
     >
       <Brain3D
         compactReference={activePanel === "incident"}
@@ -1178,6 +1184,8 @@ export function EngramApp({ recordingMode = false }: EngramAppProps) {
           onLoadSample={loadSampleIncident}
           onOpenTool={openIncidentTool}
           onSaveRegression={saveMemoryRegression}
+          brainOpen={incidentBrainOpen}
+          onToggleBrain={() => setIncidentBrainOpen((current) => !current)}
         />
       ) : null}
       {activePanel === "integrity" ? (

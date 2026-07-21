@@ -8,6 +8,7 @@ import {
   createSampleMemoryIncidentCase
 } from "@/lib/lab/sample-incident";
 import type { MemoryBranchReplayResult } from "@/lib/lab/types";
+import { createStaleLocationPolicyReplay } from "@/lib/reliability/stale-location";
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -254,6 +255,80 @@ describe("IncidentWorkspace", () => {
         }
       }
     });
+  });
+
+  it("prefers a checkpoint-backed LangGraph executor and exports a v2 regression", async () => {
+    const user = userEvent.setup();
+    const incident = {
+      ...createSampleMemoryIncidentCase(),
+      replayMetadata: {
+        langgraph: {
+          replayCheckpoint: {
+            values: { question: "What city do I live in now?" },
+            asNode: "entry"
+          }
+        }
+      }
+    };
+    const policyReplay = createStaleLocationPolicyReplay();
+    const agentCapabilities = {
+      ...policyReplay.capabilities,
+      levels: ["policy", "agent"] as const,
+      reusesRecordedCandidates: false,
+      rerunsCandidateGeneration: true
+    };
+    const agentReplay = {
+      ...policyReplay,
+      level: "agent" as const,
+      capabilities: agentCapabilities
+    };
+    const onSaveRegression = vi.fn();
+    vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(Response.json({
+        available: true,
+        manifest: {
+          format: "engram.memory-executor",
+          version: 1,
+          id: "location-agent",
+          name: "Location agent",
+          executorVersion: "1.0.0",
+          framework: { id: "langgraph", version: "1.4.8" },
+          capabilities: agentCapabilities,
+          sideEffects: { defaultMode: "blocked", supportedModes: ["blocked"] }
+        }
+      }))
+      .mockResolvedValueOnce(Response.json(agentReplay));
+
+    render(
+      <IncidentWorkspace
+        incident={incident}
+        onClose={vi.fn()}
+        onFocus={vi.fn()}
+        onImportTrace={vi.fn()}
+        onLoadSample={vi.fn()}
+        onOpenTool={vi.fn()}
+        onSaveRegression={onSaveRegression}
+      />
+    );
+
+    await user.click(screen.getByRole("button", { name: "Review interventions" }));
+    await user.click(screen.getByRole("button", { name: "Continue with this intervention" }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Run agent replay" })).toBeEnabled());
+    expect(screen.getByRole("heading", { name: "Real agent replay" })).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "Run agent replay" }));
+
+    await waitFor(() => expect(screen.getByText("Real pipeline proof gate passed")).toBeVisible());
+    expect(screen.getByText("Agent replay evidence")).toBeVisible();
+    expect(screen.getByText("Retrieval")).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "Review proof" }));
+    await user.click(screen.getByRole("button", { name: "Save agent regression" }));
+    expect(onSaveRegression).toHaveBeenCalledWith(expect.objectContaining({
+      format: "engram.memory-regression",
+      version: 2,
+      sourceReplay: expect.objectContaining({
+        result: expect.objectContaining({ format: "engram.memory-policy-replay" })
+      })
+    }));
   });
 
   it("does not unlock proof when the regenerated baseline differs from the recorded answer", async () => {

@@ -11,20 +11,24 @@ async function sendChatMessage(page: Page, message: string) {
   await expect(page.locator(".chat-status")).toContainText("READY");
 }
 
+async function enterLearnMode(page: Page) {
+  const closeIncident = page.getByRole("button", { name: "Close incident workspace" });
+  if (await closeIncident.count()) await closeIncident.click();
+  await expect(page.getByLabel("Chat message")).toBeVisible();
+}
+
 test("loads the Engram shell", async ({ page }) => {
   await page.goto("/");
   await expect(page.getByRole("heading", { name: "ENGRAM", exact: true })).toBeVisible();
   await expect(page.getByRole("complementary", { name: "How Engram works" })).toHaveCount(0);
-  await expect(page.getByLabel("Secondary views")).toBeVisible();
-  await expect(page.getByLabel("Demo controls")).toBeVisible();
-  await expect(page.getByLabel("Chat message")).toBeVisible();
-  await expect(page.getByLabel("Engram mode")).toBeVisible();
+  await expect(page.getByRole("complementary", { name: "Memory Incident Workspace" })).toBeVisible();
+  await expect(page.getByText("Start with a bad agent answer", { exact: true })).toBeVisible();
+  await expect(page.getByLabel("Secondary views")).toBeHidden();
+  await expect(page.getByLabel("Chat message")).toHaveCount(0);
 });
 
 test("opens a dedicated incident workspace beside the synchronized brain", async ({ page }) => {
   await page.goto("/");
-
-  await page.getByRole("button", { name: "Incidents: Diagnose and repair a memory incident" }).click();
 
   const shell = page.locator(".engram-shell");
   const stage = page.getByRole("region", { name: "Engram 3D brain scene" });
@@ -32,8 +36,14 @@ test("opens a dedicated incident workspace beside the synchronized brain", async
   await expect(shell).toHaveAttribute("data-product-mode", "investigate");
   await expect(shell).toHaveAttribute("data-workbench-open", "true");
   await expect(shell).toHaveAttribute("data-incident-open", "true");
+  await expect(shell).toHaveAttribute("data-incident-brain-open", "false");
   await expect(workbench).toBeVisible();
   await expect(page.getByLabel("Chat message")).toHaveCount(0);
+  await expect(stage).toHaveCSS("opacity", "0");
+
+  await workbench.getByRole("button", { name: "Show brain" }).click();
+  await expect(shell).toHaveAttribute("data-incident-brain-open", "true");
+  await expect(stage).toHaveCSS("opacity", "1");
 
   await expect
     .poll(async () => {
@@ -48,7 +58,6 @@ test("opens a dedicated incident workspace beside the synchronized brain", async
 test("loads a replayable sample memory incident from an empty investigation", async ({ page }) => {
   await page.goto("/");
 
-  await page.getByRole("button", { name: "Incidents: Diagnose and repair a memory incident" }).click();
   const incident = page.getByRole("complementary", { name: "Memory Incident Workspace" });
   await expect(incident).toContainText("Start with a bad agent answer");
   await page.getByRole("button", { name: "Load reference incident" }).click();
@@ -62,7 +71,6 @@ test("loads a replayable sample memory incident from an empty investigation", as
 
 test("replays a recommended incident repair and saves the proof", async ({ page }) => {
   await page.goto("/");
-  await page.getByRole("button", { name: "Incidents: Diagnose and repair a memory incident" }).click();
   await page.getByRole("button", { name: "Load reference incident" }).click();
 
   const incident = page.getByRole("complementary", { name: "Memory Incident Workspace" });
@@ -85,6 +93,7 @@ test("replays a recommended incident repair and saves the proof", async ({ page 
 
 test("promotes a recorded conversation answer into an incident", async ({ page }) => {
   await page.goto("/");
+  await enterLearnMode(page);
   await sendChatMessage(page, "I love the color indigo.");
   await sendChatMessage(page, "What color do I love?");
 
@@ -102,7 +111,6 @@ test("promotes a recorded conversation answer into an incident", async ({ page }
 test("keeps the incident narrative primary on mobile", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/");
-  await page.getByRole("button", { name: "Incidents: Diagnose and repair a memory incident" }).click();
   await page.getByRole("button", { name: "Load reference incident" }).click();
 
   const incident = page.getByRole("complementary", { name: "Memory Incident Workspace" });
@@ -117,6 +125,7 @@ test("keeps the incident narrative primary on mobile", async ({ page }) => {
 
 test("branches and replays an immutable memory checkpoint", async ({ page }) => {
   await page.goto("/");
+  await enterLearnMode(page);
 
   await sendChatMessage(page, "I love the color indigo.");
   await expect(page.getByRole("button", { name: "Story 1" })).toBeVisible({ timeout: 12_000 });
@@ -148,6 +157,7 @@ test("branches and replays an immutable memory checkpoint", async ({ page }) => 
 
 test("starts directly without an onboarding gate", async ({ page }) => {
   await page.goto("/");
+  await enterLearnMode(page);
   await expect(page.getByRole("button", { name: "Start", exact: true })).toHaveCount(0);
   await expect(page.getByLabel("Open how Engram works")).toBeVisible();
   await expect(page.getByLabel("Chat message")).toHaveValue("");
@@ -155,6 +165,7 @@ test("starts directly without an onboarding gate", async ({ page }) => {
 
 test("keeps the initial guide compact over the active brain", async ({ page }) => {
   await page.goto("/");
+  await enterLearnMode(page);
 
   const guide = await page.getByLabel("Demo controls").boundingBox();
 
@@ -176,6 +187,7 @@ test("opens a clean recording demo route", async ({ page }) => {
 
 test("keeps the legacy live recorder out of the production browser surface", async ({ page }) => {
   await page.goto("/");
+  await enterLearnMode(page);
   await page.getByRole("button", { name: "Traces: Inspect recorded memory evidence" }).click();
   const dialog = page.getByRole("dialog", { name: "Import a recorded trace" });
   await expect(dialog).toBeVisible();
@@ -202,12 +214,14 @@ test("exposes brain thumbnail metadata", async ({ page }) => {
 
 test("opens the combined conversation and memory story from the dock", async ({ page }) => {
   await page.goto("/");
+  await enterLearnMode(page);
   await page.getByRole("button", { name: "Story", exact: true }).click();
   await expect(page.getByRole("complementary", { name: "Memory story" })).toBeVisible();
 });
 
 test("clears incompatible panels when switching Studio modes", async ({ page }) => {
   await page.goto("/");
+  await enterLearnMode(page);
   await page.getByRole("button", { name: "Story", exact: true }).click();
   await page.getByRole("button", { name: "Traces: Inspect recorded memory evidence" }).click();
 
@@ -224,6 +238,7 @@ test("clears incompatible panels when switching Studio modes", async ({ page }) 
 
 test("opens Retrieval MRI after a memory recall", async ({ page }) => {
   await page.goto("/");
+  await enterLearnMode(page);
 
   await sendChatMessage(page, "I love the color indigo.");
   await expect(page.getByRole("button", { name: "Memories 1" })).toBeVisible({ timeout: 12_000 });
@@ -240,6 +255,7 @@ test("opens Retrieval MRI after a memory recall", async ({ page }) => {
 
 test("audits the current memory state with observed integrity rules", async ({ page }) => {
   await page.goto("/");
+  await enterLearnMode(page);
 
   await sendChatMessage(page, "I love the color indigo.");
   await page.getByRole("button", { name: "Incidents: Diagnose and repair a memory incident" }).click();
@@ -257,6 +273,7 @@ test("audits the current memory state with observed integrity rules", async ({ p
 
 test("runs the demo and focuses completed memory story turns", async ({ page }) => {
   await page.goto("/");
+  await enterLearnMode(page);
 
   await page.getByRole("button", { name: "Run demo" }).click();
   await expect(page.getByRole("button", { name: "Stop demo" })).toBeVisible();
@@ -284,6 +301,7 @@ test("runs the demo and focuses completed memory story turns", async ({ page }) 
 
 test("exposes brain label and reset controls", async ({ page }) => {
   await page.goto("/");
+  await enterLearnMode(page);
   await expect(page.getByLabel("Brain view controls")).toBeVisible();
   await page.getByLabel("Open how Engram works").click();
   await expect(page.getByRole("complementary", { name: "How Engram works" })).toBeVisible();
@@ -296,6 +314,7 @@ test("exposes brain label and reset controls", async ({ page }) => {
 
 test("resets the demo session from the brain controls", async ({ page }) => {
   await page.goto("/");
+  await enterLearnMode(page);
 
   await sendChatMessage(page, "I love the color indigo.");
   await expect(page.getByRole("button", { name: /^Memories [1-9]/ })).toBeVisible({ timeout: 10_000 });
@@ -312,6 +331,7 @@ test("resets the demo session from the brain controls", async ({ page }) => {
 
 test("counts and browses the complete active memory library", async ({ page }) => {
   await page.goto("/");
+  await enterLearnMode(page);
 
   for (const [index, message] of ["I love the color indigo.", "I spend weekends climbing."].entries()) {
     await sendChatMessage(page, message);
@@ -330,6 +350,7 @@ test("counts and browses the complete active memory library", async ({ page }) =
 test("opens region explanations from mobile shortcuts", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/");
+  await enterLearnMode(page);
 
   await expect(page.getByLabel("Brain region shortcuts")).toBeVisible();
   await page.getByRole("button", { name: "Open New explanation" }).click();
@@ -341,6 +362,7 @@ test("opens region explanations from mobile shortcuts", async ({ page }) => {
 test("keeps mobile memory controls visually separated", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/");
+  await enterLearnMode(page);
 
   const topbar = await page.locator(".topbar").boundingBox();
   const shortcuts = await page.getByLabel("Brain region shortcuts").boundingBox();
@@ -357,6 +379,7 @@ test("keeps mobile memory controls visually separated", async ({ page }) => {
 test("collapses secondary brain controls on mobile", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/");
+  await enterLearnMode(page);
 
   await expect(page.getByLabel("Open brain controls")).toBeVisible();
   await expect(page.getByLabel("Reset demo session")).toBeHidden();
@@ -367,6 +390,7 @@ test("collapses secondary brain controls on mobile", async ({ page }) => {
 
 test("opens working memory details after retrieval", async ({ page }) => {
   await page.goto("/");
+  await enterLearnMode(page);
 
   await sendChatMessage(page, "I prefer deep red interfaces and dark dashboards.");
   await expect(page.getByRole("button", { name: /^Memories [1-9]/ })).toBeVisible({ timeout: 10_000 });
@@ -387,6 +411,7 @@ test("opens working memory details after retrieval", async ({ page }) => {
 
 test("switches between the anatomical brain and semantic memory map without changing memory state", async ({ page }) => {
   await page.goto("/");
+  await enterLearnMode(page);
 
   await sendChatMessage(page, "I love the color indigo.");
   await expect(page.getByRole("button", { name: "Memories 1" })).toBeVisible({ timeout: 12_000 });
@@ -411,6 +436,7 @@ test("switches between the anatomical brain and semantic memory map without chan
 
 test("runs an Ablation Replay without mutating the memory session", async ({ page }) => {
   await page.goto("/");
+  await enterLearnMode(page);
 
   await sendChatMessage(page, "I love the color indigo.");
   await expect(page.getByRole("button", { name: "Memories 1" })).toBeVisible({ timeout: 12_000 });
@@ -437,6 +463,7 @@ test("runs an Ablation Replay without mutating the memory session", async ({ pag
 
 test("imports and replays an observed OpenAI agent memory trace", async ({ page }) => {
   await page.goto("/");
+  await enterLearnMode(page);
 
   await page.getByRole("button", { name: "Import agent trace" }).click();
   const dialog = page.getByRole("dialog", { name: "Import a recorded trace" });
@@ -481,7 +508,6 @@ test("imports and replays an observed OpenAI agent memory trace", async ({ page 
 
 test("imports an OpenAI Agents trace directly into the incident workflow", async ({ page }) => {
   await page.goto("/");
-  await page.getByRole("button", { name: "Incidents: Diagnose and repair a memory incident" }).click();
   const workspace = page.getByRole("complementary", { name: "Memory Incident Workspace" });
   await workspace.getByRole("button", { name: "Import agent trace" }).click();
 
@@ -503,6 +529,7 @@ test("imports an OpenAI Agents trace directly into the incident workflow", async
 test("opens and dismisses Dream Mode after enough memories", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 700 });
   await page.goto("/");
+  await enterLearnMode(page);
 
   for (const message of [
     "I love California beaches.",
@@ -533,6 +560,7 @@ test("opens and dismisses Dream Mode after enough memories", async ({ page }) =>
 
 test("renders a nonblank brain canvas", async ({ page }) => {
   await page.goto("/");
+  await enterLearnMode(page);
   const canvas = page.locator("canvas").first();
   await expect(canvas).toBeVisible();
 

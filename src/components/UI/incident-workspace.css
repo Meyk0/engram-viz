@@ -12,6 +12,11 @@
   font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 
+.incident-workspace .causal-memory-diff {
+  width: 100%;
+  max-width: none;
+}
+
 .incident-workspace-header {
   display: flex;
   min-height: 50px;
@@ -56,6 +61,32 @@
   width: 30px;
   height: 30px;
   place-items: center;
+}
+
+.incident-workspace-header > .incident-workspace-header-actions {
+  display: flex;
+  min-width: auto;
+  align-items: center;
+  gap: 8px;
+}
+
+.incident-workspace-header .incident-brain-toggle {
+  display: inline-flex;
+  width: auto;
+  min-width: 108px;
+  padding: 0 11px;
+  gap: 7px;
+  color: rgba(176, 216, 243, 0.7);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: none;
+}
+
+.incident-workspace-header .incident-brain-toggle[aria-pressed="true"] {
+  border-color: rgba(0, 212, 255, 0.34);
+  background: rgba(0, 212, 255, 0.1);
+  color: rgba(221, 244, 255, 0.94);
 }
 
 .incident-workspace button:hover,
@@ -1834,6 +1865,10 @@
   }
 
   .incident-workspace-header > div small {
+    display: none;
+  }
+
+  .incident-workspace-header .incident-brain-toggle {
     display: none;
   }
 
