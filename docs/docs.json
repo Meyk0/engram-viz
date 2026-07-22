@@ -4,7 +4,7 @@
   "name": "Engram",
   "description": "Open-source memory reliability for AI agents. Capture, explain, replay, and test memory-dependent behavior.",
   "colors": {
-    "primary": "#00D4FF",
+    "primary": "#007A99",
     "light": "#5CE7FF",
     "dark": "#0891B2"
   },
@@ -133,6 +133,9 @@
     "drilldown": false
   },
   "seo": {
-    "indexing": "navigable"
+    "indexing": "navigable",
+    "metatags": {
+      "canonical": "https://docs.engramviz.com"
+    }
   }
 }
