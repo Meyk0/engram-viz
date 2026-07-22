@@ -1,6 +1,8 @@
 import { defineConfig, devices } from "@playwright/test";
 
 const isCi = process.env.CI === "true";
+const publicPort = process.env.PLAYWRIGHT_PUBLIC_PORT ?? "3200";
+const publicUrl = `http://127.0.0.1:${publicPort}`;
 
 export default defineConfig({
   testDir: "./src/test/public",
@@ -12,16 +14,16 @@ export default defineConfig({
   workers: isCi ? 1 : 2,
   reporter: "list",
   use: {
-    baseURL: "http://127.0.0.1:3200",
+    baseURL: publicUrl,
     trace: "on-first-retry"
   },
   webServer: {
     command:
-      "npm run build:public && npm run start --workspace @engramviz/web -- --hostname 127.0.0.1 --port 3200",
+      `npm run build:public && npm run start --workspace @engramviz/web -- --hostname 127.0.0.1 --port ${publicPort}`,
     env: {
       NEXT_PUBLIC_ENGRAM_TEST_SCENE_STATIC: "true"
     },
-    url: "http://127.0.0.1:3200",
+    url: publicUrl,
     reuseExistingServer: false,
     timeout: 120_000
   },

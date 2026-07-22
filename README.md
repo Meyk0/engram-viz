@@ -2,6 +2,10 @@
 
 **Open-source memory reliability for AI agents.**
 
+[![npm](https://img.shields.io/npm/v/@engramviz/cli?label=npm)](https://www.npmjs.com/package/@engramviz/cli)
+[![Engram quality](https://github.com/Meyk0/engram-viz/actions/workflows/quality.yml/badge.svg)](https://github.com/Meyk0/engram-viz/actions/workflows/quality.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-00d4ff.svg)](LICENSE)
+
 Engram helps applied AI engineers answer a concrete incident question:
 
 > This agent gave a bad answer. Which memory decision caused it, what changes if I correct that decision, and how do I prevent the failure from returning?
@@ -12,7 +16,18 @@ It captures memory operations around an agent turn, reconstructs the visible mem
 
 The 3D brain is a synchronized evidence map and educational surface. The dedicated Incident workspace is where the debugging workflow happens.
 
+![Engram reconstructs a stale-memory incident and identifies the earliest observable failure.](public/engram-og.png)
+
 Start with the [Engram documentation](docs/index.mdx) or go directly to the [npm quickstart](docs/quickstart.mdx).
+
+## Why not general tracing?
+
+General observability shows the full agent execution. Engram specializes in the
+memory-decision path: stored state, retrieval candidates, selection, active
+context, and answer. It then tests a memory-native intervention from an
+isolated checkpoint and turns the verified behavior into a semantic CI
+regression. Use Engram alongside LangSmith, Langfuse, Phoenix, or another trace
+backend rather than replacing them.
 
 ## Flagship Workflow
 

@@ -60,14 +60,16 @@ test("keeps the command and visual signature clear on the mobile landing page", 
   expect(overflow).toBeLessThanOrEqual(1);
 });
 
-test("repairs the six-step fixture incident without calling an Engram API", async ({ page, context }) => {
+test("repairs the six-step fixture incident without calling an Engram API", async ({ page, context }, testInfo) => {
   const applicationApiRequests: string[] = [];
   page.on("request", (request) => {
     const pathname = new URL(request.url()).pathname;
     if (pathname === "/api" || pathname.startsWith("/api/")) applicationApiRequests.push(pathname);
   });
+  const baseUrl = testInfo.project.use.baseURL;
+  if (typeof baseUrl !== "string") throw new Error("Public smoke tests require a base URL.");
   await context.grantPermissions(["clipboard-read", "clipboard-write"], {
-    origin: "http://127.0.0.1:3200"
+    origin: new URL(baseUrl).origin
   });
 
   await page.goto("/demo");

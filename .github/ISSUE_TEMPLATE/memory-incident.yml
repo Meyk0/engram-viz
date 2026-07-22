@@ -1,0 +1,39 @@
+name: Memory incident pattern
+description: Share a synthetic memory failure that Engram should diagnose or test.
+title: "[Incident]: "
+labels: ["memory-incident"]
+body:
+  - type: markdown
+    attributes:
+      value: Use synthetic data only. Do not include production memories, user identifiers, credentials, or unredacted traces.
+  - type: textarea
+    id: scenario
+    attributes:
+      label: Failure scenario
+      description: What did the agent remember, what was asked, and what answer was wrong?
+    validations:
+      required: true
+  - type: dropdown
+    id: stage
+    attributes:
+      label: Suspected lifecycle stage
+      options: [Storage or update, Retrieval candidates, Selection or ranking, Active context, Consolidation, Unknown]
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      description: Describe the memory decision and answer that should have occurred.
+    validations:
+      required: true
+  - type: input
+    id: framework
+    attributes:
+      label: Agent framework and memory provider
+      placeholder: LangGraph with PostgresStore
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Synthetic reproduction
+      description: Include a minimal fixture or pseudocode when possible.

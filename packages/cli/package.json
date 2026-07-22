@@ -1,6 +1,6 @@
 {
   "name": "@engramviz/cli",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "Local-first Engram Studio CLI.",
   "author": "Joscha Koepke",
   "keywords": ["ai", "agent", "memory", "observability", "cli"],
@@ -12,8 +12,8 @@
   "files": ["bin", "dist"],
   "scripts": { "build": "tsc -p tsconfig.json" },
   "dependencies": {
-    "@engramviz/core": "^0.1.1",
-    "@engramviz/studio": "^0.1.1"
+    "@engramviz/core": "^0.2.0",
+    "@engramviz/studio": "^0.2.0"
   },
   "engines": { "node": ">=20" },
   "publishConfig": { "access": "public", "provenance": true },

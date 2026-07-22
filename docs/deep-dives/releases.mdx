@@ -13,13 +13,13 @@ Engram publishes six packages from one synchronized version:
 5. `@engramviz/studio`
 6. `@engramviz/cli`
 
-## Before the first release
+## Release checklist
 
-1. Reserve or create the `@engramviz` npm scope.
-2. Configure npm trusted publishing for `.github/workflows/release.yml`, or add an automation token as the `NPM_TOKEN` repository secret.
-3. Confirm the package version and changelog.
-4. Run `npm run test:distribution` on the release commit.
-5. Push a matching tag such as `v0.1.0`.
+1. Confirm npm trusted publishing remains configured for `.github/workflows/release.yml`.
+2. Update every package to one synchronized version and update the changelog.
+3. Run `npm run test:distribution` on the release commit.
+4. Push a matching tag such as `v0.2.0`.
+5. Verify the published packages from a clean external project.
 
 The workflow rejects a tag that does not match every package version. It runs deterministic tests and the clean-room packed-package test, builds the platform-neutral standalone Studio on the GitHub Linux runner, and publishes packages in dependency order with npm provenance. Versions already present in npm are skipped so retried workflows and bootstrap release tags are safe.
 

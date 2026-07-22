@@ -4,5 +4,5 @@ contact_links:
     url: https://github.com/Meyk0/engram-viz/security/advisories/new
     about: Report vulnerabilities or exposed credentials privately.
   - name: Documentation
-    url: https://github.com/Meyk0/engram-viz/tree/main/docs
+    url: https://docs.engramviz.com
     about: Read the integration, incident, and regression guides.

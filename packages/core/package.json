@@ -1,6 +1,6 @@
 {
   "name": "@engramviz/core",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "Provider-neutral memory telemetry and turn contracts for Engram.",
   "author": "Joscha Koepke",
   "keywords": ["ai", "agent", "memory", "telemetry", "observability"],

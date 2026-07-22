@@ -2,6 +2,18 @@
 
 All notable changes to Engram packages will be documented here.
 
+## 0.2.0 - 2026-07-22
+
+- Reframed Engram around memory-incident diagnosis, controlled replay, and regression testing.
+- Added the dedicated Diagnose -> Intervene -> Replay -> Prove incident workflow.
+- Added real LangGraph checkpoint replay with isolated baseline and treatment runtimes.
+- Added `engram init --framework langgraph` scaffolding for one shared Studio and CI executor.
+- Added automatic LangGraph replay-checkpoint attachment to the active Engram turn.
+- Added executor-aware `engram doctor`, direct incident links, configured regression discovery, and generated GitHub Actions coverage.
+- Added a production-shaped support-agent example with optional OpenAI generation and deterministic CI verification.
+- Added replay-fidelity manifests, earliest observable divergence analysis, and semantic v2 regression matrices.
+- Added the public product site, guided memory-incident demo, and expanded Mintlify documentation project.
+
 ## 0.1.0 - 2026-07-15
 
 - Added provider-neutral Memory Telemetry v2 and Agent Turn Envelope v1 contracts.
