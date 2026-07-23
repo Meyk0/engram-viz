@@ -15,7 +15,12 @@ import {
   localStudioEnvironment,
   readEngramConfig
 } from "./config.js";
-import { seedStaleLocationDemo, STALE_LOCATION_DEMO, waitForStudio } from "./demo.js";
+import {
+  seedStaleLocationDemo,
+  selectDemoStudio,
+  STALE_LOCATION_DEMO,
+  waitForStudio
+} from "./demo.js";
 import { formatShellEnvironment } from "./environment.js";
 import { loadMemoryReplayExecutor, startMemoryExecutorServer } from "./executor.js";
 import {
@@ -316,15 +321,24 @@ async function runDemo(cwd: string, args: string[], port: number) {
   if (demo !== STALE_LOCATION_DEMO) {
     throw new Error(`Unknown demo "${demo}". Available: ${STALE_LOCATION_DEMO}.`);
   }
-  const endpoint = `http://127.0.0.1:${port}`;
   const { config } = await initializeEngramProject(cwd, "engram-demo");
   const noStart = args.includes("--no-start");
+  const studio = await selectDemoStudio({
+    requestedPort: port,
+    explicitPort: args.includes("--port") || noStart,
+    config
+  });
+  const endpoint = `http://127.0.0.1:${studio.port}`;
   let child: ReturnType<typeof spawn> | undefined;
 
   try {
-    const running = await studioIsReady(endpoint);
-    if (!running && noStart) throw new Error(`Engram Studio is not running at ${endpoint}.`);
-    if (!running) child = spawnStudio(cwd, port);
+    if (studio.displacedPort !== undefined) {
+      process.stdout.write(
+        `Port ${studio.displacedPort} belongs to another local service or Engram project; using ${studio.port} for this demo.\n`
+      );
+    }
+    if (!studio.running && noStart) throw new Error(`Engram Studio is not running at ${endpoint}.`);
+    if (!studio.running) child = spawnStudio(cwd, studio.port);
     await waitForStudio({ endpoint, ...(child ? { child } : {}) });
     const result = await seedStaleLocationDemo({ endpoint, config });
     const url = `${endpoint}/?mode=incidents`;
@@ -349,14 +363,6 @@ function spawnStudio(cwd: string, port: number) {
     env: process.env,
     stdio: "inherit"
   });
-}
-
-async function studioIsReady(endpoint: string) {
-  try {
-    return (await fetch(new URL("/api/local/traces", endpoint))).ok;
-  } catch {
-    return false;
-  }
 }
 
 async function waitForChild(child: ReturnType<typeof spawn>) {

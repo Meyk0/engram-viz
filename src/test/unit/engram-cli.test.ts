@@ -14,7 +14,8 @@ import { formatShellEnvironment } from "../../../packages/cli/src/environment";
 import { importCaptureBundle } from "../../../packages/cli/src/import";
 import {
   createStaleLocationCapture,
-  seedStaleLocationDemo
+  seedStaleLocationDemo,
+  selectDemoStudio
 } from "../../../packages/cli/src/demo";
 import {
   formatRegressionReport,
@@ -392,6 +393,63 @@ describe("@engramviz/cli", () => {
     expect(calls.every((call) => call.authorization === "Bearer secret")).toBe(true);
   });
 
+  it("uses the requested demo port when it is available", async () => {
+    const fetch = vi.fn();
+    const result = await selectDemoStudio({
+      requestedPort: 3100,
+      explicitPort: false,
+      config: localConfig(),
+      fetch,
+      portAvailable: vi.fn(async () => true)
+    });
+
+    expect(result).toEqual({ port: 3100, running: false });
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it("reuses a running Studio only when its local token matches", async () => {
+    const fetch = vi.fn(async (_input, init) => {
+      expect(new Headers(init?.headers).get("Authorization")).toBe("Bearer secret");
+      return Response.json({ events: [] });
+    });
+    const result = await selectDemoStudio({
+      requestedPort: 3100,
+      explicitPort: false,
+      config: localConfig(),
+      fetch,
+      portAvailable: vi.fn(async () => false)
+    });
+
+    expect(result).toEqual({ port: 3100, running: true });
+  });
+
+  it("moves the demo to a free port when another project owns the default", async () => {
+    const checkedPorts: number[] = [];
+    const result = await selectDemoStudio({
+      requestedPort: 3100,
+      explicitPort: false,
+      config: localConfig(),
+      fetch: vi.fn(async () => Response.json({ error: "invalid" }, { status: 401 })),
+      portAvailable: vi.fn(async (port) => {
+        checkedPorts.push(port);
+        return port === 3102;
+      })
+    });
+
+    expect(result).toEqual({ port: 3102, running: false, displacedPort: 3100 });
+    expect(checkedPorts).toEqual([3100, 3101, 3102]);
+  });
+
+  it("rejects an explicitly occupied demo port with recovery guidance", async () => {
+    await expect(selectDemoStudio({
+      requestedPort: 3199,
+      explicitPort: true,
+      config: localConfig(),
+      fetch: vi.fn(async () => Response.json({ error: "invalid" }, { status: 401 })),
+      portAvailable: vi.fn(async () => false)
+    })).rejects.toThrow("Choose another with --port");
+  });
+
   it("runs a portable regression against an external executor module", async () => {
     const root = await temporaryDirectory();
     await writeFile(path.join(root, "location.engram-test.json"), JSON.stringify({
@@ -484,4 +542,14 @@ async function temporaryDirectory() {
   const directory = await mkdtemp(path.join(tmpdir(), "engram-cli-"));
   directories.push(directory);
   return directory;
+}
+
+function localConfig() {
+  return {
+    version: 1 as const,
+    projectId: "location-agent",
+    tenantId: "local",
+    keyId: "local-location-agent",
+    token: "secret"
+  };
 }

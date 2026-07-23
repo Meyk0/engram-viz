@@ -1,6 +1,7 @@
 import type { AgentTurnEnvelope, MemoryTelemetryEvent } from "@engramviz/core";
 import type { ChildProcess } from "node:child_process";
 import { randomUUID } from "node:crypto";
+import { createServer } from "node:net";
 import type { EngramLocalConfig } from "./config.js";
 import { ingestCaptureBundle, type EngramCaptureBundle } from "./import.js";
 
@@ -147,6 +148,39 @@ export async function seedStaleLocationDemo(options: {
   }), options);
 }
 
+export async function selectDemoStudio(options: {
+  requestedPort: number;
+  explicitPort: boolean;
+  config: EngramLocalConfig;
+  fetch?: typeof fetch;
+  portAvailable?: (port: number) => Promise<boolean>;
+}): Promise<{ port: number; running: boolean; displacedPort?: number }> {
+  const portAvailable = options.portAvailable ?? isPortAvailable;
+  if (await portAvailable(options.requestedPort)) {
+    return { port: options.requestedPort, running: false };
+  }
+  if (await studioAcceptsConfig({
+    endpoint: `http://127.0.0.1:${options.requestedPort}`,
+    config: options.config,
+    ...(options.fetch ? { fetch: options.fetch } : {})
+  })) {
+    return { port: options.requestedPort, running: true };
+  }
+  if (options.explicitPort) {
+    throw new Error(
+      `Port ${options.requestedPort} is already used by another local service or Engram project. Choose another with --port.`
+    );
+  }
+
+  const maximumPort = Math.min(options.requestedPort + 100, 65_535);
+  for (let port = options.requestedPort + 1; port <= maximumPort; port += 1) {
+    if (await portAvailable(port)) {
+      return { port, running: false, displacedPort: options.requestedPort };
+    }
+  }
+  throw new Error(`No free local port was found after ${options.requestedPort}. Pass --port with an available port.`);
+}
+
 export async function waitForStudio(options: {
   endpoint: string;
   child?: ChildProcess;
@@ -168,6 +202,33 @@ export async function waitForStudio(options: {
     await new Promise((resolve) => setTimeout(resolve, 200));
   }
   throw new Error(`Timed out waiting for Engram Studio at ${options.endpoint}.`);
+}
+
+async function studioAcceptsConfig(options: {
+  endpoint: string;
+  config: EngramLocalConfig;
+  fetch?: typeof fetch;
+}) {
+  const fetchImpl = options.fetch ?? globalThis.fetch;
+  try {
+    const response = await fetchImpl(new URL("/api/telemetry/v2?after=0&limit=1", options.endpoint), {
+      headers: { Authorization: `Bearer ${options.config.token}` }
+    });
+    return response.ok;
+  } catch {
+    return false;
+  }
+}
+
+function isPortAvailable(port: number) {
+  return new Promise<boolean>((resolve) => {
+    const server = createServer();
+    server.unref();
+    server.once("error", () => resolve(false));
+    server.listen({ host: "127.0.0.1", port }, () => {
+      server.close(() => resolve(true));
+    });
+  });
 }
 
 function turn(input: {

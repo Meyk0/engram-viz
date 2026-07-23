@@ -50,7 +50,9 @@ npx --yes @engramviz/cli demo stale-location
 ```
 
 Use `--no-open` to keep the browser closed. `--no-start` seeds an already
-running Studio, which is useful in automated tests.
+running Studio, which is useful in automated tests. When the default port
+belongs to another local service or Engram project, the demo automatically
+starts on the next available port. Pass `--port` to require a specific port.
 
 ## `engram dev`
 

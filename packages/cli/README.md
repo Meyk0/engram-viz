@@ -8,6 +8,9 @@ Run the complete flagship incident with:
 npx --yes @engramviz/cli demo stale-location
 ```
 
+The demo reuses a compatible Studio on port `3100` or automatically starts on
+the next available port when another local project is already running.
+
 Initialize capture with `engram init`, inspect setup with `engram doctor`, launch
 the packaged workbench with `engram dev`, inject local capture variables with
 `engram run`, and execute exported memory regressions with `engram test`.
