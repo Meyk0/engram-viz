@@ -1,6 +1,6 @@
 {
   "name": "@engramviz/web",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "private": true,
   "scripts": {
     "predev": "npm run build --workspace @engramviz/core && node ../../scripts/sync-public-assets.mjs",
@@ -14,7 +14,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@engramviz/core": "^0.2.0",
+    "@engramviz/core": "^0.2.1",
     "@react-three/drei": "^10.7.7",
     "@react-three/fiber": "^9.6.1",
     "@react-three/postprocessing": "^3.0.4",

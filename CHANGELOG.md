@@ -2,6 +2,13 @@
 
 All notable changes to Engram packages will be documented here.
 
+## 0.2.1 - 2026-07-22
+
+- Fixed `engram demo stale-location` when port `3100` belongs to another local
+  Engram project or service.
+- The demo now verifies local Studio credentials before reuse and automatically
+  starts on the next available port when the default is incompatible.
+
 ## 0.2.0 - 2026-07-22
 
 - Reframed Engram around memory-incident diagnosis, controlled replay, and regression testing.

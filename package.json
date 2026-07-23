@@ -1,6 +1,6 @@
 {
   "name": "engram-viz",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Open-source memory reliability and replay for AI agents.",
   "private": true,
   "workspaces": [
@@ -69,10 +69,10 @@
   },
   "homepage": "https://github.com/Meyk0/engram-viz#readme",
   "dependencies": {
-    "@engramviz/adapter-langgraph": "^0.2.0",
-    "@engramviz/adapter-mem0": "^0.2.0",
-    "@engramviz/core": "^0.2.0",
-    "@engramviz/sdk": "^0.2.0",
+    "@engramviz/adapter-langgraph": "^0.2.1",
+    "@engramviz/adapter-mem0": "^0.2.1",
+    "@engramviz/core": "^0.2.1",
+    "@engramviz/sdk": "^0.2.1",
     "@react-three/drei": "^10.7.7",
     "@react-three/fiber": "^9.6.1",
     "@react-three/postprocessing": "^3.0.4",
